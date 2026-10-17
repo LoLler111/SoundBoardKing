@@ -1,6 +1,6 @@
 // Installs or removes the SbkMicFx APO on a microphone. Runs elevated (see app.manifest).
 //
-//   SoundBoardKing.MicSetup install --device <id> [--slot efx|sfx|mfx] [--dll <path>] [--result <file>]
+//   SoundBoardKing.MicSetup install --device <id> [--slot auto|lfx|gfx|sfx|mfx|efx] [--dll <path>] [--result <file>]
 //   SoundBoardKing.MicSetup uninstall (--device <id> | --all) [--result <file>]
 //   SoundBoardKing.MicSetup status
 //
@@ -37,7 +37,7 @@ try
     {
         case "install":
             var device = Required(options, "device");
-            var slot = Enum.Parse<FxSlot>(options.GetValueOrDefault("slot", "efx"), ignoreCase: true);
+            var slot = Enum.Parse<FxSlot>(options.GetValueOrDefault("slot", "auto"), ignoreCase: true);
             var dll = options.GetValueOrDefault("dll") ?? Path.Combine(AppContext.BaseDirectory, "SbkMicFx.dll");
             installer.Install(device, slot, dll);
             break;

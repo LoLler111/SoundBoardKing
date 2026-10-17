@@ -7,6 +7,15 @@ namespace SoundBoardKing.MicSetup;
 /// <summary>Where in the capture chain the APO is attached. Values are the FX property ids.</summary>
 public enum FxSlot
 {
+    /// <summary>Picks <see cref="Sfx"/> or <see cref="Lfx"/> from the effects the driver already declares.</summary>
+    Auto = 0,
+
+    /// <summary>Windows 7-style local (pre-mix) effect, used by drivers without signal processing modes.</summary>
+    Lfx = 1,
+
+    /// <summary>Windows 7-style global (post-mix) effect.</summary>
+    Gfx = 2,
+
     /// <summary>Per-stream effect: one instance per application capturing.</summary>
     Sfx = 5,
 
@@ -69,7 +78,6 @@ internal sealed class MicInstaller(Action<string> log)
         using var backupKey = state.CreateSubKey($@"Endpoints\{guid}");
         var backup = new EndpointBackup(backupKey);
         backupKey.SetValue("DeviceId", deviceId);
-        backupKey.SetValue("Slot", slot.ToString());
 
         // Make the endpoint writable first: creating FxProperties needs it.
         RegistryAccess.OpenWritable(endpointPath, sddl => backup.SaveSecurity("", sddl)).Dispose();
@@ -78,6 +86,12 @@ internal sealed class MicInstaller(Action<string> log)
         {
             // Reinstalling (e.g. with another slot) starts again from the original values.
             backup.Restore(FxStore, fx);
+            if (slot == FxSlot.Auto)
+            {
+                slot = ChooseSlot(fx);
+                log($"Posizione scelta automaticamente: {slot}.");
+            }
+            backupKey.SetValue("Slot", slot.ToString());
             ApplySlot(fx, slot, backup);
         }
 
@@ -125,6 +139,11 @@ internal sealed class MicInstaller(Action<string> log)
         endpoints.Dispose();
         state.Dispose();
         Registry.LocalMachine.DeleteSubKeyTree(StateKeyPath, throwOnMissingSubKey: false);
+        using (var company = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\SoundBoardKing"))
+        {
+            if (company is { SubKeyCount: 0, ValueCount: 0 })
+                Registry.LocalMachine.DeleteSubKey(@"SOFTWARE\SoundBoardKing", throwOnMissingSubKey: false);
+        }
         AudioService.Start(log);
         log("Disinstallazione completata.");
     }
@@ -141,17 +160,39 @@ internal sealed class MicInstaller(Action<string> log)
         }
     }
 
+    // Windows reads either the Windows 8.1+ positions (SFX/MFX/EFX) or the Windows 7 ones
+    // (LFX/GFX), depending on the driver. A driver that already declares modern effects gets SFX;
+    // one with none or only legacy effects (seen with VB-CABLE: only LFX/GFX load) gets LFX.
+    private static FxSlot ChooseSlot(RegistryKey fx)
+    {
+        var names = fx.GetValueNames();
+        bool modern = new[] { 5, 6, 7, 13, 14, 15 }
+            .Any(id => names.Contains($"{FxPropertyFormat},{id}", StringComparer.OrdinalIgnoreCase));
+        return modern ? FxSlot.Sfx : FxSlot.Lfx;
+    }
+
     // With a free slot the APO goes straight in. When the driver already put its own effect
     // there, both are listed in the composite property so the driver's effect keeps working.
     private void ApplySlot(RegistryKey fx, FxSlot slot, EndpointBackup backup)
     {
         var single = $"{FxPropertyFormat},{(int)slot}";
-        var composite = $"{FxPropertyFormat},{(int)slot + 8}";
         backup.SaveOriginal(FxStore, fx, single);
-        backup.SaveOriginal(FxStore, fx, composite);
-
-        var list = fx.GetValue(composite) as string[];
         var current = fx.GetValue(single) as string;
+
+        // The Windows 7-style positions have no composite list: the driver's effect, if any,
+        // is replaced until uninstall puts it back.
+        if (slot is FxSlot.Lfx or FxSlot.Gfx)
+        {
+            fx.SetValue(single, Clsid, RegistryValueKind.String);
+            log(string.IsNullOrEmpty(current) || string.Equals(current, Clsid, StringComparison.OrdinalIgnoreCase)
+                ? $"Impostata in {single}."
+                : $"Impostata in {single} al posto di {current} (verrà ripristinato alla rimozione).");
+            return;
+        }
+
+        var composite = $"{FxPropertyFormat},{(int)slot + 8}";
+        backup.SaveOriginal(FxStore, fx, composite);
+        var list = fx.GetValue(composite) as string[];
         if (list is not null)
         {
             if (!list.Contains(Clsid, StringComparer.OrdinalIgnoreCase))

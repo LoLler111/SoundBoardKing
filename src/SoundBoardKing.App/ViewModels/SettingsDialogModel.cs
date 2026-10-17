@@ -51,9 +51,12 @@ public sealed partial class SettingsDialogModel : ObservableObject
 
     public IReadOnlyList<MicSlotOption> MicSlots { get; } =
     [
-        new("efx", "Endpoint (EFX) — consigliato"),
+        new("auto", "Automatica — consigliata"),
+        new("lfx", "Classica, prima del mix (LFX)"),
+        new("gfx", "Classica, dopo il mix (GFX)"),
         new("sfx", "Per applicazione (SFX)"),
         new("mfx", "Per modalità (MFX)"),
+        new("efx", "Endpoint (EFX)"),
     ];
 
     public bool IsMicSetupAvailable => MicModuleService.IsSetupAvailable;

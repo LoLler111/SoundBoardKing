@@ -56,6 +56,27 @@ namespace
         UNCOMPRESSEDAUDIOFORMAT m_format{};
     };
 
+    // Stands in for the audio engine's object that aggregates the APO.
+    class FakeOuter final : public IUnknown
+    {
+    public:
+        IUnknown* inner = nullptr;
+        ULONG refs = 1;
+
+        STDMETHODIMP QueryInterface(REFIID riid, void** ppv) override
+        {
+            if (riid == __uuidof(IUnknown))
+            {
+                *ppv = this;
+                ++refs;
+                return S_OK;
+            }
+            return inner->QueryInterface(riid, ppv);
+        }
+        STDMETHODIMP_(ULONG) AddRef() override { return ++refs; }
+        STDMETHODIMP_(ULONG) Release() override { return --refs; }
+    };
+
     int g_failures = 0;
 
     void Check(bool condition, const char* what)
@@ -72,6 +93,25 @@ int wmain(int argc, wchar_t** argv)
     constexpr UINT32 Rate = 48000;
     constexpr UINT32 Channels = 2;
     constexpr UINT32 Frames = Rate / 100; // 10 ms periods, like the audio engine
+
+    // Aggregation, as audiodg creates APOs: interfaces must delegate to the outer object.
+    {
+        FakeOuter outer;
+        auto* aggregated = new SbkMicFx(&outer);
+        outer.inner = aggregated->Inner();
+        IAudioProcessingObject* apo = nullptr;
+        const bool gotInterface = SUCCEEDED(outer.QueryInterface(__uuidof(IAudioProcessingObject), reinterpret_cast<void**>(&apo)));
+        const bool countsOnOuter = outer.refs == 2;
+        IUnknown* identity = nullptr;
+        const bool identityIsOuter = gotInterface && SUCCEEDED(apo->QueryInterface(__uuidof(IUnknown), reinterpret_cast<void**>(&identity))) &&
+                                     identity == &outer;
+        if (identity)
+            identity->Release();
+        if (apo)
+            apo->Release();
+        Check(gotInterface && countsOnOuter && identityIsOuter && outer.refs == 1, "aggregazione COM (come la crea audiodg)");
+        outer.inner->Release(); // destroys the aggregated object
+    }
 
     auto* fx = new SbkMicFx();
 

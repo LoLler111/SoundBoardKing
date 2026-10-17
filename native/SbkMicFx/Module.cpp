@@ -36,14 +36,16 @@ namespace
             if (!ppv)
                 return E_POINTER;
             *ppv = nullptr;
-            if (outer)
+            // The audio engine aggregates APOs; COM then requires asking for IUnknown.
+            if (outer && riid != __uuidof(IUnknown))
                 return CLASS_E_NOAGGREGATION;
 
-            auto* fx = new (std::nothrow) SbkMicFx();
+            auto* fx = new (std::nothrow) SbkMicFx(outer);
             if (!fx)
                 return E_OUTOFMEMORY;
-            const HRESULT hr = fx->QueryInterface(riid, ppv);
-            fx->Release();
+            IUnknown* inner = fx->Inner();
+            const HRESULT hr = inner->QueryInterface(riid, ppv);
+            inner->Release();
             return hr;
         }
 

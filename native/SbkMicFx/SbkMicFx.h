@@ -21,6 +21,10 @@ namespace sbk
 
     // Capture-side system effect that adds SoundBoardKing's audio to the microphone signal.
     // In-place, float only, one input and one output connection.
+    //
+    // The audio engine creates APOs aggregated inside its own object, so this class follows
+    // the COM aggregation rules: Inner() is the object's own IUnknown, and the IUnknown
+    // methods of every other interface delegate to the controlling (outer) unknown.
     class SbkMicFx final :
         public IAudioProcessingObject,
         public IAudioProcessingObjectRT,
@@ -28,10 +32,13 @@ namespace sbk
         public IAudioSystemEffects2
     {
     public:
-        SbkMicFx();
+        explicit SbkMicFx(IUnknown* outer = nullptr);
         ~SbkMicFx();
 
-        // IUnknown
+        /// The non-delegating IUnknown handed to the creator (reference count starts at 1).
+        IUnknown* Inner() { return &m_inner; }
+
+        // IUnknown (delegating)
         STDMETHODIMP QueryInterface(REFIID riid, void** ppv) override;
         STDMETHODIMP_(ULONG) AddRef() override;
         STDMETHODIMP_(ULONG) Release() override;
@@ -68,8 +75,22 @@ namespace sbk
         STDMETHODIMP GetEffectsList(LPGUID* ppEffectsIds, UINT* pcEffects, HANDLE Event) override;
 
     private:
+        class InnerUnknown final : public IUnknown
+        {
+        public:
+            explicit InnerUnknown(SbkMicFx* owner) : m_owner(owner) {}
+            STDMETHODIMP QueryInterface(REFIID riid, void** ppv) override;
+            STDMETHODIMP_(ULONG) AddRef() override;
+            STDMETHODIMP_(ULONG) Release() override;
+
+        private:
+            SbkMicFx* m_owner;
+        };
+
         HRESULT CheckFormat(IAudioMediaType* opposite, IAudioMediaType* requested, IAudioMediaType** supported);
 
+        InnerUnknown m_inner{ this };
+        IUnknown* m_outer;  // the aggregating object, or &m_inner when standalone
         std::atomic<ULONG> m_refs{ 1 };
         bool m_locked = false;
         UINT32 m_channels = 0;

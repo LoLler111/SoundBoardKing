@@ -24,39 +24,60 @@ namespace sbk
         }
     }
 
-    SbkMicFx::SbkMicFx() { ++g_objectCount; }
+    SbkMicFx::SbkMicFx(IUnknown* outer) : m_outer(outer ? outer : &m_inner) { ++g_objectCount; }
 
     SbkMicFx::~SbkMicFx() { --g_objectCount; }
 
-    STDMETHODIMP SbkMicFx::QueryInterface(REFIID riid, void** ppv)
+    // ---- IUnknown: the interfaces delegate to the controlling unknown ------------------------
+
+    STDMETHODIMP SbkMicFx::QueryInterface(REFIID riid, void** ppv) { return m_outer->QueryInterface(riid, ppv); }
+
+    STDMETHODIMP_(ULONG) SbkMicFx::AddRef() { return m_outer->AddRef(); }
+
+    STDMETHODIMP_(ULONG) SbkMicFx::Release() { return m_outer->Release(); }
+
+    // ---- Non-delegating IUnknown: owns the reference count and the interface map -------------
+
+    STDMETHODIMP SbkMicFx::InnerUnknown::QueryInterface(REFIID riid, void** ppv)
     {
         if (!ppv)
             return E_POINTER;
 
-        if (riid == __uuidof(IUnknown) || riid == __uuidof(IAudioProcessingObject))
-            *ppv = static_cast<IAudioProcessingObject*>(this);
+        if (riid == __uuidof(IUnknown))
+        {
+            *ppv = this; // the inner unknown, never the outer one
+            AddRef();
+            return S_OK;
+        }
+
+        IUnknown* found = nullptr;
+        if (riid == __uuidof(IAudioProcessingObject))
+            found = static_cast<IAudioProcessingObject*>(m_owner);
         else if (riid == __uuidof(IAudioProcessingObjectRT))
-            *ppv = static_cast<IAudioProcessingObjectRT*>(this);
+            found = static_cast<IAudioProcessingObjectRT*>(m_owner);
         else if (riid == __uuidof(IAudioProcessingObjectConfiguration))
-            *ppv = static_cast<IAudioProcessingObjectConfiguration*>(this);
+            found = static_cast<IAudioProcessingObjectConfiguration*>(m_owner);
         else if (riid == __uuidof(IAudioSystemEffects) || riid == __uuidof(IAudioSystemEffects2))
-            *ppv = static_cast<IAudioSystemEffects2*>(this);
-        else
+            found = static_cast<IAudioSystemEffects2*>(m_owner);
+
+        if (!found)
         {
             *ppv = nullptr;
             return E_NOINTERFACE;
         }
-        AddRef();
+        // AddRef through the interface itself, i.e. on the controlling unknown.
+        found->AddRef();
+        *ppv = found;
         return S_OK;
     }
 
-    STDMETHODIMP_(ULONG) SbkMicFx::AddRef() { return ++m_refs; }
+    STDMETHODIMP_(ULONG) SbkMicFx::InnerUnknown::AddRef() { return ++m_owner->m_refs; }
 
-    STDMETHODIMP_(ULONG) SbkMicFx::Release()
+    STDMETHODIMP_(ULONG) SbkMicFx::InnerUnknown::Release()
     {
-        const ULONG refs = --m_refs;
+        const ULONG refs = --m_owner->m_refs;
         if (refs == 0)
-            delete this;
+            delete m_owner;
         return refs;
     }
 
