@@ -1,0 +1,19 @@
+# Build
+bin/
+obj/
+artifacts/
+TestResults/
+*.user
+*.suo
+.vs/
+.idea/
+
+# Audio libraries and third-party binaries never go in the repo
+*.mp3
+*.m4a
+*.wav
+*.aac
+*.opus
+*.ogg
+*.flac
+*.spl

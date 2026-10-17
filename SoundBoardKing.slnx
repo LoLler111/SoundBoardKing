@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SoundBoardKing.App/SoundBoardKing.App.csproj" />
+    <Project Path="src/SoundBoardKing.Audio/SoundBoardKing.Audio.csproj" />
+    <Project Path="src/SoundBoardKing.Core/SoundBoardKing.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SoundBoardKing.Core.Tests/SoundBoardKing.Core.Tests.csproj" />
+  </Folder>
+</Solution>

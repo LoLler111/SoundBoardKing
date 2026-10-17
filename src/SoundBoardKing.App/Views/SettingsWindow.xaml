@@ -1,0 +1,47 @@
+<Window x:Class="SoundBoardKing.App.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Impostazioni" Width="480" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource PanelBrush}" Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI" FontSize="13">
+    <StackPanel Margin="22">
+        <TextBlock Text="Uscita audio (cuffie / casse)" FontWeight="SemiBold" />
+        <ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" DisplayMemberPath="Name"
+                  Margin="0,6,0,18" />
+
+        <TextBlock Text="Microfono" FontWeight="SemiBold" />
+        <TextBlock Text="L'invio dei suoni nel tuo microfono reale arriva con la Fase 2 (modulo APO)."
+                   Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap" Margin="0,4,0,18" />
+
+        <CheckBox Content="Permetti più suoni contemporaneamente" IsChecked="{Binding AllowOverlap}" Margin="0,0,0,18" />
+
+        <TextBlock Text="Tasti rapidi globali" FontWeight="SemiBold" Margin="0,0,0,8" />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="Ferma tutto" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding StopHotkey, TargetNullValue=nessuno}" VerticalAlignment="Center"
+                       Foreground="{StaticResource TextDimBrush}" />
+            <Button Grid.Column="2" Content="Cambia…" Click="ChangeStop_Click" Margin="0,0,0,6" />
+
+            <TextBlock Grid.Row="1" Text="Pausa / riprendi" VerticalAlignment="Center" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PauseHotkey, TargetNullValue=nessuno}" VerticalAlignment="Center"
+                       Foreground="{StaticResource TextDimBrush}" />
+            <Button Grid.Row="1" Grid.Column="2" Content="Cambia…" Click="ChangePause_Click" />
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+            <Button Content="Annulla" IsCancel="True" Margin="0,0,8,0" MinWidth="90" />
+            <Button Content="OK" IsDefault="True" Style="{StaticResource AccentButton}" MinWidth="90" Click="Ok_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

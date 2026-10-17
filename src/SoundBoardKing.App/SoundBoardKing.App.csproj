@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>SoundBoardKing</AssemblyName>
+    <RootNamespace>SoundBoardKing.App</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SoundBoardKing.Core\SoundBoardKing.Core.csproj" />
+    <ProjectReference Include="..\SoundBoardKing.Audio\SoundBoardKing.Audio.csproj" />
+  </ItemGroup>
+
+</Project>
