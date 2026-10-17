@@ -24,10 +24,12 @@ powershell -File publish.ps1
 | `src/SoundBoardKing.Core` | Modello dati, import `.spl` di SoundPad, salvataggio JSON |
 | `src/SoundBoardKing.Audio` | Motore audio (NAudio): decodifica, mixer, uscita cuffie; `ApoMicFeed` scrive nel microfono tramite l'APO |
 | `src/SoundBoardKing.App` | App WPF: libreria, categorie, preferiti 5×20, tasti rapidi globali, gestione modulo microfono |
+| `src/SoundBoardKing.Remote` | Server per il telefono dentro l'app: REST + WebSocket sulla porta 8765, scoperta UDP, abbinamento con QR/codice ([protocollo](docs/PROTOCOLLO_REMOTO.md)) |
 | `src/SoundBoardKing.MicSetup` | Installatore del modulo microfono (amministratore): registra l'APO e la collega al microfono, con ripristino completo |
 | `native/SbkMicFx` | APO in C++ caricata dal motore audio di Windows: somma i suoni al segnale del microfono |
 | `native/SbkMicFx.Tests` | Banco di prova che esegue l'APO come farebbe Windows |
 | `tests/SoundBoardKing.Core.Tests` | Test xUnit del Core |
 | `tests/SoundBoardKing.Audio.Tests` | Prova end-to-end app ↔ APO tramite memoria condivisa |
+| `tests/SoundBoardKing.Remote.Tests` | Server remoto: abbinamento, autorizzazioni, REST, WebSocket, scoperta |
 
 I dati utente stanno in `%APPDATA%\SoundBoardKing` (`library.json`, `settings.json`, `error.log`).

@@ -109,6 +109,11 @@ Id stabili (GUID) al posto della posizione: riordinare la lista non rompe prefer
 
 ## 3. Protocollo PC ↔ Android *(Fasi 3–4)*
 
+> Stato: server implementato (Fase 3). Il protocollo definitivo è in [PROTOCOLLO_REMOTO.md](PROTOCOLLO_REMOTO.md).
+> Differenze rispetto a questa bozza: la scoperta usa un broadcast UDP invece di mDNS, e
+> l'abbinamento passa da un codice di 6 cifre (anche dentro il QR) che il telefono scambia con
+> un token permanente.
+
 - **Scoperta**: mDNS `_soundboardking._tcp` sulla rete locale; in alternativa QR code mostrato dal PC (`sbk://192.168.1.10:8765?token=...`).
 - **Sicurezza**: token di abbinamento generato dal PC (QR o PIN a 6 cifre), richiesto su ogni richiesta; regola Windows Firewall solo per reti private.
 - **REST**

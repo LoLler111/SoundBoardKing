@@ -1,9 +1,12 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using SoundBoardKing.App.Hotkeys;
+using SoundBoardKing.App.Remote;
+using SoundBoardKing.App.Views;
 using SoundBoardKing.App.Services;
 using SoundBoardKing.App.ViewModels;
 using SoundBoardKing.Audio;
@@ -18,6 +21,7 @@ public partial class MainWindow : Window
     private const string SoundsDataFormat = "SoundBoardKing.Sounds";
 
     private readonly MainViewModel _viewModel;
+    private RemoteHost? _remote;
     private Point _dragStart;
     private bool _dragArmed;
 
@@ -37,8 +41,36 @@ public partial class MainWindow : Window
             new DialogService(this));
         DataContext = _viewModel;
 
-        Loaded += (_, _) => _viewModel.Initialize();
+        Loaded += OnLoaded;
         Closed += (_, _) => _viewModel.Dispose();
+    }
+
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        _viewModel.Initialize();
+        _remote = new RemoteHost(_viewModel, Dispatcher);
+        if (_viewModel.RemoteEnabled)
+            await _remote.StartAsync();
+    }
+
+    // The phone server shuts down asynchronously, so the first close request waits for it.
+    protected override async void OnClosing(CancelEventArgs e)
+    {
+        if (_remote is { } remote)
+        {
+            e.Cancel = true;
+            _remote = null;
+            await remote.DisposeAsync();
+            Close();
+            return;
+        }
+        base.OnClosing(e);
+    }
+
+    private void PhoneButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_remote is not null)
+            new PhoneWindow(_remote) { Owner = this }.ShowDialog();
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)

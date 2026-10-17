@@ -1,0 +1,80 @@
+# Protocollo PC ↔ telefono (v1)
+
+Il server gira dentro `SoundBoardKing.exe` e ascolta sulla rete locale:
+
+| Cosa | Dove |
+|---|---|
+| HTTP + WebSocket | TCP **8765** |
+| Scoperta | UDP **8765** |
+
+Il telefono è solo un telecomando: i file audio restano sul PC.
+
+## Scoperta
+Il telefono invia in broadcast UDP (`255.255.255.255:8765`) il testo `SBK_DISCOVER_V1`.
+Ogni PC con SoundBoardKing risponde, direttamente al mittente:
+```json
+{ "service": "SoundBoardKing", "protocol": 1, "name": "PC-SALOTTO", "port": 8765, "serverId": "…" }
+```
+
+## Abbinamento
+1. Sul PC: pulsante **Telefono** → mostra un QR e un codice di 6 cifre, validi finché la finestra è aperta (massimo 10 minuti).
+2. Il QR contiene `sbk://pair?h=<ip>[,<ip>…]&p=<porta>&c=<codice>&n=<nome PC>`.
+3. Il telefono chiama `POST /api/pair` con `{ "code": "123456", "deviceName": "Pixel 8" }` e riceve `{ "token": "…", "deviceId": "…" }`.
+   Dopo 5 codici sbagliati il codice viene invalidato e va riaperta la finestra.
+4. Il token va salvato sul telefono e mandato a ogni richiesta (`Authorization: Bearer <token>`, oppure `?token=` per il WebSocket).
+   Sul PC viene conservato solo il suo hash SHA-256. Un dispositivo si revoca dalla finestra Telefono.
+
+## REST
+| Metodo | Percorso | Auth | Risposta |
+|---|---|---|---|
+| GET | `/api/info` | no | `{ name, protocol, serverId }` |
+| POST | `/api/pair` | codice | `{ token, deviceId }` |
+| GET | `/api/state` | sì | stato completo, vedi sotto |
+| POST | `/api/play/{soundId}` | sì | 204; 404 se il suono non esiste; 409 `{ error }` se non è partito (file mancante, nessun dispositivo audio) |
+| POST | `/api/stop` | sì | 204 |
+| POST | `/api/pause` | sì | 204 (mette in pausa o riprende) |
+
+Errori: 401 se il token manca o non è valido.
+
+### `GET /api/state`
+```json
+{
+  "serverId": "…", "name": "PC-SALOTTO", "protocol": 1, "libraryVersion": 7,
+  "sounds": [ { "id": "guid", "title": "airhorn", "artist": "", "durationMs": 3000, "missing": false, "hotkey": "Ctrl+1" } ],
+  "categories": [ { "id": "guid", "name": "Voice", "soundIds": ["guid"], "children": [ … ] } ],
+  "hotbar": { "pages": 5, "slotsPerPage": 20, "slots": [ { "page": 0, "slot": 0, "soundId": "guid" } ] },
+  "playback": { "state": "playing", "soundId": "guid", "positionMs": 1200, "durationMs": 3000 },
+  "mic": { "state": "active", "enabled": true }
+}
+```
+- `playback.state`: `stopped` | `playing` | `paused`.
+- `mic.state`: `notInstalled` | `idle` | `active` | `incompatible` | `accessDenied`.
+
+## WebSocket `/ws?token=…`
+Messaggi JSON con un campo `type`.
+
+Dal telefono al PC:
+```json
+{ "type": "play", "soundId": "guid" }
+{ "type": "stop" }
+{ "type": "togglePause" }
+{ "type": "setMic", "enabled": false }
+```
+
+Dal PC al telefono:
+```json
+{ "type": "hello", "libraryVersion": 7 }
+{ "type": "playback", "state": "playing", "soundId": "guid", "positionMs": 0, "durationMs": 3000 }
+{ "type": "libraryChanged", "libraryVersion": 8 }
+{ "type": "mic", "state": "idle", "enabled": true }
+{ "type": "error", "message": "…" }
+```
+Se un `play` non va a buon fine (suono inesistente, file mancante, nessun dispositivo audio),
+arriva un `error` con il motivo, in italiano e pronto da mostrare all'utente. La connessione resta aperta.
+
+Quando arriva `libraryChanged`, il telefono ricarica `/api/state`. La posizione di riproduzione
+non viene inviata di continuo: il telefono la calcola da `positionMs` e dall'ora di ricezione.
+
+## Limiti noti
+- Il traffico è HTTP in chiaro sulla rete locale: va bene in casa, non su reti pubbliche.
+- Al primo avvio Windows chiede di consentire l'app nel firewall: scegli **reti private**.

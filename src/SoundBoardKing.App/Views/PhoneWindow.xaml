@@ -1,0 +1,60 @@
+<Window x:Class="SoundBoardKing.App.Views.PhoneWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Telefono" Width="640" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource PanelBrush}" Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI" FontSize="13">
+    <StackPanel Margin="22">
+        <DockPanel>
+            <CheckBox x:Name="EnabledBox" DockPanel.Dock="Left" Content="Consenti il controllo dal telefono"
+                      Click="EnabledBox_Click" VerticalAlignment="Center" />
+            <TextBlock x:Name="StatusText" HorizontalAlignment="Right" VerticalAlignment="Center"
+                       Foreground="{StaticResource TextDimBrush}" FontSize="12" />
+        </DockPanel>
+
+        <Border x:Name="PairingPanel" Background="{StaticResource Panel2Brush}" CornerRadius="8" Padding="16" Margin="0,16,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Background="White" CornerRadius="6" Padding="6" Width="212" Height="212">
+                    <Image x:Name="QrImage" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="20,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="Abbina un telefono" FontWeight="SemiBold" FontSize="15" />
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextDimBrush}" Margin="0,6,0,14"
+                               Text="Apri SoundBoardKing sul telefono, collegato alla stessa rete Wi-Fi del PC, e inquadra il codice QR. Oppure inserisci a mano indirizzo e codice." />
+                    <TextBlock Text="CODICE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextDimBrush}" />
+                    <TextBlock x:Name="CodeText" FontSize="34" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
+                    <TextBlock Text="INDIRIZZO" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextDimBrush}" Margin="0,10,0,0" />
+                    <TextBlock x:Name="AddressText" FontSize="15" TextWrapping="Wrap" />
+                    <TextBlock x:Name="PairedMessage" Foreground="{StaticResource AccentBrush}" Margin="0,10,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TextBlock Text="Telefoni abbinati" FontWeight="SemiBold" Margin="0,18,0,8" />
+        <TextBlock x:Name="NoDevicesText" Text="Nessun telefono abbinato." Foreground="{StaticResource TextDimBrush}" />
+        <ItemsControl x:Name="DevicesList">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <DockPanel Margin="0,0,0,6">
+                        <Button DockPanel.Dock="Right" Content="Rimuovi" Click="RemoveDevice_Click" Tag="{Binding Id}" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Name}" />
+                            <TextBlock Text="{Binding PairedOn, StringFormat=Abbinato il {0:dd/MM/yyyy HH:mm}}" FontSize="11"
+                                       Foreground="{StaticResource TextDimBrush}" />
+                        </StackPanel>
+                    </DockPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="0,14,0,0"
+                   Text="Se il telefono non trova il PC, al primo avvio Windows potrebbe aver chiesto di consentire SoundBoardKing nel firewall: deve essere permesso sulle reti private." />
+
+        <Button Content="Chiudi" IsCancel="True" HorizontalAlignment="Right" MinWidth="90" Margin="0,18,0,0" />
+    </StackPanel>
+</Window>

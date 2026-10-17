@@ -10,11 +10,13 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SoundBoardKing.Core\SoundBoardKing.Core.csproj" />
     <ProjectReference Include="..\SoundBoardKing.Audio\SoundBoardKing.Audio.csproj" />
+    <ProjectReference Include="..\SoundBoardKing.Remote\SoundBoardKing.Remote.csproj" />
     <!-- Ships next to the app; launched elevated to install the mic module. -->
     <ProjectReference Include="..\SoundBoardKing.MicSetup\SoundBoardKing.MicSetup.csproj" />
   </ItemGroup>

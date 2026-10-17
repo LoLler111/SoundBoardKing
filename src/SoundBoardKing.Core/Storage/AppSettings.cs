@@ -19,4 +19,14 @@ public sealed class AppSettings
 
     public int HotbarPage { get; set; }
     public string? LastImportFolder { get; set; }
+
+    /// <summary>Lets paired phones control the app over the local network.</summary>
+    public bool RemoteEnabled { get; set; } = true;
+
+    public int RemotePort { get; set; } = 8765;
+
+    /// <summary>Stable id so a phone recognises this PC even when its IP address changes.</summary>
+    public string ServerId { get; set; } = Guid.NewGuid().ToString("N");
+
+    public List<PairedDevice> RemoteDevices { get; set; } = [];
 }

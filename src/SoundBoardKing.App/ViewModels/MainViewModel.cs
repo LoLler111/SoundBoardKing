@@ -218,9 +218,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private void PlaySound(SoundItemViewModel? sound)
     {
         sound ??= SelectedSound;
-        if (sound is null)
-            return;
+        if (sound is not null)
+            TryPlay(sound);
+    }
 
+    /// <summary>Returns why the sound could not start (also shown in the status bar), or null.</summary>
+    private string? TryPlay(SoundItemViewModel sound)
+    {
         try
         {
             _engine.Play(sound.Model.Path, new PlayRequest(
@@ -229,6 +233,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 Speakers: true,
                 Mic: _settings.PlayOnMic && _engine.IsMicAvailable,
                 AllowOverlap: _settings.AllowOverlap));
+            return null;
         }
         catch (Exception ex) when (ex is COMException or IOException or UnauthorizedAccessException or InvalidOperationException)
         {
@@ -237,6 +242,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             StatusText = sound.IsMissing
                 ? $"File non trovato: {sound.Model.Path}"
                 : $"Impossibile riprodurre \"{sound.Title}\": {ex.Message}";
+            return StatusText;
         }
     }
 
@@ -248,6 +254,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         _engine.TogglePause();
         IsPaused = _engine.IsPaused;
+        RaisePlaybackChanged();
     }
 
     private void OnPlaybackStarted(object? sender, Playback playback)
@@ -276,12 +283,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             NowPlayingTitle = IdleTitle;
             PositionSeconds = 0;
             PositionText = "";
+            RaisePlaybackChanged();
             return;
         }
 
         NowPlayingTitle = current.Tag is Guid id && _soundsById.TryGetValue(id, out var sound) ? sound.Title : "";
         UpdateProgress();
         _progressTimer.Start();
+        RaisePlaybackChanged();
     }
 
     private void UpdateProgress()
@@ -296,6 +305,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private void UpdateMicStatus()
     {
         var status = _micFeed.GetStatus();
+        if (status.State != _micState || PlayOnMic != _micReportedEnabled)
+        {
+            _micState = status.State;
+            _micReportedEnabled = PlayOnMic;
+            MicChanged?.Invoke(this, CurrentMic());
+        }
         IsMicActive = PlayOnMic && status.State == MicFxState.Active;
         MicStatusText = !PlayOnMic
             ? "Microfono: spento"
@@ -338,14 +353,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
         _library.Hotbar.Set(HotbarPage, slot.Slot, null);
         slot.Sound = null;
-        ScheduleSave();
+        LibraryEdited();
     }
 
     public void AssignHotbarSlot(HotbarSlotViewModel slot, SoundItemViewModel sound)
     {
         _library.Hotbar.Set(HotbarPage, slot.Slot, sound.Id);
         slot.Sound = sound;
-        ScheduleSave();
+        LibraryEdited();
     }
 
     [RelayCommand]
@@ -404,6 +419,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         RebuildAll();
         RegisterHotkeys();
         SaveNow();
+        NotifyLibraryChanged();
 
         var message = $"Importati {_library.Sounds.Count} suoni, {_library.EnumerateCategories().Count()} categorie " +
                       $"e {_library.Hotbar.Slots.Count} preferiti.";
@@ -455,7 +471,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         RefreshCounts();
         RefreshVisible();
-        ScheduleSave();
+        LibraryEdited();
         StatusText = target is null
             ? $"Aggiunti {sounds.Count} suoni."
             : $"Aggiunti {sounds.Count} suoni alla categoria \"{target.Name}\".";
@@ -499,7 +515,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         RefreshVisible();
         RefreshHotbar();
         RegisterHotkeys();
-        ScheduleSave();
+        LibraryEdited();
         StatusText = $"Rimossi {ids.Count} suoni.";
     }
 
@@ -513,7 +529,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (string.IsNullOrEmpty(title) || title == sound.Title)
             return;
         sound.Title = title;
-        ScheduleSave();
+        LibraryEdited();
     }
 
     [RelayCommand]
@@ -561,7 +577,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var category = new Category { Name = name, Icon = name[..1].ToUpperInvariant() };
         (parent?.Children ?? _library.Categories).Add(category);
         RebuildCategories(select: category);
-        ScheduleSave();
+        LibraryEdited();
     }
 
     [RelayCommand]
@@ -574,7 +590,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
         category.Name = name;
         node.NotifyNameChanged();
-        ScheduleSave();
+        LibraryEdited();
     }
 
     [RelayCommand]
@@ -586,7 +602,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
         _library.RemoveCategory(category);
         RebuildCategories(select: null);
-        ScheduleSave();
+        LibraryEdited();
     }
 
     public void AddSoundsToCategory(CategoryNodeViewModel node, IReadOnlyList<SoundItemViewModel> sounds)
@@ -605,7 +621,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         RefreshCounts();
         if (node == SelectedCategory)
             RefreshVisible();
-        ScheduleSave();
+        LibraryEdited();
         StatusText = $"{added} suoni aggiunti a \"{category.Name}\".";
     }
 
@@ -622,7 +638,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
         RefreshCounts();
         RefreshVisible();
-        ScheduleSave();
+        LibraryEdited();
     }
 
     private void RebuildAll()
@@ -707,7 +723,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             ReleaseHotkey(hotkey, except: sound);
         sound.Hotkey = hotkey;
         RegisterHotkeys();
-        ScheduleSave();
+        LibraryEdited();
     }
 
     /// <summary>A combination can do only one thing: take it away from whoever had it.</summary>

@@ -48,7 +48,9 @@
                 </Button>
 
                 <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE713;"
-                        Command="{Binding OpenSettingsCommand}" ToolTip="Impostazioni" Margin="8,0,0,0" />
+                        Command="{Binding OpenSettingsCommand}" ToolTip="Impostazioni" Margin="4,0,0,0" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE8EA;"
+                        Click="PhoneButton_Click" ToolTip="Telefono" Margin="8,0,0,0" />
 
                 <Grid DockPanel.Dock="Right" Width="300">
                     <TextBox x:Name="SearchBox"
