@@ -15,6 +15,15 @@
   <ItemGroup>
     <ProjectReference Include="..\SoundBoardKing.Core\SoundBoardKing.Core.csproj" />
     <ProjectReference Include="..\SoundBoardKing.Audio\SoundBoardKing.Audio.csproj" />
+    <!-- Ships next to the app; launched elevated to install the mic module. -->
+    <ProjectReference Include="..\SoundBoardKing.MicSetup\SoundBoardKing.MicSetup.csproj" />
+  </ItemGroup>
+
+  <!-- The APO, built by build-native.ps1. Without it the app still runs, minus the mic module. -->
+  <ItemGroup>
+    <None Include="..\..\artifacts\native\x64\Release\SbkMicFx.dll"
+          Condition="Exists('..\..\artifacts\native\x64\Release\SbkMicFx.dll')"
+          Link="SbkMicFx.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
 </Project>

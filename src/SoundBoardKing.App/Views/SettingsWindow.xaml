@@ -1,7 +1,7 @@
 <Window x:Class="SoundBoardKing.App.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Impostazioni" Width="480" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
+        Title="Impostazioni" Width="580" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource PanelBrush}" Foreground="{StaticResource TextBrush}"
         FontFamily="Segoe UI" FontSize="13">
@@ -11,8 +11,18 @@
                   Margin="0,6,0,18" />
 
         <TextBlock Text="Microfono" FontWeight="SemiBold" />
-        <TextBlock Text="L'invio dei suoni nel tuo microfono reale arriva con la Fase 2 (modulo APO)."
-                   Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap" Margin="0,4,0,18" />
+        <TextBlock Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap" Margin="0,4,0,8"
+                   Text="Installa il modulo sul tuo microfono reale: nelle app (Discord, OBS…) continui a scegliere quello, e i suoni ci arrivano dentro. Richiede i permessi di amministratore e riavvia per un attimo l'audio di Windows." />
+        <ComboBox ItemsSource="{Binding MicDevices}" SelectedItem="{Binding SelectedMicDevice}" DisplayMemberPath="Display" />
+        <DockPanel Margin="0,8,0,0">
+            <Button DockPanel.Dock="Right" Content="Rimuovi" Command="{Binding UninstallMicCommand}" Margin="8,0,0,0" />
+            <Button DockPanel.Dock="Right" Content="Installa" Command="{Binding InstallMicCommand}" Style="{StaticResource AccentButton}" Margin="8,0,0,0" />
+            <ComboBox ItemsSource="{Binding MicSlots}" SelectedItem="{Binding SelectedMicSlot}" DisplayMemberPath="Label"
+                      ToolTip="Punto della catena audio in cui si inserisce il modulo. Cambialo solo se con quello consigliato il suono non arriva." />
+        </DockPanel>
+        <TextBox Text="{Binding MicLog, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" Margin="0,8,0,18"
+                 MinHeight="44" MaxHeight="140" VerticalScrollBarVisibility="Auto" FontSize="12"
+                 Foreground="{StaticResource TextDimBrush}" />
 
         <CheckBox Content="Permetti più suoni contemporaneamente" IsChecked="{Binding AllowOverlap}" Margin="0,0,0,18" />
 

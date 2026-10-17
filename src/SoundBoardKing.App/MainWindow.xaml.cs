@@ -7,6 +7,7 @@ using SoundBoardKing.App.Hotkeys;
 using SoundBoardKing.App.Services;
 using SoundBoardKing.App.ViewModels;
 using SoundBoardKing.Audio;
+using SoundBoardKing.Audio.MicFx;
 using SoundBoardKing.Core.Models;
 using SoundBoardKing.Core.Storage;
 
@@ -26,10 +27,12 @@ public partial class MainWindow : Window
         DarkTitleBar.Apply(this);
 
         var paths = AppPaths.Default;
+        var micFeed = new ApoMicFeed();
         _viewModel = new MainViewModel(
             new JsonFileStore<SoundLibrary>(paths.LibraryFile),
             new JsonFileStore<AppSettings>(paths.SettingsFile),
-            new AudioEngine(),
+            new AudioEngine(micFeed),
+            micFeed,
             new HotkeyService(),
             new DialogService(this));
         DataContext = _viewModel;

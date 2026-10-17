@@ -80,6 +80,11 @@ Utile come riferimento: i flag `speakers`/`mic` permettono di suonare solo in cu
 | `android/` | Kotlin | Telecomando *(Fase 4)* |
 
 ### Modulo microfono (APO) — progetto
+
+> Stato: implementato (Fase 2). Rispetto al progetto iniziale: la memoria condivisa usa un ring
+> **multi-lettore** (ogni istanza dell'APO segue il produttore con una propria posizione), quindi
+> funziona anche con più app che registrano insieme. L'audio nel ring è mono, e l'APO lo
+> ricampiona se il microfono gira a un'altra frequenza. Prova sul PC reale: [FASE2_PROVA.md](FASE2_PROVA.md).
 - **Dove si registra**: sul dispositivo di cattura scelto, come effetto di flusso/modalità (chiavi `FxProperties` in `HKLM\...\MMDevices\Audio\Capture\{id}`). Serve amministratore → lo fa `SbkSetup`, una sola volta per microfono, poi riavvio di `Audiosrv`.
 - **Firma**: `audiodg.exe` protetto carica solo APO firmati da Microsoft. Le APO di terze parti (es. Equalizer APO) impostano `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Audio\DisableProtectedAudioDG = 1`. Da verificare cosa fa SoundPad e se esistono alternative.
 - **Requisito utente**: "Miglioramenti audio" attivi sul microfono; l'app lo controlla e lo segnala.

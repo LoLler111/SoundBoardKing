@@ -69,11 +69,16 @@ public sealed class AudioEngine : IDisposable
         }
     }
 
-    public static IReadOnlyList<AudioDevice> GetOutputDevices()
+    public static IReadOnlyList<AudioDevice> GetOutputDevices() => GetDevices(DataFlow.Render);
+
+    /// <summary>Microphones, for installing the mic module on one of them.</summary>
+    public static IReadOnlyList<AudioDevice> GetCaptureDevices() => GetDevices(DataFlow.Capture);
+
+    private static IReadOnlyList<AudioDevice> GetDevices(DataFlow flow)
     {
         using var enumerator = new MMDeviceEnumerator();
         var devices = new List<AudioDevice>();
-        foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
+        foreach (var device in enumerator.EnumerateAudioEndPoints(flow, DeviceState.Active))
         {
             using (device)
                 devices.Add(new AudioDevice(device.ID, device.FriendlyName));

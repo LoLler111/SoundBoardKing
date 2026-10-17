@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.Input;
 using SoundBoardKing.App.Hotkeys;
 using SoundBoardKing.App.Services;
 using SoundBoardKing.Audio;
+using SoundBoardKing.Audio.MicFx;
 using SoundBoardKing.Core.Import;
 using SoundBoardKing.Core.Models;
 using SoundBoardKing.Core.Storage;
@@ -23,10 +24,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly JsonFileStore<SoundLibrary> _libraryStore;
     private readonly JsonFileStore<AppSettings> _settingsStore;
     private readonly AudioEngine _engine;
+    private readonly ApoMicFeed _micFeed;
     private readonly HotkeyService _hotkeys;
     private readonly IDialogService _dialogs;
     private readonly DispatcherTimer _saveTimer;
     private readonly DispatcherTimer _progressTimer;
+    private readonly DispatcherTimer _micTimer;
     private readonly Dictionary<Guid, SoundItemViewModel> _soundsById = [];
 
     private SoundLibrary _library = new();
@@ -72,16 +75,24 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string statusText = "";
 
+    [ObservableProperty]
+    private string micStatusText = "Microfono: …";
+
+    [ObservableProperty]
+    private bool isMicActive;
+
     public MainViewModel(
         JsonFileStore<SoundLibrary> libraryStore,
         JsonFileStore<AppSettings> settingsStore,
         AudioEngine engine,
+        ApoMicFeed micFeed,
         HotkeyService hotkeys,
         IDialogService dialogs)
     {
         _libraryStore = libraryStore;
         _settingsStore = settingsStore;
         _engine = engine;
+        _micFeed = micFeed;
         _hotkeys = hotkeys;
         _dialogs = dialogs;
 
@@ -89,6 +100,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _saveTimer.Tick += (_, _) => SaveNow();
         _progressTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _progressTimer.Tick += (_, _) => UpdateProgress();
+        _micTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _micTimer.Tick += (_, _) => UpdateMicStatus();
 
         for (int slot = 0; slot < Hotbar.SlotsPerPage; slot++)
             HotbarSlots.Add(new HotbarSlotViewModel(slot));
@@ -127,7 +140,35 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public bool IsMicAvailable => _engine.IsMicAvailable;
+    public double MicVolume
+    {
+        get => _settings.MicVolume * 100;
+        set
+        {
+            var volume = (float)Math.Clamp(value / 100, 0, 1);
+            if (Math.Abs(volume - _settings.MicVolume) < 0.0001f)
+                return;
+            _settings.MicVolume = volume;
+            _engine.MicVolume = volume;
+            OnPropertyChanged();
+            ScheduleSave();
+        }
+    }
+
+    /// <summary>Whether sounds are also sent into the microphone (when the module is active).</summary>
+    public bool PlayOnMic
+    {
+        get => _settings.PlayOnMic;
+        set
+        {
+            if (value == _settings.PlayOnMic)
+                return;
+            _settings.PlayOnMic = value;
+            OnPropertyChanged();
+            UpdateMicStatus();
+            ScheduleSave();
+        }
+    }
 
     public void Initialize()
     {
@@ -135,9 +176,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         (_library, _canSaveLibrary) = Load(_libraryStore);
 
         _engine.SpeakerVolume = _settings.SpeakerVolume;
+        _engine.MicVolume = _settings.MicVolume;
         _engine.SetOutputDevice(_settings.OutputDeviceId);
         HotbarPage = Math.Clamp(_settings.HotbarPage, 0, Hotbar.PageCount - 1);
         OnPropertyChanged(nameof(SpeakerVolume));
+        OnPropertyChanged(nameof(MicVolume));
+        OnPropertyChanged(nameof(PlayOnMic));
+        UpdateMicStatus();
+        _micTimer.Start();
 
         RebuildAll();
         RegisterHotkeys();
@@ -245,6 +291,22 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         DurationSeconds = Math.Max(current.Duration.TotalSeconds, 0.001);
         PositionSeconds = Math.Min(current.Position.TotalSeconds, DurationSeconds);
         PositionText = $"{TimeFormat.Format(current.Position)} / {TimeFormat.Format(current.Duration)}";
+    }
+
+    private void UpdateMicStatus()
+    {
+        var status = _micFeed.GetStatus();
+        IsMicActive = PlayOnMic && status.State == MicFxState.Active;
+        MicStatusText = !PlayOnMic
+            ? "Microfono: spento"
+            : status.State switch
+            {
+                MicFxState.Active => "Microfono: attivo",
+                MicFxState.Idle => "Microfono: in attesa",
+                MicFxState.Incompatible => "Microfono: reinstalla il modulo",
+                MicFxState.AccessDenied => "Microfono: accesso negato",
+                _ => "Microfono: non installato",
+            };
     }
 
     // ---- Hotbar ------------------------------------------------------------------------------
@@ -704,7 +766,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             StopHotkey = _settings.StopHotkey,
             PauseHotkey = _settings.PauseHotkey,
         };
-        if (!_dialogs.EditSettings(model))
+        bool accepted = _dialogs.EditSettings(model);
+        UpdateMicStatus(); // the module may have been installed or removed from the dialog
+        if (!accepted)
             return;
 
         var deviceId = string.IsNullOrEmpty(model.SelectedDevice?.Id) ? null : model.SelectedDevice.Id;
@@ -759,6 +823,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _progressTimer.Stop();
+        _micTimer.Stop();
         if (_initialized)
             SaveNow();
         _hotkeys.Dispose();

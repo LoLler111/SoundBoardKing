@@ -280,13 +280,31 @@
                             IsMoveToPointEnabled="True" />
                     <TextBlock Text="{Binding SpeakerVolume, StringFormat={}{0:0}%}" Width="44" TextAlignment="Right"
                                VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" />
-                    <Border Background="{StaticResource Panel2Brush}" CornerRadius="6" Padding="10,5" Margin="14,0,0,0"
-                            ToolTip="L'invio dei suoni nel microfono reale arriva con la Fase 2 (modulo APO)">
-                        <StackPanel Orientation="Horizontal" Opacity="0.55">
+                    <ToggleButton IsChecked="{Binding PlayOnMic}" Margin="18,0,8,0" Cursor="Hand"
+                                  ToolTip="Invia i suoni anche nel microfono (clic per accendere/spegnere). Il modulo si installa dalle impostazioni.">
+                        <ToggleButton.Template>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Border x:Name="Bd" Background="{StaticResource Panel2Brush}" CornerRadius="6" Padding="10,5">
+                                    <ContentPresenter />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsMicActive}" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                    </DataTrigger>
+                                    <Trigger Property="IsChecked" Value="False">
+                                        <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </ToggleButton.Template>
+                        <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE720;" VerticalAlignment="Center" Margin="0,0,6,0" />
-                            <TextBlock Text="Microfono: Fase 2" VerticalAlignment="Center" FontSize="12" />
+                            <TextBlock Text="{Binding MicStatusText}" VerticalAlignment="Center" FontSize="12" />
                         </StackPanel>
-                    </Border>
+                    </ToggleButton>
+                    <Slider Width="90" Minimum="0" Maximum="100" Value="{Binding MicVolume}" VerticalAlignment="Center"
+                            IsMoveToPointEnabled="True" IsEnabled="{Binding PlayOnMic}"
+                            ToolTip="{Binding MicVolume, StringFormat=Volume nel microfono: {0:0}%}" />
                 </StackPanel>
             </Grid>
         </Border>

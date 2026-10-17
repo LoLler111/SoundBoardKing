@@ -3,8 +3,10 @@
     <Project Path="src/SoundBoardKing.App/SoundBoardKing.App.csproj" />
     <Project Path="src/SoundBoardKing.Audio/SoundBoardKing.Audio.csproj" />
     <Project Path="src/SoundBoardKing.Core/SoundBoardKing.Core.csproj" />
+    <Project Path="src/SoundBoardKing.MicSetup/SoundBoardKing.MicSetup.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/SoundBoardKing.Audio.Tests/SoundBoardKing.Audio.Tests.csproj" />
     <Project Path="tests/SoundBoardKing.Core.Tests/SoundBoardKing.Core.Tests.csproj" />
   </Folder>
 </Solution>
