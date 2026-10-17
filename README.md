@@ -17,6 +17,10 @@ powershell -File publish.ps1
 - `build-native.ps1` compila l'APO (`artifacts\native`) e, con `-Tests`, il banco di prova usato da `dotnet test`. Va lanciato prima di `dotnet build`, così la DLL finisce accanto all'app.
 - `publish.ps1` crea `artifacts\publish\SoundBoardKing-win-x64.zip`, un pacchetto che non richiede .NET installato.
 - Prova del modulo microfono su un PC reale: [docs/FASE2_PROVA.md](docs/FASE2_PROVA.md).
+- App Android (`android/`, Kotlin + Compose): serve Android Studio, di cui si usa il Java incluso. `publish.ps1` crea anche `artifacts\publish\SoundBoardKing-android.apk`. Prova sul telefono: [docs/FASE4_PROVA.md](docs/FASE4_PROVA.md).
+  ```bash
+  android\gradlew.bat -p android testDebugUnitTest assembleRelease
+  ```
 
 ## Struttura
 | Cartella | Contenuto |
@@ -31,5 +35,6 @@ powershell -File publish.ps1
 | `tests/SoundBoardKing.Core.Tests` | Test xUnit del Core |
 | `tests/SoundBoardKing.Audio.Tests` | Prova end-to-end app ↔ APO tramite memoria condivisa |
 | `tests/SoundBoardKing.Remote.Tests` | Server remoto: abbinamento, autorizzazioni, REST, WebSocket, scoperta |
+| `android/` | Telecomando Android: abbinamento con QR/codice, preferiti, categorie, ricerca, riproduzione e microfono |
 
 I dati utente stanno in `%APPDATA%\SoundBoardKing` (`library.json`, `settings.json`, `error.log`).

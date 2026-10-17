@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A gold crown over a speaker grille, inside the 66dp safe zone of the 108dp adaptive icon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/accent"
+        android:pathData="M30,44 L40,54 L54,36 L68,54 L78,44 L74,66 L34,66 Z" />
+    <path
+        android:fillColor="@color/accent"
+        android:pathData="M34,70 L74,70 L74,76 L34,76 Z" />
+</vector>

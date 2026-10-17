@@ -125,6 +125,8 @@ Id stabili (GUID) al posto della posizione: riordinare la lista non rompe prefer
 - I file audio **non** vengono trasferiti: il telefono è solo un telecomando.
 
 ### App Android (Kotlin + Compose)
+
+> Stato: implementata (Fase 4), in `android/`. Prova sul telefono: [FASE4_PROVA.md](FASE4_PROVA.md).
 Schermate: Connessione (scoperta automatica / scansione QR) → **Preferiti** (griglia 4×5, scorrimento tra le 5 pagine) · Categorie (albero) · Cerca (tutti i suoni) · barra "in riproduzione" con Stop. Vibrazione al tocco, schermo sempre acceso, riconnessione automatica.
 
 ---
