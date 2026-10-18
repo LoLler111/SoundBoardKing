@@ -173,6 +173,9 @@ internal sealed class MicInstaller(Action<string> log)
     // one with none or only legacy effects (seen with VB-CABLE: only LFX/GFX load) gets LFX.
     private static FxSlot ChooseSlot(RegistryKey fx)
     {
+        // SoundPad already injects from the endpoint position on this microphone: that one works here.
+        if (IsSoundpad(fx.GetValue($"{FxPropertyFormat},{(int)FxSlot.Efx}") as string))
+            return FxSlot.Efx;
         var names = fx.GetValueNames();
         bool modern = new[] { 5, 6, 7, 13, 14, 15 }
             .Any(id => names.Contains($"{FxPropertyFormat},{id}", StringComparer.OrdinalIgnoreCase));
@@ -213,12 +216,25 @@ internal sealed class MicInstaller(Action<string> log)
             fx.SetValue(single, Clsid, RegistryValueKind.String);
             log($"Impostata in {single}.");
         }
+        else if (IsSoundpad(current))
+        {
+            // SoundPad's own APO wraps the device effect and does not share the slot: listing both
+            // in the composite property left the microphone without effects at all. Take its place
+            // instead, as SoundPad does with the driver's; uninstall puts it back.
+            fx.SetValue(single, Clsid, RegistryValueKind.String);
+            log($"Impostata in {single} al posto del modulo di SoundPad {current} (verrà ripristinato alla rimozione).");
+        }
         else
         {
             fx.SetValue(composite, new[] { current, Clsid }, RegistryValueKind.MultiString);
             log($"Lo slot {single} era occupato da {current}: create la lista composita {composite} con entrambi.");
         }
     }
+
+    // SoundPad (Leppsoft UniteFx) registers its APO under these CLSIDs, one per variant.
+    private static bool IsSoundpad(string? clsid) =>
+        clsid is not null && clsid.StartsWith("{27384E53-9860-0AC", StringComparison.OrdinalIgnoreCase) &&
+        clsid.EndsWith("-9519-C60EBCAA2C71}", StringComparison.OrdinalIgnoreCase);
 
     // The Windows 8.1+ positions only run in the processing modes listed next to them: an effect
     // without that list is ignored (seen with a SteelSeries headset declaring only its own EFX).
