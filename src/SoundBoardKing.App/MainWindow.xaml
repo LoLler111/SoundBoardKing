@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:SoundBoardKing.App.ViewModels"
         xmlns:conv="clr-namespace:SoundBoardKing.App.Converters"
+        xmlns:ctl="clr-namespace:SoundBoardKing.App.Controls"
         Title="SoundBoardKing" Icon="Assets/SoundBoardKing.ico" Width="1240" Height="800" MinWidth="960" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgBrush}" Foreground="{StaticResource TextBrush}"
@@ -317,13 +318,21 @@
                 </Grid>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE767;" VerticalAlignment="Center" Margin="0,0,8,0"
-                               ToolTip="Volume in cuffia" />
-                    <Slider Width="150" Minimum="0" Maximum="100" Value="{Binding SpeakerVolume}" VerticalAlignment="Center"
-                            IsMoveToPointEnabled="True" />
-                    <TextBlock Text="{Binding SpeakerVolume, StringFormat={}{0:0}%}" Width="44" TextAlignment="Right"
-                               VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" />
-                    <ToggleButton IsChecked="{Binding PlayOnMic}" Margin="18,0,8,0" Cursor="Hand"
+                    <!-- Volume in cuffia, with the spectrum of what the speakers are playing behind it. -->
+                    <Border Background="{StaticResource Panel2Brush}" CornerRadius="8" Padding="10,0" Height="38"
+                            ToolTip="Volume in cuffia (sotto: lo spettro di ciò che senti)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE767;" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <Grid Width="170">
+                                <ctl:SpectrumMeter Reader="{Binding SpeakerSpectrum}" Fill="{StaticResource AccentBrush}"
+                                                   Opacity="0.6" Margin="0,4" />
+                                <Slider Minimum="0" Maximum="100" Value="{Binding SpeakerVolume}" VerticalAlignment="Center" />
+                            </Grid>
+                            <TextBlock Text="{Binding SpeakerVolume, StringFormat={}{0:0}%}" Width="40" TextAlignment="Right"
+                                       VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" />
+                        </StackPanel>
+                    </Border>
+                    <ToggleButton IsChecked="{Binding PlayOnMic}" Margin="12,0,8,0" Cursor="Hand"
                                   ToolTip="Invia i suoni anche nel microfono (clic per accendere/spegnere). Il modulo si installa dalle impostazioni.">
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="ToggleButton">
@@ -345,9 +354,20 @@
                             <TextBlock Text="{Binding MicStatusText}" VerticalAlignment="Center" FontSize="12" />
                         </StackPanel>
                     </ToggleButton>
-                    <Slider Width="90" Minimum="0" Maximum="100" Value="{Binding MicVolume}" VerticalAlignment="Center"
-                            IsMoveToPointEnabled="True" IsEnabled="{Binding PlayOnMic}"
-                            ToolTip="{Binding MicVolume, StringFormat=Volume nel microfono: {0:0}%}" />
+                    <!-- Volume nel microfono, with the spectrum of only what is sent into the microphone. -->
+                    <Border Background="{StaticResource Panel2Brush}" CornerRadius="8" Padding="10,0" Height="38"
+                            ToolTip="Volume nel microfono (sotto: lo spettro di ciò che arriva nel microfono)">
+                        <StackPanel Orientation="Horizontal">
+                            <Grid Width="130" IsEnabled="{Binding PlayOnMic}">
+                                <ctl:SpectrumMeter Reader="{Binding MicSpectrum}" Fill="{StaticResource MicBrush}"
+                                                   Opacity="0.6" Margin="0,4" />
+                                <Slider Minimum="0" Maximum="100" Value="{Binding MicVolume}" VerticalAlignment="Center"
+                                        Foreground="{StaticResource MicBrush}" />
+                            </Grid>
+                            <TextBlock Text="{Binding MicVolume, StringFormat={}{0:0}%}" Width="40" TextAlignment="Right"
+                                       VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Grid>
         </Border>

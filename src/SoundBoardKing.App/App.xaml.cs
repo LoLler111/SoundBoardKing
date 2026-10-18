@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
+using SoundBoardKing.App.Views;
 using SoundBoardKing.Core.Storage;
 
 namespace SoundBoardKing.App;
@@ -16,7 +17,7 @@ public partial class App : Application
         _singleInstance = new Mutex(true, @"Local\SoundBoardKing.SingleInstance", out bool isFirstInstance);
         if (!isFirstInstance)
         {
-            MessageBox.Show("SoundBoardKing è già aperto.", "SoundBoardKing", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageDialog.Show(null, "SoundBoardKing è già aperto: lo trovi nella barra delle applicazioni.");
             Shutdown();
             return;
         }
@@ -55,7 +56,7 @@ public partial class App : Application
         {
         }
 
-        MessageBox.Show($"Errore imprevisto: {e.Exception.Message}", "SoundBoardKing", MessageBoxButton.OK, MessageBoxImage.Error);
+        MessageDialog.Show(Current?.MainWindow, $"Errore imprevisto: {e.Exception.Message}", MessageKind.Error);
         e.Handled = true;
     }
 

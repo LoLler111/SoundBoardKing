@@ -27,6 +27,8 @@ public sealed class AudioEngine : IDisposable
     private VolumeSampleProvider? _speakerMaster;
     private MixingSampleProvider? _micMixer;
     private VolumeSampleProvider? _micMaster;
+    private SpectrumTap? _speakerTap;
+    private SpectrumTap? _micTap;
     private string? _deviceId;
     private float _speakerVolume = 1f;
     private float _micVolume = 1f;
@@ -84,6 +86,20 @@ public sealed class AudioEngine : IDisposable
                 devices.Add(new AudioDevice(device.ID, device.FriendlyName));
         }
         return devices;
+    }
+
+    /// <summary>Spectrum of what goes to the headphones/speakers, 0..1 per band.</summary>
+    public void ReadSpeakerSpectrum(float[] levels) => ReadSpectrum(_speakerTap, levels);
+
+    /// <summary>Spectrum of what goes into the microphone only.</summary>
+    public void ReadMicSpectrum(float[] levels) => ReadSpectrum(_micTap, levels);
+
+    private static void ReadSpectrum(SpectrumTap? tap, float[] levels)
+    {
+        if (tap is null)
+            Array.Clear(levels);
+        else
+            tap.Read(levels);
     }
 
     public bool IsPlayingTag(object tag)
@@ -189,9 +205,10 @@ public sealed class AudioEngine : IDisposable
         };
         _speakerMixer.MixerInputEnded += OnMixerInputEnded;
         _speakerMaster = new VolumeSampleProvider(_speakerMixer) { Volume = _speakerVolume };
+        _speakerTap = new SpectrumTap(_speakerMaster);
         ISampleProvider final = mixFormat.Channels == 2
-            ? _speakerMaster
-            : new ChannelMapSampleProvider(_speakerMaster, mixFormat.Channels);
+            ? _speakerTap
+            : new ChannelMapSampleProvider(_speakerTap, mixFormat.Channels);
 
         var output = new WasapiOut(device, AudioClientShareMode.Shared, true, OutputLatencyMs);
         output.PlaybackStopped += OnOutputStopped;
@@ -228,7 +245,8 @@ public sealed class AudioEngine : IDisposable
         };
         _micMixer.MixerInputEnded += OnMixerInputEnded;
         _micMaster = new VolumeSampleProvider(_micMixer) { Volume = _micVolume };
-        _micFeed.Attach(_micMaster);
+        _micTap = new SpectrumTap(_micMaster);
+        _micFeed.Attach(_micTap);
         return true;
     }
 
@@ -276,6 +294,7 @@ public sealed class AudioEngine : IDisposable
         _output = null;
         _speakerMixer = null;
         _speakerMaster = null;
+        _speakerTap = null;
 
         // The output thread has stopped, so nothing reads the speaker voices any more.
         foreach (var playback in Snapshot())

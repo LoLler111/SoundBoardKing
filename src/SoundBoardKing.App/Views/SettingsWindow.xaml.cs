@@ -99,7 +99,7 @@ public partial class SettingsWindow : Window
     }
 
     private bool Ask(string message) =>
-        MessageBox.Show(this, message, "SoundBoardKing", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+        MessageDialog.Confirm(this, message);
 
     private void Ok_Click(object sender, RoutedEventArgs e) => DialogResult = true;
 }

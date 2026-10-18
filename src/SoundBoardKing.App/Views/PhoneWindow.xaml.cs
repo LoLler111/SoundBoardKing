@@ -81,8 +81,8 @@ public partial class PhoneWindow : Window
     {
         if ((sender as FrameworkElement)?.Tag is not Guid id)
             return;
-        if (MessageBox.Show(this, "Il telefono non potrà più controllare il PC finché non lo abbini di nuovo. Rimuoverlo?",
-                "SoundBoardKing", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (!MessageDialog.Confirm(this, "Il telefono non potrà più controllare il PC finché non lo abbini di nuovo.",
+                "Rimuovere il telefono?", "Rimuovi", "Annulla"))
             return;
         _remote.RemoveDevice(id);
     }

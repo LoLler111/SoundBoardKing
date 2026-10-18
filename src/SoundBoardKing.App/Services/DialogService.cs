@@ -8,16 +8,14 @@ namespace SoundBoardKing.App.Services;
 
 public sealed class DialogService(Window owner) : IDialogService
 {
-    private const string Caption = "SoundBoardKing";
-
     public void ShowError(string message) =>
-        MessageBox.Show(owner, message, Caption, MessageBoxButton.OK, MessageBoxImage.Error);
+        MessageDialog.Show(owner, message, MessageKind.Error);
 
     public void ShowInfo(string message) =>
-        MessageBox.Show(owner, message, Caption, MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageDialog.Show(owner, message);
 
     public bool Confirm(string message) =>
-        MessageBox.Show(owner, message, Caption, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+        MessageDialog.Confirm(owner, message);
 
     public string? OpenSplFile(string? initialFolder)
     {

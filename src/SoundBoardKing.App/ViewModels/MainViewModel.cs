@@ -125,6 +125,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Spectrum of what the speakers play, for the meter behind the volume slider.</summary>
+    public Action<float[]> SpeakerSpectrum => _engine.ReadSpeakerSpectrum;
+
+    /// <summary>Spectrum of only what goes into the microphone.</summary>
+    public Action<float[]> MicSpectrum => _engine.ReadMicSpectrum;
+
     public double MicVolume
     {
         get => _settings.MicVolume * 100;
