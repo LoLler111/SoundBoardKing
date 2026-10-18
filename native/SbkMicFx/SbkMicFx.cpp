@@ -4,6 +4,7 @@
 #include <mmreg.h>
 #include <ks.h>
 #include <ksmedia.h>
+#include <cstdio>
 
 #include "Log.h"
 
@@ -14,6 +15,33 @@ namespace sbk
 
     namespace
     {
+        const wchar_t* ModeName(const GUID& mode)
+        {
+            if (mode == AUDIO_SIGNALPROCESSINGMODE_DEFAULT) return L"predefinita";
+            if (mode == AUDIO_SIGNALPROCESSINGMODE_RAW) return L"raw";
+            if (mode == AUDIO_SIGNALPROCESSINGMODE_COMMUNICATIONS) return L"comunicazioni";
+            if (mode == AUDIO_SIGNALPROCESSINGMODE_SPEECH) return L"parlato";
+            if (mode == AUDIO_SIGNALPROCESSINGMODE_MEDIA) return L"media";
+            if (mode == AUDIO_SIGNALPROCESSINGMODE_MOVIE) return L"film";
+            if (mode == AUDIO_SIGNALPROCESSINGMODE_NOTIFICATION) return L"notifiche";
+            if (mode == GUID_NULL) return L"nessuna";
+            return L"altra";
+        }
+
+        // For the log: "48000 Hz 2 can. float32", or what the type is when it is not float.
+        void Describe(IAudioMediaType* type, wchar_t* text, size_t size)
+        {
+            UNCOMPRESSEDAUDIOFORMAT f{};
+            if (!type || FAILED(type->GetUncompressedAudioFormat(&f)))
+            {
+                wcscpy_s(text, size, L"(nessuno)");
+                return;
+            }
+            swprintf_s(text, size, L"%.0f Hz %u can. %s%u", f.fFramesPerSecond, f.dwSamplesPerFrame,
+                       f.guidFormatType == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT ? L"float" : L"pcm",
+                       f.dwValidBitsPerSample);
+        }
+
         bool IsFloatFormat(IAudioMediaType* type, UNCOMPRESSEDAUDIOFORMAT& format)
         {
             return type != nullptr &&
@@ -123,9 +151,18 @@ namespace sbk
         return S_OK;
     }
 
-    STDMETHODIMP SbkMicFx::Initialize(UINT32 cbDataSize, BYTE* /*pbyData*/)
+    STDMETHODIMP SbkMicFx::Initialize(UINT32 cbDataSize, BYTE* pbyData)
     {
-        // The init blob (APOInitSystemEffects2/3) carries endpoint details this APO does not need.
+        // Windows 8.1+ positions pass APOInitSystemEffects2: the processing mode, and whether this
+        // instance only exists to be listed (sound settings) and will never process audio.
+        if (pbyData && cbDataSize >= sizeof(APOInitSystemEffects2))
+        {
+            const auto* init = reinterpret_cast<const APOInitSystemEffects2*>(pbyData);
+            m_discovery = init->InitializeForDiscoveryOnly != FALSE;
+            if (!m_discovery)
+                Log(L"Initialize: modalità %s", ModeName(init->AudioProcessingMode));
+            return S_OK;
+        }
         Log(L"Initialize, %u byte di dati", cbDataSize);
         return S_OK;
     }
@@ -159,14 +196,29 @@ namespace sbk
                                                   IAudioMediaType* pRequestedInputFormat,
                                                   IAudioMediaType** ppSupportedInputFormat)
     {
-        return CheckFormat(pOppositeFormat, pRequestedInputFormat, ppSupportedInputFormat);
+        return LogCheck(L"ingresso", pOppositeFormat, pRequestedInputFormat, ppSupportedInputFormat);
     }
 
     STDMETHODIMP SbkMicFx::IsOutputFormatSupported(IAudioMediaType* pOppositeFormat,
                                                    IAudioMediaType* pRequestedOutputFormat,
                                                    IAudioMediaType** ppSupportedOutputFormat)
     {
-        return CheckFormat(pOppositeFormat, pRequestedOutputFormat, ppSupportedOutputFormat);
+        return LogCheck(L"uscita", pOppositeFormat, pRequestedOutputFormat, ppSupportedOutputFormat);
+    }
+
+    HRESULT SbkMicFx::LogCheck(const wchar_t* side, IAudioMediaType* opposite, IAudioMediaType* requested,
+                               IAudioMediaType** supported)
+    {
+        const HRESULT hr = CheckFormat(opposite, requested, supported);
+        if (!m_discovery)
+        {
+            wchar_t asked[64], other[64];
+            Describe(requested, asked, _countof(asked));
+            Describe(opposite, other, _countof(other));
+            Log(L"Formato %s: %s (altro lato %s) -> %s", side, asked, other,
+                hr == S_OK ? L"accettato" : hr == S_FALSE ? L"proposto l'altro" : L"RIFIUTATO");
+        }
+        return hr;
     }
 
     STDMETHODIMP SbkMicFx::GetInputChannelCount(UINT32* pu32ChannelCount)

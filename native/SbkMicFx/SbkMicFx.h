@@ -88,11 +88,14 @@ namespace sbk
         };
 
         HRESULT CheckFormat(IAudioMediaType* opposite, IAudioMediaType* requested, IAudioMediaType** supported);
+        HRESULT LogCheck(const wchar_t* side, IAudioMediaType* opposite, IAudioMediaType* requested,
+                         IAudioMediaType** supported);
 
         InnerUnknown m_inner{ this };
         IUnknown* m_outer;  // the aggregating object, or &m_inner when standalone
         std::atomic<ULONG> m_refs{ 1 };
         bool m_locked = false;
+        bool m_discovery = false;  // created only to be listed, never processes audio
         UINT32 m_channels = 0;
         UINT32 m_sampleRate = 0;
         MicReader m_reader;
