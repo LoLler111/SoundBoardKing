@@ -242,13 +242,13 @@ private fun FavoritesTab(
         HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
             LazyVerticalGrid(
                 columns = GridCells.Fixed(look.columns),
-                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = look.gridMargin),
+                horizontalArrangement = Arrangement.spacedBy(look.tileGap),
+                verticalArrangement = Arrangement.spacedBy(look.tileGap),
             ) {
                 items(hotbar.slotsPerPage) { slot ->
                     val sound = slots[page to slot]?.let { soundsById[it.soundId] }
-                    SlotTile(slot + 1, sound, playing = sound != null && sound.id in playingIds, look.fontSp, onPlay)
+                    SlotTile(slot + 1, sound, playing = sound != null && sound.id in playingIds, look, onPlay)
                 }
             }
         }
@@ -257,16 +257,16 @@ private fun FavoritesTab(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SlotTile(number: Int, sound: SoundDto?, playing: Boolean, fontSp: Int, onPlay: OnPlay) {
+private fun SlotTile(number: Int, sound: SoundDto?, playing: Boolean, look: FavoritesLook, onPlay: OnPlay) {
     val haptic = LocalHapticFeedback.current
     var menu by remember { mutableStateOf(false) }
     Box {
         Surface(
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(look.tileCorner),
             color = if (playing) GoldSoft else Panel2,
             border = if (playing) BorderStroke(1.dp, Gold) else null,
             modifier = Modifier
-                .aspectRatio(1f)
+                .aspectRatio(look.aspect)
                 .alpha(if (sound == null) 0.35f else if (sound.missing) 0.55f else 1f)
                 .combinedClickable(
                     enabled = sound != null,
@@ -279,18 +279,7 @@ private fun SlotTile(number: Int, sound: SoundDto?, playing: Boolean, fontSp: In
                     sound?.let { onPlay(it.id, PlayTarget.Default) }
                 },
         ) {
-            Box(Modifier.padding(6.dp)) {
-                Text("$number", fontSize = 10.sp, color = TextDim, modifier = Modifier.align(Alignment.TopStart))
-                Text(
-                    sound?.title.orEmpty(),
-                    fontSize = fontSp.sp,
-                    lineHeight = (fontSp + 2).sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.align(Alignment.Center).padding(top = 6.dp),
-                )
-            }
+            TileContent(number, sound?.title.orEmpty(), look)
         }
         if (sound != null) PlayMenu(menu, onDismiss = { menu = false }) { onPlay(sound.id, it) }
     }

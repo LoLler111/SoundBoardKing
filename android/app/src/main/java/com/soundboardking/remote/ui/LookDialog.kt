@@ -34,7 +34,14 @@ import com.soundboardking.remote.ui.theme.Panel2
 import com.soundboardking.remote.ui.theme.TextDim
 import kotlin.math.roundToInt
 
-private val SizeNames = mapOf(6 to "Molto piccoli", 5 to "Piccoli", 4 to "Normali", 3 to "Grandi", 2 to "Molto grandi")
+private fun sizeName(columns: Int) = when {
+    columns >= 10 -> "Minuscoli"
+    columns >= 7 -> "Molto piccoli"
+    columns >= 5 -> "Piccoli"
+    columns == 4 -> "Normali"
+    columns == 3 -> "Grandi"
+    else -> "Molto grandi"
+}
 
 /** Lets the user pick the favourites' button and text size; changes apply (and are saved) at once. */
 @Composable
@@ -48,7 +55,7 @@ fun LookDialog(look: FavoritesLook, onChange: (FavoritesLook) -> Unit, onDismiss
         title = { Text("Aspetto dei preferiti") },
         text = {
             Column {
-                Text("Pulsanti: ${SizeNames[look.columns]} (${look.columns} per riga)")
+                Text("Pulsanti: ${sizeName(look.columns)} (${look.columns} per riga)")
                 // Left = small, right = big: the slider runs over the columns backwards.
                 Slider(
                     value = (columns.last - look.columns).toFloat(),
@@ -66,6 +73,15 @@ fun LookDialog(look: FavoritesLook, onChange: (FavoritesLook) -> Unit, onDismiss
                     steps = fonts.last - fonts.first - 1,
                     colors = sliderColors,
                 )
+                Spacer(Modifier.height(8.dp))
+                Text("Forma: ${FavoritesLook.ShapeNames[look.shape.coerceIn(FavoritesLook.Aspects.indices)]}")
+                Slider(
+                    value = look.shape.toFloat(),
+                    onValueChange = { onChange(look.copy(shape = it.roundToInt())) },
+                    valueRange = 0f..FavoritesLook.Aspects.lastIndex.toFloat(),
+                    steps = FavoritesLook.Aspects.size - 2,
+                    colors = sliderColors,
+                )
                 Spacer(Modifier.height(12.dp))
                 Text("Anteprima", color = TextDim, fontSize = 12.sp)
                 Spacer(Modifier.height(6.dp))
@@ -81,32 +97,44 @@ fun LookDialog(look: FavoritesLook, onChange: (FavoritesLook) -> Unit, onDismiss
 @Composable
 private fun LookPreview(look: FavoritesLook) {
     // The dialog is narrower than the screen: scale the tiles to match the real proportion.
-    val screenWidth = LocalConfiguration.current.screenWidthDp
-    val tileWidth = (screenWidth - 16 - 6 * (look.columns - 1)) / look.columns
-    val shown = minOf(look.columns, 3)
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val gap = look.tileGap
+    val tileWidth = (screenWidth - look.gridMargin * 2 - gap * (look.columns - 1)) / look.columns
+    val shown = minOf(look.columns, if (look.compact) 6 else 3)
     BoxWithConstraints {
-    val fit = (maxWidth - 6.dp * (shown - 1)) / shown
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf("airhorn", "Tokyo Drift Teriyaki Boyz", "applauso").take(shown).forEachIndexed { i, title ->
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = if (i == 0) GoldSoft else Background,
-                modifier = Modifier.width(minOf(tileWidth.dp, fit)).aspectRatio(1f),
-            ) {
-                Box(Modifier.padding(6.dp)) {
-                    Text("${i + 1}", fontSize = 10.sp, color = TextDim, modifier = Modifier.align(Alignment.TopStart))
-                    Text(
-                        title,
-                        fontSize = look.fontSp.sp,
-                        lineHeight = (look.fontSp + 2).sp,
-                        textAlign = TextAlign.Center,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.align(Alignment.Center).fillMaxWidth().padding(top = 6.dp),
-                    )
+        val fit = (maxWidth - gap * (shown - 1)) / shown
+        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+            listOf("airhorn", "Tokyo Drift Teriyaki Boyz", "applauso", "rutto", "dramatic", "Canto del gallo")
+                .take(shown).forEachIndexed { i, title ->
+                    Surface(
+                        shape = RoundedCornerShape(look.tileCorner),
+                        color = if (i == 0) GoldSoft else Background,
+                        modifier = Modifier.width(minOf(tileWidth, fit)).aspectRatio(look.aspect),
+                    ) { TileContent(i + 1, title, look) }
                 }
-            }
         }
     }
+}
+
+// Shared with the favourites grid so the preview matches it exactly.
+internal val FavoritesLook.tileGap get() = if (compact) 3.dp else 6.dp
+internal val FavoritesLook.gridMargin get() = if (compact) 4.dp else 8.dp
+internal val FavoritesLook.tileCorner get() = if (compact) 6.dp else 10.dp
+
+/** Slot number in the corner and the title in the middle of a favourite tile. */
+@Composable
+internal fun TileContent(number: Int, title: String, look: FavoritesLook) {
+    val pad = if (look.compact) 2.dp else 6.dp
+    Box(Modifier.padding(pad)) {
+        Text("$number", fontSize = if (look.compact) 7.sp else 10.sp, lineHeight = 8.sp, color = TextDim, modifier = Modifier.align(Alignment.TopStart))
+        Text(
+            title,
+            fontSize = look.fontSp.sp,
+            lineHeight = (look.fontSp + 2).sp,
+            textAlign = TextAlign.Center,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.align(Alignment.Center).fillMaxWidth().padding(top = if (look.compact) 8.dp else pad),
+        )
     }
 }

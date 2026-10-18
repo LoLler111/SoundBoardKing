@@ -88,8 +88,20 @@ class ScreensSnapshotTest {
     }
 
     @Test
+    fun favoritesTiny() = captureRoboImage("src/test/snapshots/favorites-tiny.png") {
+        val tiny = connected.copy(look = FavoritesLook(columns = 12, fontSp = 6))
+        SoundBoardTheme { RemoteScreen(tiny, actions, SnackbarHostState(), Tab.Favorites) }
+    }
+
+    @Test
+    fun favoritesWide() = captureRoboImage("src/test/snapshots/favorites-wide.png") {
+        val wide = connected.copy(look = FavoritesLook(columns = 4, fontSp = 12, shape = 3))
+        SoundBoardTheme { RemoteScreen(wide, actions, SnackbarHostState(), Tab.Favorites) }
+    }
+
+    @Test
     fun lookPreview() = captureRoboImage("src/test/snapshots/look-dialog.png") {
-        SoundBoardTheme { LookDialog(FavoritesLook(columns = 3, fontSp = 17), onChange = {}, onDismiss = {}) }
+        SoundBoardTheme { LookDialog(FavoritesLook(columns = 3, fontSp = 17, shape = 2), onChange = {}, onDismiss = {}) }
     }
 
     @Test

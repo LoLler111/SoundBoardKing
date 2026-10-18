@@ -5,10 +5,18 @@ import kotlinx.serialization.Serializable
 
 /** How the favourites grid looks: fewer [columns] make bigger buttons; [fontSp] is the title size. */
 @Serializable
-data class FavoritesLook(val columns: Int = 4, val fontSp: Int = 12) {
+data class FavoritesLook(val columns: Int = 4, val fontSp: Int = 12, val shape: Int = 0) {
+    /** Width / height of a tile: wider tiles take less room and still fit a readable title. */
+    val aspect get() = Aspects[shape.coerceIn(Aspects.indices)]
+
+    /** Tiny tiles need tighter gaps and margins, or the title has no room left. */
+    val compact get() = columns >= 8
+
     companion object {
-        val ColumnRange = 2..6
-        val FontRange = 9..24
+        val ColumnRange = 2..12
+        val FontRange = 6..24
+        val Aspects = listOf(1f, 1.3f, 1.7f, 2.2f, 3f)
+        val ShapeNames = listOf("Quadrati", "Poco rettangolari", "Rettangolari", "Larghi", "Molto larghi")
     }
 }
 
