@@ -100,6 +100,11 @@ class SoundBoardApi(
 
         fun simpleCommand(type: String) = buildJsonObject { put("type", type) }.toString()
 
+        fun stopOneCommand(playbackId: String) = buildJsonObject {
+            put("type", "stopOne")
+            put("playbackId", playbackId)
+        }.toString()
+
         fun micCommand(enabled: Boolean) = buildJsonObject {
             put("type", "setMic")
             put("enabled", enabled)

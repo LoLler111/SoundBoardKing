@@ -53,4 +53,18 @@ class ModelsTest {
         assertNull(ServerEvent.parse("not json"))
         assertTrue(PlaybackDto("paused").isPaused)
     }
+
+    @Test
+    fun listsEverySoundPlayingTogether() {
+        val event = ServerEvent.parse(
+            """{"type":"playback","state":"playing","soundId":"s2","positionMs":0,"durationMs":900,""" +
+                """"playing":[{"id":"p1","soundId":"s1","positionMs":500,"durationMs":3000},{"id":"p2","soundId":"s2","positionMs":0,"durationMs":900}]}""",
+        ) as ServerEvent.Playback
+        assertEquals(listOf("p1", "p2"), event.playback.sounds.map { it.id })
+
+        // A PC with an older version reports only the latest sound, without an id.
+        val old = PlaybackDto("playing", "s1", 100, 3000)
+        assertEquals(listOf(PlayingDto("", "s1", 100, 3000)), old.sounds)
+        assertTrue(PlaybackDto().sounds.isEmpty())
+    }
 }

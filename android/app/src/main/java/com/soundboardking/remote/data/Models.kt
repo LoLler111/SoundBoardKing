@@ -44,16 +44,35 @@ data class HotbarDto(
     val slots: List<HotbarSlotDto> = emptyList(),
 )
 
-/** [state] is "stopped", "playing" or "paused". */
+/** One of the sounds playing at the same time; [id] stops just this one. */
+@Serializable
+data class PlayingDto(
+    val id: String = "",
+    val soundId: String? = null,
+    val positionMs: Long = 0,
+    val durationMs: Long = 0,
+)
+
+/**
+ * [state] is "stopped", "playing" or "paused" (all sounds pause together). [soundId] and the times
+ * describe the most recent sound; [playing] lists every sound, oldest first.
+ */
 @Serializable
 data class PlaybackDto(
     val state: String = "stopped",
     val soundId: String? = null,
     val positionMs: Long = 0,
     val durationMs: Long = 0,
+    val playing: List<PlayingDto> = emptyList(),
 ) {
     val isActive get() = state != "stopped"
     val isPaused get() = state == "paused"
+
+    /** Every sound playing; a PC with an older version only reports the latest, without an id. */
+    val sounds: List<PlayingDto>
+        get() = playing.ifEmpty {
+            if (isActive) listOf(PlayingDto("", soundId, positionMs, durationMs)) else emptyList()
+        }
 }
 
 /** [state] is "notInstalled", "idle", "active", "incompatible" or "accessDenied". */

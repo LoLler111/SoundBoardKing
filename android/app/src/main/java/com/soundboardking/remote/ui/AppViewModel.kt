@@ -317,6 +317,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
 
     override fun stop() = send(SoundBoardApi.simpleCommand("stop"))
 
+    override fun stopOne(playbackId: String) = send(SoundBoardApi.stopOneCommand(playbackId))
+
     override fun togglePause() = send(SoundBoardApi.simpleCommand("togglePause"))
 
     override fun setMic(enabled: Boolean) = send(SoundBoardApi.micCommand(enabled))

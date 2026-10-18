@@ -23,7 +23,7 @@ public sealed class RemoteHost : IAsyncDisposable
         viewModel.LibraryChanged += (_, _) =>
             Broadcast(new { type = "libraryChanged", libraryVersion = viewModel.LibraryVersion });
         viewModel.PlaybackChanged += (_, p) =>
-            Broadcast(new { type = "playback", p.State, p.SoundId, p.PositionMs, p.DurationMs });
+            Broadcast(new { type = "playback", p.State, p.SoundId, p.PositionMs, p.DurationMs, p.Playing });
         viewModel.MicChanged += (_, m) =>
             Broadcast(new { type = "mic", m.State, m.Enabled });
     }

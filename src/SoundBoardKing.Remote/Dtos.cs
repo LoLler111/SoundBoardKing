@@ -10,10 +10,16 @@ public sealed record HotbarSlotDto(int Page, int Slot, Guid SoundId);
 
 public sealed record HotbarDto(int Pages, int SlotsPerPage, IReadOnlyList<HotbarSlotDto> Slots);
 
-/// <summary><see cref="State"/> is "stopped", "playing" or "paused".</summary>
-public sealed record PlaybackDto(string State, Guid? SoundId, long PositionMs, long DurationMs)
+/// <summary>One of the sounds playing at the same time; <see cref="Id"/> stops just this one.</summary>
+public sealed record PlayingDto(Guid Id, Guid? SoundId, long PositionMs, long DurationMs);
+
+/// <summary>
+/// <see cref="State"/> is "stopped", "playing" or "paused" (all sounds pause together). SoundId and the
+/// times describe the most recent sound, for older phones; <see cref="Playing"/> lists every sound, oldest first.
+/// </summary>
+public sealed record PlaybackDto(string State, Guid? SoundId, long PositionMs, long DurationMs, IReadOnlyList<PlayingDto> Playing)
 {
-    public static PlaybackDto Stopped { get; } = new("stopped", null, 0, 0);
+    public static PlaybackDto Stopped { get; } = new("stopped", null, 0, 0, []);
 }
 
 /// <summary><see cref="State"/> is "notInstalled", "idle", "active", "incompatible" or "accessDenied".</summary>

@@ -114,7 +114,10 @@ public sealed class RemoteServerTests : IAsyncLifetime
         Assert.Equal("server-1", root.GetProperty("serverId").GetString());
         Assert.Equal("airhorn", root.GetProperty("sounds")[0].GetProperty("title").GetString());
         Assert.Equal(Airhorn, root.GetProperty("hotbar").GetProperty("slots")[0].GetProperty("soundId").GetGuid());
-        Assert.Equal("stopped", root.GetProperty("playback").GetProperty("state").GetString());
+        var playing = root.GetProperty("playback").GetProperty("playing");
+        Assert.Equal(2, playing.GetArrayLength());
+        Assert.Equal(FakeController.First, playing[0].GetProperty("id").GetGuid());
+        Assert.Equal(1500, playing[0].GetProperty("positionMs").GetInt64());
 
         Assert.Equal(HttpStatusCode.NoContent,
             (await _http.SendAsync(Authorized(HttpMethod.Post, $"/api/play/{Airhorn}", token))).StatusCode);
@@ -131,6 +134,10 @@ public sealed class RemoteServerTests : IAsyncLifetime
             (await _http.SendAsync(Authorized(HttpMethod.Post, "/api/stop", token))).StatusCode);
         Assert.Equal([Airhorn, Airhorn], _controller.Played);
         Assert.Equal([PlayTarget.Default, PlayTarget.Mic], _controller.Targets);
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await _http.SendAsync(Authorized(HttpMethod.Post, $"/api/stop/{FakeController.First}", token))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await _http.SendAsync(Authorized(HttpMethod.Post, $"/api/stop/{Guid.NewGuid()}", token))).StatusCode);
         Assert.Equal(1, _controller.Stops);
     }
 
@@ -158,12 +165,14 @@ public sealed class RemoteServerTests : IAsyncLifetime
         using (var error = await ReceiveAsync(socket))
             Assert.Equal("File non trovato", error.RootElement.GetProperty("message").GetString());
 
+        await SendAsync(socket, new { type = "stopOne", playbackId = FakeController.Second });
         // The connection survives errors.
         await SendAsync(socket, new { type = "stop" });
         Assert.Equal(WebSocketState.Open, socket.State);
 
         Assert.Equal([PlayTarget.Default, PlayTarget.Speakers], _controller.Targets);
         Assert.Equal(1, _controller.Pauses);
+        Assert.Equal([FakeController.Second], _controller.StoppedOnes);
         Assert.False(_controller.MicEnabled);
 
         _server.Broadcast(new { type = "libraryChanged", libraryVersion = 43 });
@@ -242,8 +251,19 @@ public sealed class RemoteServerTests : IAsyncLifetime
             [new SoundDto(Airhorn, "airhorn", "", 3000, false, null)],
             [new CategoryDto(Guid.NewGuid(), "Voice", [Airhorn], [])],
             new HotbarDto(5, 20, [new HotbarSlotDto(0, 0, Airhorn)]),
-            PlaybackDto.Stopped,
+            new PlaybackDto("playing", Airhorn, 500, 3000,
+                [new PlayingDto(First, Airhorn, 1500, 3000), new PlayingDto(Second, Airhorn, 500, 3000)]),
             new MicDto("idle", MicEnabled)));
+
+        public static readonly Guid First = Guid.NewGuid();
+        public static readonly Guid Second = Guid.NewGuid();
+        public List<Guid> StoppedOnes { get; } = [];
+
+        public Task<bool> StopOneAsync(Guid playbackId)
+        {
+            StoppedOnes.Add(playbackId);
+            return Task.FromResult(playbackId == First || playbackId == Second);
+        }
 
         public static readonly Guid Broken = Guid.NewGuid();
 

@@ -16,6 +16,9 @@ public sealed class Playback
 
     internal Playback(object? tag) => Tag = tag;
 
+    /// <summary>Tells apart two plays of the same sound.</summary>
+    public Guid Id { get; } = Guid.NewGuid();
+
     public object? Tag { get; }
     public TimeSpan Position => (_speaker ?? _mic)?.Position ?? TimeSpan.Zero;
     public TimeSpan Duration => (_speaker ?? _mic)?.Duration ?? TimeSpan.Zero;

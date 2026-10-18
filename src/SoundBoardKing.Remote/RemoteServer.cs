@@ -155,6 +155,13 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
             return Results.NoContent();
         });
 
+        app.MapPost("/api/stop/{playbackId:guid}", async (HttpContext context, Guid playbackId) =>
+        {
+            if (Authenticate(context) is null)
+                return Results.Unauthorized();
+            return await controller.StopOneAsync(playbackId) ? Results.NoContent() : Results.NotFound();
+        });
+
         app.MapPost("/api/pause", async (HttpContext context) =>
         {
             if (Authenticate(context) is null)
@@ -257,6 +264,13 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
                     break;
                 case "stop":
                     await controller.StopAsync();
+                    break;
+                case "stopOne":
+                    // A sound that already ended is not an error: the phone just has not heard yet.
+                    if (root.TryGetProperty("playbackId", out var playbackElement) && playbackElement.TryGetGuid(out var playbackId))
+                        await controller.StopOneAsync(playbackId);
+                    else
+                        await SendErrorAsync(client, "playbackId mancante o non valido.");
                     break;
                 case "togglePause":
                     await controller.TogglePauseAsync();

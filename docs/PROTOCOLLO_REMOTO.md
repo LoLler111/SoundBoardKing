@@ -32,6 +32,7 @@ Ogni PC con SoundBoardKing risponde, direttamente al mittente:
 | GET | `/api/state` | sì | stato completo, vedi sotto |
 | POST | `/api/play/{soundId}?target=…` | sì | 204; 404 se il suono non esiste; 409 `{ error }` se non è partito (file mancante, nessun dispositivo audio, microfono non disponibile); 400 se `target` non è valido |
 | POST | `/api/stop` | sì | 204 |
+| POST | `/api/stop/{playbackId}` | sì | 204; 404 se quel suono è già finito |
 | POST | `/api/pause` | sì | 204 (mette in pausa o riprende) |
 
 Errori: 401 se il token manca o non è valido.
@@ -43,11 +44,15 @@ Errori: 401 se il token manca o non è valido.
   "sounds": [ { "id": "guid", "title": "airhorn", "artist": "", "durationMs": 3000, "missing": false, "hotkey": "Ctrl+1" } ],
   "categories": [ { "id": "guid", "name": "Voice", "soundIds": ["guid"], "children": [ … ] } ],
   "hotbar": { "pages": 5, "slotsPerPage": 20, "slots": [ { "page": 0, "slot": 0, "soundId": "guid" } ] },
-  "playback": { "state": "playing", "soundId": "guid", "positionMs": 1200, "durationMs": 3000 },
+  "playback": { "state": "playing", "soundId": "guid", "positionMs": 1200, "durationMs": 3000,
+                "playing": [ { "id": "guid", "soundId": "guid", "positionMs": 1200, "durationMs": 3000 } ] },
   "mic": { "state": "active", "enabled": true }
 }
 ```
 - `playback.state`: `stopped` | `playing` | `paused`.
+- `playback.playing`: tutti i suoni in riproduzione insieme, dal più vecchio; `id` identifica quella riproduzione
+  (serve a `stopOne`). `soundId` e i tempi fuori dalla lista descrivono l'ultimo suono partito, per i telefoni
+  con una versione precedente. La pausa vale per tutti i suoni insieme.
 - `mic.state`: `notInstalled` | `idle` | `active` | `incompatible` | `accessDenied`.
 
 ## WebSocket `/ws?token=…`
@@ -58,6 +63,7 @@ Dal telefono al PC:
 { "type": "play", "soundId": "guid" }
 { "type": "play", "soundId": "guid", "target": "speakers" }
 { "type": "stop" }
+{ "type": "stopOne", "playbackId": "guid" }
 { "type": "togglePause" }
 { "type": "setMic", "enabled": false }
 ```
@@ -68,7 +74,7 @@ Dal telefono al PC:
 Dal PC al telefono:
 ```json
 { "type": "hello", "libraryVersion": 7 }
-{ "type": "playback", "state": "playing", "soundId": "guid", "positionMs": 0, "durationMs": 3000 }
+{ "type": "playback", "state": "playing", "soundId": "guid", "positionMs": 0, "durationMs": 3000, "playing": [ … ] }
 { "type": "libraryChanged", "libraryVersion": 8 }
 { "type": "mic", "state": "idle", "enabled": true }
 { "type": "error", "message": "…" }

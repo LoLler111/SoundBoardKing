@@ -17,6 +17,8 @@ internal sealed class RemoteController(MainViewModel viewModel, Dispatcher dispa
 
     public Task StopAsync() => dispatcher.InvokeAsync(() => viewModel.StopCommand.Execute(null)).Task;
 
+    public Task<bool> StopOneAsync(Guid playbackId) => dispatcher.InvokeAsync(() => viewModel.StopPlayback(playbackId)).Task;
+
     public Task TogglePauseAsync() => dispatcher.InvokeAsync(() => viewModel.TogglePauseCommand.Execute(null)).Task;
 
     public Task SetMicEnabledAsync(bool enabled) => dispatcher.InvokeAsync(() => viewModel.PlayOnMic = enabled).Task;

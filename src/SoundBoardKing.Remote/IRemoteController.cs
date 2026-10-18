@@ -14,6 +14,9 @@ public interface IRemoteController
     Task<PlayResult> PlayAsync(Guid soundId, PlayTarget target = PlayTarget.Default);
 
     Task StopAsync();
+
+    /// <summary>Stops one of the sounds playing together; false when it already ended.</summary>
+    Task<bool> StopOneAsync(Guid playbackId);
     Task TogglePauseAsync();
     Task SetMicEnabledAsync(bool enabled);
 }

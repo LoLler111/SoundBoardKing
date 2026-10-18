@@ -76,7 +76,20 @@ public sealed partial class MainViewModel
             _engine.IsPaused ? "paused" : "playing",
             current.Tag as Guid?,
             (long)current.Position.TotalMilliseconds,
-            (long)current.Duration.TotalMilliseconds);
+            (long)current.Duration.TotalMilliseconds,
+            NowPlaying
+                .Select(p => p.Playback)
+                .Select(p => new PlayingDto(p.Id, p.Tag as Guid?, (long)p.Position.TotalMilliseconds, (long)p.Duration.TotalMilliseconds))
+                .ToList());
+    }
+
+    /// <summary>Stops one of the sounds playing together; false when it already ended.</summary>
+    public bool StopPlayback(Guid playbackId)
+    {
+        if (NowPlaying.FirstOrDefault(p => p.Playback.Id == playbackId) is not { } item)
+            return false;
+        _engine.Stop(item.Playback);
+        return true;
     }
 
     public MicDto CurrentMic() =>

@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
@@ -31,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -108,7 +112,7 @@ internal fun RemoteScreen(state: UiState, actions: RemoteActions, snackbar: Snac
     var tab by rememberSaveable { mutableStateOf(startTab) }
     val library = state.library
     val soundsById = remember(library) { library?.sounds?.associateBy { it.id }.orEmpty() }
-    val playingId = state.playback.soundId.takeIf { state.playback.isActive }
+    val playingIds = state.playback.sounds.mapNotNull { it.soundId }.toSet()
 
     Scaffold(
         topBar = { RemoteTopBar(state, onRefresh = actions::reconnect, onForget = actions::forgetServer) },
@@ -151,9 +155,9 @@ internal fun RemoteScreen(state: UiState, actions: RemoteActions, snackbar: Snac
                 }
             } else {
                 when (tab) {
-                    Tab.Favorites -> FavoritesTab(library, soundsById, playingId, actions::play)
-                    Tab.Categories -> CategoriesTab(library, soundsById, playingId, actions::play)
-                    Tab.Search -> SearchTab(library, playingId, actions::play)
+                    Tab.Favorites -> FavoritesTab(library, soundsById, playingIds, actions::play)
+                    Tab.Categories -> CategoriesTab(library, soundsById, playingIds, actions::play)
+                    Tab.Search -> SearchTab(library, playingIds, actions::play)
                 }
             }
         }
@@ -202,7 +206,7 @@ private fun RemoteTopBar(state: UiState, onRefresh: () -> Unit, onForget: () -> 
 // ---- Favourites ------------------------------------------------------------------------------
 
 @Composable
-private fun FavoritesTab(library: StateDto, soundsById: Map<String, SoundDto>, playingId: String?, onPlay: OnPlay) {
+private fun FavoritesTab(library: StateDto, soundsById: Map<String, SoundDto>, playingIds: Set<String>, onPlay: OnPlay) {
     val hotbar = library.hotbar
     val pagerState = rememberPagerState { hotbar.pages }
     val scope = rememberCoroutineScope()
@@ -228,7 +232,7 @@ private fun FavoritesTab(library: StateDto, soundsById: Map<String, SoundDto>, p
             ) {
                 items(hotbar.slotsPerPage) { slot ->
                     val sound = slots[page to slot]?.let { soundsById[it.soundId] }
-                    SlotTile(slot + 1, sound, playing = sound != null && sound.id == playingId, onPlay)
+                    SlotTile(slot + 1, sound, playing = sound != null && sound.id in playingIds, onPlay)
                 }
             }
         }
@@ -279,7 +283,7 @@ private fun SlotTile(number: Int, sound: SoundDto?, playing: Boolean, onPlay: On
 // ---- Categories ------------------------------------------------------------------------------
 
 @Composable
-private fun CategoriesTab(library: StateDto, soundsById: Map<String, SoundDto>, playingId: String?, onPlay: OnPlay) {
+private fun CategoriesTab(library: StateDto, soundsById: Map<String, SoundDto>, playingIds: Set<String>, onPlay: OnPlay) {
     var path by rememberSaveable { mutableStateOf(listOf<String>()) }
     val trail = remember(library, path) { resolvePath(library.categories, path) }
     val current = trail.lastOrNull()
@@ -314,7 +318,7 @@ private fun CategoriesTab(library: StateDto, soundsById: Map<String, SoundDto>, 
             )
         }
         if (children.isNotEmpty() && sounds.isNotEmpty()) item { HorizontalDivider() }
-        items(sounds, key = { "s" + it.id }) { sound -> SoundRow(sound, sound.id == playingId, onPlay) }
+        items(sounds, key = { "s" + it.id }) { sound -> SoundRow(sound, sound.id in playingIds, onPlay) }
         if (current == null && children.isEmpty())
             item { Text("Nessuna categoria sul PC.", color = TextDim, modifier = Modifier.padding(24.dp)) }
     }
@@ -335,7 +339,7 @@ internal fun resolvePath(roots: List<CategoryDto>, path: List<String>): List<Cat
 // ---- Search ----------------------------------------------------------------------------------
 
 @Composable
-private fun SearchTab(library: StateDto, playingId: String?, onPlay: OnPlay) {
+private fun SearchTab(library: StateDto, playingIds: Set<String>, onPlay: OnPlay) {
     var query by rememberSaveable { mutableStateOf("") }
     val results = remember(library, query) {
         val all = library.sounds.sortedBy { it.title.lowercase() }
@@ -353,7 +357,7 @@ private fun SearchTab(library: StateDto, playingId: String?, onPlay: OnPlay) {
             modifier = Modifier.fillMaxWidth().padding(12.dp),
         )
         LazyColumn(Modifier.fillMaxSize()) {
-            items(results, key = { it.id }) { sound -> SoundRow(sound, sound.id == playingId, onPlay) }
+            items(results, key = { it.id }) { sound -> SoundRow(sound, sound.id in playingIds, onPlay) }
             if (results.isEmpty())
                 item { Text("Nessun suono trovato.", color = TextDim, modifier = Modifier.padding(24.dp)) }
         }
@@ -365,9 +369,9 @@ private fun SearchTab(library: StateDto, playingId: String?, onPlay: OnPlay) {
 @Composable
 private fun NowPlayingBar(state: UiState, soundsById: Map<String, SoundDto>, actions: RemoteActions) {
     val playback = state.playback
-    val title = playback.soundId?.let { soundsById[it]?.title }.takeIf { playback.isActive }
+    val sounds = playback.sounds
 
-    // The PC sends the position only on changes; extrapolate it while playing.
+    // The PC sends positions only on changes; extrapolate them while playing.
     var now by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
     LaunchedEffect(playback, state.playbackReceivedAt) {
         while (playback.state == "playing") {
@@ -375,29 +379,27 @@ private fun NowPlayingBar(state: UiState, soundsById: Map<String, SoundDto>, act
             delay(200)
         }
     }
-    val position = if (playback.state == "playing") playback.positionMs + (now - state.playbackReceivedAt) else playback.positionMs
-    val fraction = if (playback.durationMs > 0) (position.toFloat() / playback.durationMs).coerceIn(0f, 1f) else 0f
+    val elapsed = if (playback.state == "playing") now - state.playbackReceivedAt else 0L
 
     Surface(color = Panel) {
         Column(Modifier.fillMaxWidth()) {
             HorizontalDivider()
             Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        title ?: "Nessun suono in riproduzione",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontWeight = if (title != null) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (title != null) MaterialTheme.colorScheme.onSurface else TextDim,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    LinearProgressIndicator(
-                        progress = { fraction },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = Gold,
-                        trackColor = Panel2,
-                        drawStopIndicator = {},
-                    )
+                // One bar per sound playing; each disappears when its sound ends or is stopped.
+                Column(Modifier.weight(1f).heightIn(max = 168.dp).verticalScroll(rememberScrollState())) {
+                    if (sounds.isEmpty()) {
+                        PlayingRow("Nessun suono in riproduzione", 0f, active = false, onStop = null)
+                    }
+                    sounds.forEach { sound ->
+                        val position = sound.positionMs + elapsed
+                        val fraction = if (sound.durationMs > 0) (position.toFloat() / sound.durationMs).coerceIn(0f, 1f) else 0f
+                        PlayingRow(
+                            sound.soundId?.let { soundsById[it]?.title }.orEmpty(),
+                            fraction,
+                            active = true,
+                            onStop = if (sound.id.isNotEmpty()) ({ actions.stopOne(sound.id) }) else null,
+                        )
+                    }
                 }
                 IconButton(onClick = actions::togglePause, enabled = playback.isActive) {
                     if (playback.isPaused) Icon(Icons.Filled.PlayArrow, contentDescription = "Riprendi")
@@ -406,6 +408,34 @@ private fun NowPlayingBar(state: UiState, soundsById: Map<String, SoundDto>, act
                 IconButton(onClick = actions::stop) { StopIcon() }
             }
             MicChip(state.mic, onToggle = { actions.setMic(!state.mic.enabled) })
+        }
+    }
+}
+
+@Composable
+private fun PlayingRow(title: String, fraction: Float, active: Boolean, onStop: (() -> Unit)?) {
+    Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (active) MaterialTheme.colorScheme.onSurface else TextDim,
+            )
+            Spacer(Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier.fillMaxWidth(),
+                color = Gold,
+                trackColor = Panel2,
+                drawStopIndicator = {},
+            )
+        }
+        if (onStop != null) {
+            IconButton(onClick = onStop, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Filled.Close, contentDescription = "Ferma questo suono", tint = TextDim, modifier = Modifier.size(18.dp))
+            }
         }
     }
 }
