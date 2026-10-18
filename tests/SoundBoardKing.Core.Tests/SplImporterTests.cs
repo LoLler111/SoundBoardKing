@@ -37,6 +37,26 @@ public class SplImporterTests
         </Soundlist>
         """;
 
+    private sealed class Recorder : IProgress<int>
+    {
+        public List<int> Values { get; } = [];
+        public void Report(int value) => Values.Add(value);
+    }
+
+    [Fact]
+    public void Reports_progress_up_to_100()
+    {
+        using var dir = new TempDirectory();
+        var spl = dir.CreateFile(@"Configurazione\lista.spl", SampleList);
+        var progress = new Recorder();
+
+        SplImporter.Import(spl, progress);
+
+        Assert.Equal(100, progress.Values[^1]);
+        Assert.Equal(progress.Values.Order(), progress.Values);
+        Assert.Equal(progress.Values.Distinct(), progress.Values);
+    }
+
     [Fact]
     public void Imports_sounds_categories_and_hotbar()
     {

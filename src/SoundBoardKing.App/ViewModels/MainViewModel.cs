@@ -376,18 +376,27 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             !_dialogs.Confirm($"La libreria attuale ({_library.Sounds.Count} suoni) verrà sostituita dalla lista importata. Continuare?"))
             return;
 
-        StatusText = "Importazione in corso…";
+        StatusText = "Importazione in corso… 0%";
+        bool importing = true;
+        var progress = new Progress<int>(percent =>
+        {
+            // Reports arrive asynchronously, so ignore any that land after the import finished.
+            if (importing)
+                StatusText = $"Importazione in corso… {percent}%";
+        });
         SplImportResult result;
         try
         {
-            result = await Task.Run(() => SplImporter.Import(path));
+            result = await Task.Run(() => SplImporter.Import(path, progress));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or XmlException)
         {
+            importing = false;
             StatusText = "";
             _dialogs.ShowError($"Importazione non riuscita: {ex.Message}");
             return;
         }
+        importing = false;
 
         _engine.StopAll();
         _library = result.Library;

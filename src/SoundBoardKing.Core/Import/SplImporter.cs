@@ -9,7 +9,8 @@ public sealed record SplImportResult(SoundLibrary Library, int MissingFiles, IRe
 /// <summary>Reads a SoundPad sound list (.spl): sounds, nested categories and the hotbar.</summary>
 public static class SplImporter
 {
-    public static SplImportResult Import(string splPath)
+    /// <summary>Reports progress as a percentage; checking that each sound file exists is the slow part.</summary>
+    public static SplImportResult Import(string splPath, IProgress<int>? progress = null)
     {
         var fullPath = Path.GetFullPath(splPath);
         var root = XDocument.Load(fullPath).Root;
@@ -23,10 +24,14 @@ public static class SplImporter
         int missing = 0;
 
         // SoundPad identifies a sound by its 1-based position in the list.
-        int index = 0;
-        foreach (var element in root.Elements("Sound"))
+        var soundElements = root.Elements("Sound").ToList();
+        int index = 0, reported = -1;
+        foreach (var element in soundElements)
         {
             index++;
+            int percent = index * 99 / soundElements.Count;
+            if (percent != reported)
+                progress?.Report(reported = percent);
             var url = (string?)element.Attribute("url") ?? "";
             var path = resolver.Resolve(url, out bool found);
             if (!found)
@@ -80,6 +85,7 @@ public static class SplImporter
             pageIndex++;
         }
 
+        progress?.Report(100);
         return new SplImportResult(library, missing, warnings);
     }
 
