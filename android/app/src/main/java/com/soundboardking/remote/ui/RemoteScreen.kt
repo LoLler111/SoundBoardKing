@@ -84,6 +84,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.soundboardking.remote.data.CategoryDto
+import com.soundboardking.remote.data.FavoritesLook
 import com.soundboardking.remote.data.MicDto
 import com.soundboardking.remote.data.PlayTarget
 import com.soundboardking.remote.data.PlaybackDto
@@ -113,9 +114,11 @@ internal fun RemoteScreen(state: UiState, actions: RemoteActions, snackbar: Snac
     val library = state.library
     val soundsById = remember(library) { library?.sounds?.associateBy { it.id }.orEmpty() }
     val playingIds = state.playback.sounds.mapNotNull { it.soundId }.toSet()
+    var lookDialog by rememberSaveable { mutableStateOf(false) }
+    if (lookDialog) LookDialog(state.look, onChange = actions::setLook, onDismiss = { lookDialog = false })
 
     Scaffold(
-        topBar = { RemoteTopBar(state, onRefresh = actions::reconnect, onForget = actions::forgetServer) },
+        topBar = { RemoteTopBar(state, onRefresh = actions::reconnect, onForget = actions::forgetServer, onLook = { lookDialog = true }) },
         bottomBar = {
             Column {
                 NowPlayingBar(state, soundsById, actions)
@@ -155,7 +158,7 @@ internal fun RemoteScreen(state: UiState, actions: RemoteActions, snackbar: Snac
                 }
             } else {
                 when (tab) {
-                    Tab.Favorites -> FavoritesTab(library, soundsById, playingIds, actions::play)
+                    Tab.Favorites -> FavoritesTab(library, soundsById, playingIds, state.look, actions::play)
                     Tab.Categories -> CategoriesTab(library, soundsById, playingIds, actions::play)
                     Tab.Search -> SearchTab(library, playingIds, actions::play)
                 }
@@ -166,7 +169,7 @@ internal fun RemoteScreen(state: UiState, actions: RemoteActions, snackbar: Snac
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RemoteTopBar(state: UiState, onRefresh: () -> Unit, onForget: () -> Unit) {
+private fun RemoteTopBar(state: UiState, onRefresh: () -> Unit, onForget: () -> Unit, onLook: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val (statusText, statusColor) = when (state.connection) {
         ConnectionState.Online -> "Connesso" to Online
@@ -191,6 +194,13 @@ private fun RemoteTopBar(state: UiState, onRefresh: () -> Unit, onForget: () -> 
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Altro") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
+                        text = { Text("Aspetto dei preferiti") },
+                        onClick = {
+                            menu = false
+                            onLook()
+                        },
+                    )
+                    DropdownMenuItem(
                         text = { Text("Abbina un altro PC") },
                         onClick = {
                             menu = false
@@ -206,7 +216,13 @@ private fun RemoteTopBar(state: UiState, onRefresh: () -> Unit, onForget: () -> 
 // ---- Favourites ------------------------------------------------------------------------------
 
 @Composable
-private fun FavoritesTab(library: StateDto, soundsById: Map<String, SoundDto>, playingIds: Set<String>, onPlay: OnPlay) {
+private fun FavoritesTab(
+    library: StateDto,
+    soundsById: Map<String, SoundDto>,
+    playingIds: Set<String>,
+    look: FavoritesLook,
+    onPlay: OnPlay,
+) {
     val hotbar = library.hotbar
     val pagerState = rememberPagerState { hotbar.pages }
     val scope = rememberCoroutineScope()
@@ -225,14 +241,14 @@ private fun FavoritesTab(library: StateDto, soundsById: Map<String, SoundDto>, p
         }
         HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
             LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
+                columns = GridCells.Fixed(look.columns),
                 modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(hotbar.slotsPerPage) { slot ->
                     val sound = slots[page to slot]?.let { soundsById[it.soundId] }
-                    SlotTile(slot + 1, sound, playing = sound != null && sound.id in playingIds, onPlay)
+                    SlotTile(slot + 1, sound, playing = sound != null && sound.id in playingIds, look.fontSp, onPlay)
                 }
             }
         }
@@ -241,7 +257,7 @@ private fun FavoritesTab(library: StateDto, soundsById: Map<String, SoundDto>, p
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SlotTile(number: Int, sound: SoundDto?, playing: Boolean, onPlay: OnPlay) {
+private fun SlotTile(number: Int, sound: SoundDto?, playing: Boolean, fontSp: Int, onPlay: OnPlay) {
     val haptic = LocalHapticFeedback.current
     var menu by remember { mutableStateOf(false) }
     Box {
@@ -267,8 +283,8 @@ private fun SlotTile(number: Int, sound: SoundDto?, playing: Boolean, onPlay: On
                 Text("$number", fontSize = 10.sp, color = TextDim, modifier = Modifier.align(Alignment.TopStart))
                 Text(
                     sound?.title.orEmpty(),
-                    fontSize = 12.sp,
-                    lineHeight = 14.sp,
+                    fontSize = fontSp.sp,
+                    lineHeight = (fontSp + 2).sp,
                     textAlign = TextAlign.Center,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,

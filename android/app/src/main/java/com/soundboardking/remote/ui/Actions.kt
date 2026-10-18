@@ -1,6 +1,7 @@
 package com.soundboardking.remote.ui
 
 import com.soundboardking.remote.data.DiscoveredPc
+import com.soundboardking.remote.data.FavoritesLook
 import com.soundboardking.remote.data.PlayTarget
 
 /** What the pairing screen can ask for. Implemented by [AppViewModel]; screens stay free of it. */
@@ -21,4 +22,5 @@ interface RemoteActions {
     fun setMic(enabled: Boolean)
     fun reconnect()
     fun forgetServer()
+    fun setLook(look: FavoritesLook)
 }

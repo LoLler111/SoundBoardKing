@@ -4,6 +4,7 @@ import androidx.compose.material3.SnackbarHostState
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.soundboardking.remote.data.CategoryDto
 import com.soundboardking.remote.data.DiscoveredPc
+import com.soundboardking.remote.data.FavoritesLook
 import com.soundboardking.remote.data.DiscoveryReply
 import com.soundboardking.remote.data.HotbarDto
 import com.soundboardking.remote.data.HotbarSlotDto
@@ -35,6 +36,7 @@ class ScreensSnapshotTest {
         override fun setMic(enabled: Boolean) {}
         override fun reconnect() {}
         override fun forgetServer() {}
+        override fun setLook(look: FavoritesLook) {}
         override fun discover() {}
         override fun pairWithLink(text: String) {}
         override fun pairWithDiscovered(pc: DiscoveredPc, code: String) {}
@@ -77,6 +79,17 @@ class ScreensSnapshotTest {
     @Test
     fun favorites() = captureRoboImage("src/test/snapshots/favorites.png") {
         SoundBoardTheme { RemoteScreen(connected, actions, SnackbarHostState(), Tab.Favorites) }
+    }
+
+    @Test
+    fun favoritesBig() = captureRoboImage("src/test/snapshots/favorites-big.png") {
+        val big = connected.copy(look = FavoritesLook(columns = 3, fontSp = 17))
+        SoundBoardTheme { RemoteScreen(big, actions, SnackbarHostState(), Tab.Favorites) }
+    }
+
+    @Test
+    fun lookPreview() = captureRoboImage("src/test/snapshots/look-dialog.png") {
+        SoundBoardTheme { LookDialog(FavoritesLook(columns = 3, fontSp = 17), onChange = {}, onDismiss = {}) }
     }
 
     @Test

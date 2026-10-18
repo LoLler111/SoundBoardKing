@@ -6,6 +6,8 @@ import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.soundboardking.remote.data.Discovery
+import com.soundboardking.remote.data.FavoritesLook
+import com.soundboardking.remote.data.LookStore
 import com.soundboardking.remote.data.DiscoveredPc
 import com.soundboardking.remote.data.MicDto
 import com.soundboardking.remote.data.PROTOCOL_VERSION
@@ -52,13 +54,15 @@ data class UiState(
     val discovering: Boolean = false,
     val pairingBusy: Boolean = false,
     val pairingError: String? = null,
+    val look: FavoritesLook = FavoritesLook(),
 )
 
 class AppViewModel(application: Application) : AndroidViewModel(application), ConnectActions, RemoteActions {
     private val store = ServerStore(application)
+    private val lookStore = LookStore(application)
     private val api = SoundBoardApi()
 
-    private val _state = MutableStateFlow(UiState(server = store.load()))
+    private val _state = MutableStateFlow(UiState(server = store.load(), look = lookStore.load()))
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
@@ -125,6 +129,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
             return
         }
         pair(listOf(host), port, code)
+    }
+
+    override fun setLook(look: FavoritesLook) {
+        lookStore.save(look)
+        _state.update { it.copy(look = look) }
     }
 
     override fun forgetServer() {
