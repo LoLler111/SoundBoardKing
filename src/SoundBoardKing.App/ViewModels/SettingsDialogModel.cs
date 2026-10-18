@@ -39,9 +39,19 @@ public sealed partial class SettingsDialogModel : ObservableObject
     [ObservableProperty]
     private string micLog = "";
 
-    public SettingsDialogModel(IReadOnlyList<AudioDevice> devices)
+    [ObservableProperty]
+    private string profilePath = "";
+
+    [ObservableProperty]
+    private string profileLog = "";
+
+    private readonly IProfileActions _profile;
+
+    public SettingsDialogModel(IReadOnlyList<AudioDevice> devices, IProfileActions profile)
     {
         Devices = devices;
+        _profile = profile;
+        ProfilePath = profile.ProfilePath;
         SelectedMicSlot = MicSlots[0];
         RefreshMicDevices(null);
     }
@@ -83,6 +93,50 @@ public sealed partial class SettingsDialogModel : ObservableObject
         var result = await MicModuleService.UninstallAsync(device.Id);
         MicLog = (result.Success ? "Fatto. " : "Non riuscito. ") + result.Message;
         RefreshMicDevices(device.Id);
+    }
+
+    // ---- Profile ----------------------------------------------------------------------------
+
+    public string ExecutableProfilePath => _profile.ExecutableProfilePath;
+
+    public bool CanMoveNextToExecutable => !IsProfileNextToExecutable;
+
+    public bool IsProfileNextToExecutable =>
+        string.Equals(ProfilePath, ExecutableProfilePath, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Set when another profile was opened: the app restarts to load it.</summary>
+    public bool RestartRequested { get; private set; }
+
+    partial void OnProfilePathChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsProfileNextToExecutable));
+        OnPropertyChanged(nameof(CanMoveNextToExecutable));
+    }
+
+    public void MoveProfile(string path)
+    {
+        var error = _profile.MoveProfile(path);
+        ProfilePath = _profile.ProfilePath;
+        ProfileLog = error is null ? "Profilo spostato: da ora le modifiche vengono salvate qui." : "Non riuscito. " + error;
+    }
+
+    public void ExportProfile(string path)
+    {
+        var error = _profile.ExportProfile(path);
+        ProfileLog = error is null ? $"Copia salvata in {path}." : "Non riuscito. " + error;
+    }
+
+    /// <summary>Returns true when the app is about to restart with the chosen profile.</summary>
+    public bool UseProfile(string path)
+    {
+        var error = _profile.UseProfile(path);
+        if (error is not null)
+        {
+            ProfileLog = "Non riuscito. " + error;
+            return false;
+        }
+        RestartRequested = true;
+        return true;
     }
 
     private void RefreshMicDevices(string? selectId)

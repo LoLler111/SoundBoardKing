@@ -21,8 +21,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 {
     private const string IdleTitle = "Nessun suono in riproduzione";
 
-    private readonly JsonFileStore<SoundLibrary> _libraryStore;
-    private readonly JsonFileStore<AppSettings> _settingsStore;
+    private readonly ProfileStorage _storage;
     private readonly AudioEngine _engine;
     private readonly ApoMicFeed _micFeed;
     private readonly HotkeyService _hotkeys;
@@ -36,8 +35,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private AppSettings _settings = new();
     private CategoryNodeViewModel? _allSoundsNode;
     private bool _initialized;
-    private bool _canSaveLibrary = true;
-    private bool _canSaveSettings = true;
+    private bool _canSaveProfile = true;
 
     [ObservableProperty]
     private IReadOnlyList<SoundItemViewModel> visibleSounds = [];
@@ -82,15 +80,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private bool isMicActive;
 
     public MainViewModel(
-        JsonFileStore<SoundLibrary> libraryStore,
-        JsonFileStore<AppSettings> settingsStore,
+        ProfileStorage storage,
         AudioEngine engine,
         ApoMicFeed micFeed,
         HotkeyService hotkeys,
         IDialogService dialogs)
     {
-        _libraryStore = libraryStore;
-        _settingsStore = settingsStore;
+        _storage = storage;
         _engine = engine;
         _micFeed = micFeed;
         _hotkeys = hotkeys;
@@ -172,12 +168,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public void Initialize()
     {
-        (_settings, _canSaveSettings) = Load(_settingsStore);
-        (_library, _canSaveLibrary) = Load(_libraryStore);
+        LoadProfile();
 
         _engine.SpeakerVolume = _settings.SpeakerVolume;
         _engine.MicVolume = _settings.MicVolume;
-        _engine.SetOutputDevice(_settings.OutputDeviceId);
+        _engine.SetOutputDevice(_storage.Local.OutputDeviceId);
         HotbarPage = Math.Clamp(_settings.HotbarPage, 0, Hotbar.PageCount - 1);
         OnPropertyChanged(nameof(SpeakerVolume));
         OnPropertyChanged(nameof(MicVolume));
@@ -191,25 +186,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (_library.Sounds.Count == 0 && StatusText.Length == 0)
             StatusText = "Libreria vuota: importa la lista di SoundPad o trascina qui dei file audio.";
-    }
-
-    private (T Value, bool CanSave) Load<T>(JsonFileStore<T> store) where T : class, new()
-    {
-        try
-        {
-            return (store.Load(), true);
-        }
-        catch (InvalidDataException ex)
-        {
-            // The corrupt file was moved aside, so starting fresh cannot overwrite it.
-            _dialogs.ShowError(ex.Message);
-            return (new T(), true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            _dialogs.ShowError($"Impossibile leggere {store.FilePath}: {ex.Message}\nLe modifiche di questa sessione non verranno salvate.");
-            return (new T(), false);
-        }
     }
 
     // ---- Playback ----------------------------------------------------------------------------
@@ -393,7 +369,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task ImportSplAsync()
     {
-        var path = _dialogs.OpenSplFile(_settings.LastImportFolder);
+        var path = _dialogs.OpenSplFile(_storage.Local.LastImportFolder);
         if (path is null)
             return;
         if (_library.Sounds.Count > 0 &&
@@ -415,7 +391,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         _engine.StopAll();
         _library = result.Library;
-        _settings.LastImportFolder = Path.GetDirectoryName(path);
+        _storage.Local.LastImportFolder = Path.GetDirectoryName(path);
         RebuildAll();
         RegisterHotkeys();
         SaveNow();
@@ -775,22 +751,27 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             StatusText = $"Impossibile elencare i dispositivi audio: {ex.Message}";
         }
 
-        var model = new SettingsDialogModel(devices)
+        var model = new SettingsDialogModel(devices, this)
         {
-            SelectedDevice = devices.FirstOrDefault(d => d.Id == (_settings.OutputDeviceId ?? "")) ?? devices[0],
+            SelectedDevice = devices.FirstOrDefault(d => d.Id == (_storage.Local.OutputDeviceId ?? "")) ?? devices[0],
             AllowOverlap = _settings.AllowOverlap,
             StopHotkey = _settings.StopHotkey,
             PauseHotkey = _settings.PauseHotkey,
         };
         bool accepted = _dialogs.EditSettings(model);
         UpdateMicStatus(); // the module may have been installed or removed from the dialog
+        if (model.RestartRequested)
+        {
+            RestartRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
         if (!accepted)
             return;
 
         var deviceId = string.IsNullOrEmpty(model.SelectedDevice?.Id) ? null : model.SelectedDevice.Id;
-        if (deviceId != _settings.OutputDeviceId)
+        if (deviceId != _storage.Local.OutputDeviceId)
         {
-            _settings.OutputDeviceId = deviceId;
+            _storage.Local.OutputDeviceId = deviceId;
             _engine.SetOutputDevice(deviceId);
         }
         _settings.AllowOverlap = model.AllowOverlap;
@@ -825,10 +806,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _saveTimer.Stop();
         try
         {
-            if (_canSaveLibrary)
-                _libraryStore.Save(_library);
-            if (_canSaveSettings)
-                _settingsStore.Save(_settings);
+            _storage.SaveLocal();
+            if (_canSaveProfile)
+                _storage.Save(CurrentProfile());
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

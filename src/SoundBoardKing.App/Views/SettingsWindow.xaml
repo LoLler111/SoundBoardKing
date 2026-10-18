@@ -49,6 +49,23 @@
             <Button Grid.Row="1" Grid.Column="2" Content="Cambia…" Click="ChangePause_Click" />
         </Grid>
 
+        <TextBlock Text="Profilo (libreria e impostazioni)" FontWeight="SemiBold" Margin="0,18,0,0" />
+        <TextBlock Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap" Margin="0,4,0,8"
+                   Text="Un unico file con tutta la libreria, i preferiti e le impostazioni (tranne i dispositivi audio), aggiornato a ogni modifica. Copialo per portarti tutto su un altro PC; se lo tieni accanto all'eseguibile, viene trovato da solo anche spostando la cartella." />
+        <TextBox Text="{Binding ProfilePath, Mode=OneWay}" IsReadOnly="True" FontSize="12" />
+        <WrapPanel Margin="0,8,0,0">
+            <Button Content="Accanto all'eseguibile" Click="MoveNextToExe_Click" Margin="0,0,8,6"
+                    IsEnabled="{Binding CanMoveNextToExecutable}"
+                    ToolTip="{Binding ExecutableProfilePath}" />
+            <Button Content="Sposta…" Click="MoveProfile_Click" Margin="0,0,8,6"
+                    ToolTip="Sposta il profilo in un'altra cartella e continua a usarlo da lì" />
+            <Button Content="Esporta una copia…" Click="ExportProfile_Click" Margin="0,0,8,6" />
+            <Button Content="Apri profilo…" Click="OpenProfile_Click" Margin="0,0,8,6"
+                    ToolTip="Usa un profilo esportato (l'app si riavvia)" />
+            <Button Content="Mostra nella cartella" Click="ShowProfile_Click" Margin="0,0,0,6" />
+        </WrapPanel>
+        <TextBlock Text="{Binding ProfileLog}" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource TextDimBrush}" />
+
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
             <Button Content="Annulla" IsCancel="True" Margin="0,0,8,0" MinWidth="90" />
             <Button Content="OK" IsDefault="True" Style="{StaticResource AccentButton}" MinWidth="90" Click="Ok_Click" />

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
@@ -11,6 +12,7 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        WaitForPreviousInstance(e.Args);
         _singleInstance = new Mutex(true, @"Local\SoundBoardKing.SingleInstance", out bool isFirstInstance);
         if (!isFirstInstance)
         {
@@ -22,6 +24,23 @@ public partial class App : Application
         DispatcherUnhandledException += OnUnhandledException;
         base.OnStartup(e);
         new MainWindow().Show();
+    }
+
+    // "--after <pid>": restarted to open another profile, so let the old instance finish saving and exit.
+    private static void WaitForPreviousInstance(string[] args)
+    {
+        int index = Array.IndexOf(args, "--after");
+        if (index < 0 || index + 1 >= args.Length || !int.TryParse(args[index + 1], out int pid))
+            return;
+        try
+        {
+            using var previous = Process.GetProcessById(pid);
+            previous.WaitForExit(TimeSpan.FromSeconds(15));
+        }
+        catch (ArgumentException)
+        {
+            // Already gone.
+        }
     }
 
     private static void OnUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

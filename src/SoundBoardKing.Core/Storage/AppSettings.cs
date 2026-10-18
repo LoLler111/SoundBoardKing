@@ -1,10 +1,11 @@
 namespace SoundBoardKing.Core.Storage;
 
+/// <summary>
+/// Settings that travel with the profile. Anything tied to this PC's audio devices belongs in
+/// <see cref="LocalSettings"/> instead.
+/// </summary>
 public sealed class AppSettings
 {
-    /// <summary>Output device id (headphones/speakers); null follows the Windows default.</summary>
-    public string? OutputDeviceId { get; set; }
-
     public float SpeakerVolume { get; set; } = 0.8f;
     public float MicVolume { get; set; } = 1f;
 
@@ -18,7 +19,6 @@ public sealed class AppSettings
     public string? PauseHotkey { get; set; }
 
     public int HotbarPage { get; set; }
-    public string? LastImportFolder { get; set; }
 
     /// <summary>Lets paired phones control the app over the local network.</summary>
     public bool RemoteEnabled { get; set; } = true;

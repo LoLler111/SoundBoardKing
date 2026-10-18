@@ -42,7 +42,7 @@ public class JsonFileStoreTests
         var path = dir.CreateFile("library.json", "{ non è json");
         var store = new JsonFileStore<SoundLibrary>(path);
 
-        Assert.Throws<InvalidDataException>(store.Load);
+        Assert.Throws<InvalidDataException>(() => store.Load());
         Assert.False(File.Exists(path));
         Assert.Single(Directory.GetFiles(dir.Path, "library.json.corrupt-*"));
     }

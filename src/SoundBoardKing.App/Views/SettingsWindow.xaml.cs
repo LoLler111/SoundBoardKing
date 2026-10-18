@@ -1,4 +1,8 @@
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
+using Microsoft.Win32;
+using SoundBoardKing.Core.Storage;
 using SoundBoardKing.App.Services;
 using SoundBoardKing.App.ViewModels;
 
@@ -33,6 +37,69 @@ public partial class SettingsWindow : Window
         var dialog = new HotkeyCaptureWindow(title, current) { Owner = this };
         return dialog.ShowDialog() == true ? dialog.Result : null;
     }
+
+    private void MoveNextToExe_Click(object sender, RoutedEventArgs e)
+    {
+        var target = _model.ExecutableProfilePath;
+        if (File.Exists(target) && !Ask($"Accanto all'eseguibile c'è già un profilo:\n{target}\n\nSostituirlo con quello attuale?"))
+            return;
+        _model.MoveProfile(target);
+    }
+
+    private void MoveProfile_Click(object sender, RoutedEventArgs e)
+    {
+        if (PickTarget("Sposta il profilo") is { } path)
+            _model.MoveProfile(path);
+    }
+
+    private void ExportProfile_Click(object sender, RoutedEventArgs e)
+    {
+        if (PickTarget("Esporta una copia del profilo") is { } path)
+            _model.ExportProfile(path);
+    }
+
+    private void OpenProfile_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Apri un profilo",
+            Filter = ProfileFilter,
+            InitialDirectory = Path.GetDirectoryName(_model.ProfilePath) ?? "",
+        };
+        if (dialog.ShowDialog(this) != true)
+            return;
+        if (string.Equals(Path.GetFullPath(dialog.FileName), _model.ProfilePath, StringComparison.OrdinalIgnoreCase))
+            return;
+        if (!Ask("SoundBoardKing si riavvia e usa questo profilo, con la sua libreria e le sue impostazioni.\n" +
+                 "Il profilo attuale viene salvato e resta dov'è. Continuare?"))
+            return;
+        if (_model.UseProfile(dialog.FileName))
+            DialogResult = false;
+    }
+
+    private void ShowProfile_Click(object sender, RoutedEventArgs e)
+    {
+        var path = _model.ProfilePath;
+        var arguments = File.Exists(path) ? $"/select,\"{path}\"" : $"\"{Path.GetDirectoryName(path)}\"";
+        Process.Start(new ProcessStartInfo("explorer.exe", arguments) { UseShellExecute = true });
+    }
+
+    private const string ProfileFilter = "Profilo SoundBoardKing (*.sbk)|*.sbk|Tutti i file (*.*)|*.*";
+
+    private string? PickTarget(string title)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = title,
+            Filter = ProfileFilter,
+            FileName = ProfileStorage.FileName,
+            InitialDirectory = Path.GetDirectoryName(_model.ExecutableProfilePath) ?? "",
+        };
+        return dialog.ShowDialog(this) == true ? dialog.FileName : null;
+    }
+
+    private bool Ask(string message) =>
+        MessageBox.Show(this, message, "SoundBoardKing", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
 
     private void Ok_Click(object sender, RoutedEventArgs e) => DialogResult = true;
 }

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -30,16 +31,20 @@ public partial class MainWindow : Window
         InitializeComponent();
         DarkTitleBar.Apply(this);
 
-        var paths = AppPaths.Default;
         var micFeed = new ApoMicFeed();
         _viewModel = new MainViewModel(
-            new JsonFileStore<SoundLibrary>(paths.LibraryFile),
-            new JsonFileStore<AppSettings>(paths.SettingsFile),
+            new ProfileStorage(AppPaths.Default, AppContext.BaseDirectory),
             new AudioEngine(micFeed),
             micFeed,
             new HotkeyService(),
             new DialogService(this));
         DataContext = _viewModel;
+        _viewModel.RestartRequested += (_, _) =>
+        {
+            // The new instance waits for this one to exit before taking the single-instance lock.
+            Process.Start(Environment.ProcessPath!, $"--after {Environment.ProcessId}");
+            Close();
+        };
 
         Loaded += OnLoaded;
         Closed += (_, _) => _viewModel.Dispose();

@@ -15,4 +15,11 @@ public sealed class Sound
     public string? Hotkey { get; set; }
 
     public DateOnly AddedOn { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+
+    public Sound WithPath(string path)
+    {
+        var copy = (Sound)MemberwiseClone();
+        copy.Path = path;
+        return copy;
+    }
 }

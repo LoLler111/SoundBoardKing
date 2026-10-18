@@ -37,4 +37,9 @@ powershell -File publish.ps1
 | `tests/SoundBoardKing.Remote.Tests` | Server remoto: abbinamento, autorizzazioni, REST, WebSocket, scoperta |
 | `android/` | Telecomando Android: abbinamento con QR/codice, preferiti, categorie, ricerca, riproduzione e microfono |
 
-I dati utente stanno in `%APPDATA%\SoundBoardKing` (`library.json`, `settings.json`, `error.log`).
+Libreria, categorie, preferiti e impostazioni (tranne i dispositivi audio) stanno in un unico
+file di profilo, `SoundBoardKing.sbk`, riscritto a ogni modifica. Si trova in `%APPDATA%\SoundBoardKing`
+finché da *Impostazioni → Profilo* non lo sposti altrove, ad esempio accanto all'eseguibile: lì viene
+trovato da solo anche copiando la cartella su un altro PC, e i suoni dentro quella cartella sono salvati
+con percorsi relativi. Restano sul PC, in `%APPDATA%\SoundBoardKing`, solo `local.json` (uscita audio,
+posizione del profilo) ed `error.log`. Il primo avvio converte da solo i vecchi `library.json` e `settings.json`.

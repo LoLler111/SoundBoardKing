@@ -15,9 +15,10 @@ public sealed class JsonFileStore<T>(string filePath) where T : class, new()
 
     /// <summary>
     /// Returns a new <typeparamref name="T"/> when the file does not exist. A corrupt file is moved
-    /// aside (so the next save cannot overwrite it) and reported with <see cref="InvalidDataException"/>.
+    /// aside (so the next save cannot overwrite it) and reported with <see cref="InvalidDataException"/>;
+    /// with <paramref name="quarantineCorrupt"/> false it is only reported.
     /// </summary>
-    public T Load()
+    public T Load(bool quarantineCorrupt = true)
     {
         if (!File.Exists(FilePath))
             return new T();
@@ -26,6 +27,10 @@ public sealed class JsonFileStore<T>(string filePath) where T : class, new()
         {
             using var stream = File.OpenRead(FilePath);
             return JsonSerializer.Deserialize<T>(stream, Options) ?? new T();
+        }
+        catch (JsonException ex) when (!quarantineCorrupt)
+        {
+            throw new InvalidDataException($"Il file {Path.GetFileName(FilePath)} è danneggiato.", ex);
         }
         catch (JsonException ex)
         {
