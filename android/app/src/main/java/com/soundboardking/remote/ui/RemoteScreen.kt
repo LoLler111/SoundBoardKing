@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -62,7 +61,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -79,7 +77,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -124,9 +121,6 @@ internal fun RemoteScreen(
     var fullScreen by rememberSaveable { mutableStateOf(startFullScreen) }
     ImmersiveMode(fullScreen)
     BackHandler(enabled = fullScreen) { fullScreen = false }
-    // On a landscape tablet the playing bars go in a column on the right: the buttons keep the whole height.
-    val configuration = LocalConfiguration.current
-    val sidePanel = fullScreen && configuration.screenWidthDp > configuration.screenHeightDp
     val library = state.library
     val soundsById = remember(library) { library?.sounds?.associateBy { it.id }.orEmpty() }
     val playingIds = state.playback.sounds.mapNotNull { it.soundId }.toSet()
@@ -150,7 +144,7 @@ internal fun RemoteScreen(
         },
         bottomBar = {
             Column {
-                if (!sidePanel) NowPlayingBar(state, soundsById, actions, showMic = !fullScreen)
+                NowPlayingBar(state, soundsById, actions, showMic = !fullScreen)
                 if (!fullScreen) NavigationBar(containerColor = Panel) {
                     Tab.entries.forEach { item ->
                         NavigationBarItem(
@@ -174,36 +168,31 @@ internal fun RemoteScreen(
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        Row(Modifier.padding(padding).fillMaxSize()) {
-            Box(Modifier.weight(1f).fillMaxHeight()) {
-                if (library == null) {
-                    Column(
-                        Modifier.fillMaxSize().padding(24.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        if (state.connection == ConnectionState.Connecting) CircularProgressIndicator()
-                        Spacer(Modifier.height(16.dp))
-                        Text(state.connectionMessage ?: "Connessione al PC…", color = TextDim, textAlign = TextAlign.Center)
-                    }
-                } else {
-                    when (if (fullScreen) Tab.Favorites else tab) {
-                        Tab.Favorites -> FavoritesTab(library, soundsById, playingIds, state.look, actions::play, onExitFullScreen = if (fullScreen) ({ fullScreen = false }) else null)
-                        Tab.Categories -> CategoriesTab(library, soundsById, playingIds, actions::play)
-                        Tab.Search -> SearchTab(library, playingIds, actions::play)
-                    }
+        Box(Modifier.padding(padding).fillMaxSize()) {
+            if (library == null) {
+                Column(
+                    Modifier.fillMaxSize().padding(24.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (state.connection == ConnectionState.Connecting) CircularProgressIndicator()
+                    Spacer(Modifier.height(16.dp))
+                    Text(state.connectionMessage ?: "Connessione al PC…", color = TextDim, textAlign = TextAlign.Center)
                 }
-                if (fullScreen && library == null) {
-                    IconButton(
-                        onClick = { fullScreen = false },
-                        modifier = Modifier.align(Alignment.TopEnd).padding(2.dp).size(32.dp).alpha(0.7f),
-                    ) {
-                        FullScreenIcon(exit = true, modifier = Modifier.alpha(0.8f))
-                    }
+            } else {
+                when (if (fullScreen) Tab.Favorites else tab) {
+                    Tab.Favorites -> FavoritesTab(library, soundsById, playingIds, state.look, actions::play, onExitFullScreen = if (fullScreen) ({ fullScreen = false }) else null)
+                    Tab.Categories -> CategoriesTab(library, soundsById, playingIds, actions::play)
+                    Tab.Search -> SearchTab(library, playingIds, actions::play)
                 }
             }
-            if (sidePanel) {
-                NowPlayingBar(state, soundsById, actions, showMic = false, side = true, modifier = Modifier.width(300.dp).fillMaxHeight())
+            if (fullScreen && library == null) {
+                IconButton(
+                    onClick = { fullScreen = false },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(2.dp).size(32.dp).alpha(0.7f),
+                ) {
+                    FullScreenIcon(exit = true, modifier = Modifier.alpha(0.8f))
+                }
             }
         }
     }
@@ -443,8 +432,6 @@ private fun NowPlayingBar(
     soundsById: Map<String, SoundDto>,
     actions: RemoteActions,
     showMic: Boolean = true,
-    side: Boolean = false,
-    modifier: Modifier = Modifier,
 ) {
     val playback = state.playback
     val sounds = playback.sounds
@@ -459,50 +446,33 @@ private fun NowPlayingBar(
     }
     val elapsed = if (playback.state == "playing") now - state.playbackReceivedAt else 0L
 
-    // One bar per sound playing; each disappears when its sound ends or is stopped.
-    val bars: @Composable (Modifier) -> Unit = { barsModifier ->
-        Column(barsModifier.verticalScroll(rememberScrollState())) {
-            if (sounds.isEmpty()) {
-                PlayingRow("Nessun suono in riproduzione", 0f, active = false, onStop = null)
-            }
-            sounds.forEach { sound ->
-                val position = sound.positionMs + elapsed
-                val fraction = if (sound.durationMs > 0) (position.toFloat() / sound.durationMs).coerceIn(0f, 1f) else 0f
-                PlayingRow(
-                    sound.soundId?.let { soundsById[it]?.title }.orEmpty(),
-                    fraction,
-                    active = true,
-                    onStop = if (sound.id.isNotEmpty()) ({ actions.stopOne(sound.id) }) else null,
-                )
-            }
-        }
-    }
-    val controls: @Composable () -> Unit = {
-        IconButton(onClick = actions::togglePause, enabled = playback.isActive) {
-            if (playback.isPaused) Icon(Icons.Filled.PlayArrow, contentDescription = "Riprendi")
-            else PauseIcon()
-        }
-        IconButton(onClick = actions::stop) { StopIcon() }
-    }
-
-    Surface(color = Panel, modifier = modifier) {
-        if (side) {
-            Row {
-                VerticalDivider()
-                Column(Modifier.fillMaxHeight().padding(horizontal = 12.dp, vertical = 8.dp)) {
-                    bars(Modifier.weight(1f))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { controls() }
+    Surface(color = Panel) {
+        Column(Modifier.fillMaxWidth()) {
+            HorizontalDivider()
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                // One bar per sound playing; each disappears when its sound ends or is stopped.
+                Column(Modifier.weight(1f).heightIn(max = 168.dp).verticalScroll(rememberScrollState())) {
+                    if (sounds.isEmpty()) {
+                        PlayingRow("Nessun suono in riproduzione", 0f, active = false, onStop = null)
+                    }
+                    sounds.forEach { sound ->
+                        val position = sound.positionMs + elapsed
+                        val fraction = if (sound.durationMs > 0) (position.toFloat() / sound.durationMs).coerceIn(0f, 1f) else 0f
+                        PlayingRow(
+                            sound.soundId?.let { soundsById[it]?.title }.orEmpty(),
+                            fraction,
+                            active = true,
+                            onStop = if (sound.id.isNotEmpty()) ({ actions.stopOne(sound.id) }) else null,
+                        )
+                    }
                 }
-            }
-        } else {
-            Column(Modifier.fillMaxWidth()) {
-                HorizontalDivider()
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    bars(Modifier.weight(1f).heightIn(max = 168.dp))
-                    controls()
+                IconButton(onClick = actions::togglePause, enabled = playback.isActive) {
+                    if (playback.isPaused) Icon(Icons.Filled.PlayArrow, contentDescription = "Riprendi")
+                    else PauseIcon()
                 }
-                if (showMic) MicChip(state.mic, onToggle = { actions.setMic(!state.mic.enabled) })
+                IconButton(onClick = actions::stop) { StopIcon() }
             }
+            if (showMic) MicChip(state.mic, onToggle = { actions.setMic(!state.mic.enabled) })
         }
     }
 }
