@@ -18,6 +18,21 @@ public enum ProfileOpenState
 
 public sealed record ProfileOpenResult(Profile Profile, ProfileOpenState State);
 
+public enum ProfileLocation
+{
+    /// <summary>The app data folder: nothing was chosen.</summary>
+    Default,
+
+    /// <summary>Next to the executable.</summary>
+    NextToApp,
+
+    /// <summary>Near the executable (e.g. a sibling Config folder), through the link file.</summary>
+    LinkedFromApp,
+
+    /// <summary>Somewhere else, remembered on this PC only.</summary>
+    ThisPc,
+}
+
 /// <summary>
 /// Reads and writes the profile, a single file holding the library and every setting not tied to
 /// this PC's audio devices, which the user can keep anywhere (typically next to the executable).
@@ -27,6 +42,12 @@ public sealed class ProfileStorage
 {
     public const string FileName = "SoundBoardKing.sbk";
 
+    /// <summary>
+    /// Text file next to the executable holding the profile's path relative to it, such as
+    /// <c>..\Config\SoundBoardKing.sbk</c>, so separate App, Config and Sounds folders can move together.
+    /// </summary>
+    public const string LinkFileName = "SoundBoardKing.sbklink";
+
     private readonly AppPaths _paths;
     private readonly JsonFileStore<LocalSettings> _localStore;
 
@@ -34,7 +55,9 @@ public sealed class ProfileStorage
     {
         _paths = paths;
         _localStore = new JsonFileStore<LocalSettings>(paths.LocalSettingsFile);
-        ExecutableProfilePath = Path.Combine(Path.GetFullPath(executableDirectory), FileName);
+        ExecutableDirectory = Path.GetFullPath(executableDirectory);
+        ExecutableProfilePath = Path.Combine(ExecutableDirectory, FileName);
+        LinkFilePath = Path.Combine(ExecutableDirectory, LinkFileName);
         ProfilePath = Resolve();
     }
 
@@ -43,7 +66,16 @@ public sealed class ProfileStorage
     /// <summary>The profile file in use.</summary>
     public string ProfilePath { get; private set; }
 
+    /// <summary>How the profile in use was found.</summary>
+    public ProfileLocation Location { get; private set; }
+
+    /// <summary>The profile's path relative to the executable's folder, when the link file points to it.</summary>
+    public string? RelativeToApp =>
+        Location == ProfileLocation.LinkedFromApp ? Path.GetRelativePath(ExecutableDirectory, ProfilePath) : null;
+
+    public string ExecutableDirectory { get; }
     public string ExecutableProfilePath { get; }
+    public string LinkFilePath { get; }
 
     public string DefaultProfilePath => _paths.DefaultProfileFile;
 
@@ -63,16 +95,26 @@ public sealed class ProfileStorage
         }
     }
 
-    private string Resolve() =>
-        Local.ProfilePath is { Length: > 0 } chosen ? chosen
-        : File.Exists(ExecutableProfilePath) ? ExecutableProfilePath
-        : _paths.DefaultProfileFile;
+    private string Resolve()
+    {
+        var path = Local.ProfilePath is { Length: > 0 } chosen ? chosen
+            : File.Exists(ExecutableProfilePath) ? ExecutableProfilePath
+            : LinkedProfilePath() ?? _paths.DefaultProfileFile;
+        Location = LocationOf(path);
+        return path;
+    }
+
+    private ProfileLocation LocationOf(string path) =>
+        Local.ProfilePath is { Length: > 0 } ? ProfileLocation.ThisPc
+        : SamePath(path, ExecutableProfilePath) ? ProfileLocation.NextToApp
+        : SamePath(path, _paths.DefaultProfileFile) ? ProfileLocation.Default
+        : ProfileLocation.LinkedFromApp;
 
     public ProfileOpenResult Open()
     {
         if (File.Exists(ProfilePath))
             return new(Read(ProfilePath, quarantineCorrupt: true), ProfileOpenState.Loaded);
-        if (Local.ProfilePath is { Length: > 0 })
+        if (Location is ProfileLocation.ThisPc or ProfileLocation.LinkedFromApp)
             return new(new Profile(), ProfileOpenState.Missing);
         if (!File.Exists(_paths.LegacyLibraryFile) && !File.Exists(_paths.LegacySettingsFile))
             return new(new Profile(), ProfileOpenState.Created);
@@ -125,11 +167,65 @@ public sealed class ProfileStorage
 
     private void Remember(string path)
     {
-        // Next to the executable is the automatic choice, so the profile keeps being found when
-        // the whole folder moves (another PC, a USB drive with a different letter).
-        Local.ProfilePath = SamePath(path, ExecutableProfilePath) ? null : path;
+        // Next to the executable, or near it through the link file, the profile keeps being found
+        // when the folders move together (another PC, a USB drive with a different letter).
+        if (SamePath(path, ExecutableProfilePath))
+        {
+            Local.ProfilePath = null;
+            DeleteLink();
+        }
+        else if (NearbyRelativePath(path, ExecutableDirectory) is { } relative && TryWriteLink(relative))
+        {
+            Local.ProfilePath = null;
+        }
+        else
+        {
+            Local.ProfilePath = path;
+            DeleteLink();
+        }
         ProfilePath = path;
+        Location = LocationOf(path);
         SaveLocal();
+    }
+
+    private string? LinkedProfilePath()
+    {
+        try
+        {
+            if (!File.Exists(LinkFilePath))
+                return null;
+            var text = File.ReadAllText(LinkFilePath).Trim();
+            return text.Length == 0 ? null : Path.GetFullPath(Path.Combine(ExecutableDirectory, text));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    private bool TryWriteLink(string relativePath)
+    {
+        try
+        {
+            File.WriteAllText(LinkFilePath, relativePath + Environment.NewLine);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false; // e.g. the app is in Program Files: remember the path on this PC only
+        }
+    }
+
+    private void DeleteLink()
+    {
+        try
+        {
+            File.Delete(LinkFilePath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The link only matters when nothing was chosen on this PC, which now it was.
+        }
     }
 
     private static Profile Read(string path, bool quarantineCorrupt)
@@ -164,16 +260,23 @@ public sealed class ProfileStorage
         new JsonFileStore<Profile>(path).Save(portable);
     }
 
-    // Sounds inside the profile's folder are stored relative to it, so they are still found after
-    // the folder is copied elsewhere.
-    private static string PortablePath(string soundPath, string folder)
+    // Sounds near the profile are stored relative to it, so they are still found after the folders
+    // are moved or copied together.
+    private static string PortablePath(string soundPath, string folder) =>
+        Path.IsPathFullyQualified(soundPath) ? NearbyRelativePath(soundPath, folder) ?? soundPath : soundPath;
+
+    /// <summary>
+    /// The path relative to <paramref name="folder"/> when it lies inside it or inside a sibling
+    /// folder (e.g. App\, Config\ and Sounds\ side by side); otherwise null.
+    /// </summary>
+    internal static string? NearbyRelativePath(string fullPath, string folder)
     {
-        if (!Path.IsPathFullyQualified(soundPath))
-            return soundPath;
-        var relative = Path.GetRelativePath(folder, soundPath);
-        bool outside = Path.IsPathRooted(relative) || relative == ".." ||
-                       relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal);
-        return outside ? soundPath : relative;
+        var relative = Path.GetRelativePath(folder, fullPath);
+        if (Path.IsPathRooted(relative))
+            return null; // another drive
+        var parts = relative.Split(Path.DirectorySeparatorChar);
+        int levelsUp = parts.TakeWhile(p => p == "..").Count();
+        return levelsUp <= 1 && levelsUp < parts.Length ? relative : null;
     }
 
     private static bool SamePath(string a, string b) =>

@@ -157,4 +157,50 @@ public class ProfileStorageTests
         storage.Use(exported);
         Assert.Equal(exported, Open(dir).ProfilePath);
     }
+
+    [Fact]
+    public void App_config_and_sounds_in_sibling_folders_move_together()
+    {
+        using var dir = new TempDirectory();
+        var root = Path.Combine(dir.Path, "Kit");
+        var horn = dir.CreateFile(Path.Combine("Kit", "Suoni", "horn.mp3"));
+        dir.CreateFile(Path.Combine("Kit", "App", "SoundBoardKing.exe"));
+        var storage = new ProfileStorage(new AppPaths(Path.Combine(dir.Path, "appdata")), Path.Combine(root, "App"));
+        storage.LoadLocal();
+        var config = Path.Combine(root, "Config", ProfileStorage.FileName);
+
+        storage.MoveTo(config, SampleProfile(horn));
+
+        Assert.Null(storage.Local.ProfilePath);
+        Assert.Equal(ProfileLocation.LinkedFromApp, storage.Location);
+        Assert.Equal(@"..\Config\SoundBoardKing.sbk", File.ReadAllText(storage.LinkFilePath).Trim());
+        Assert.Contains(@"..\\Suoni\\horn.mp3", File.ReadAllText(config)); // JSON-escaped
+
+        // Everything moved to another PC, which has never seen this app.
+        var moved = Path.Combine(dir.Path, "Chiavetta", "Kit");
+        Directory.CreateDirectory(Path.GetDirectoryName(moved)!);
+        Directory.Move(root, moved);
+        var other = new ProfileStorage(new AppPaths(Path.Combine(dir.Path, "other-pc")), Path.Combine(moved, "App"));
+        other.LoadLocal();
+        var result = other.Open();
+
+        Assert.Equal(ProfileOpenState.Loaded, result.State);
+        Assert.Equal(Path.Combine(moved, "Config", ProfileStorage.FileName), other.ProfilePath);
+        Assert.Equal(Path.Combine(moved, "Suoni", "horn.mp3"), Assert.Single(result.Profile.Library.Sounds).Path);
+    }
+
+    [Fact]
+    public void A_far_away_location_is_remembered_on_this_pc_only()
+    {
+        using var dir = new TempDirectory();
+        var storage = new ProfileStorage(new AppPaths(Path.Combine(dir.Path, "appdata")), Path.Combine(dir.Path, "a", "b", "App"));
+        storage.LoadLocal();
+        var far = Path.Combine(dir.Path, "altrove", "mine.sbk");
+
+        storage.MoveTo(far, SampleProfile(@"D:.mp3"));
+
+        Assert.Equal(far, storage.Local.ProfilePath);
+        Assert.Equal(ProfileLocation.ThisPc, storage.Location);
+        Assert.False(File.Exists(storage.LinkFilePath));
+    }
 }

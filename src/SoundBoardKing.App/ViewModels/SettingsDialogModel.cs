@@ -99,6 +99,8 @@ public sealed partial class SettingsDialogModel : ObservableObject
 
     public string ExecutableProfilePath => _profile.ExecutableProfilePath;
 
+    public string ProfileLocationText => _profile.ProfileLocationText;
+
     public bool CanMoveNextToExecutable => !IsProfileNextToExecutable;
 
     public bool IsProfileNextToExecutable =>
@@ -111,6 +113,7 @@ public sealed partial class SettingsDialogModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsProfileNextToExecutable));
         OnPropertyChanged(nameof(CanMoveNextToExecutable));
+        OnPropertyChanged(nameof(ProfileLocationText));
     }
 
     public void MoveProfile(string path)

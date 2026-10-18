@@ -9,6 +9,9 @@ public interface IProfileActions
     string ProfilePath { get; }
     string ExecutableProfilePath { get; }
 
+    /// <summary>How the profile is found, in words.</summary>
+    string ProfileLocationText { get; }
+
     /// <summary>Returns null on success, otherwise the reason it failed.</summary>
     string? MoveProfile(string path);
 
@@ -26,6 +29,16 @@ public sealed partial class MainViewModel : IProfileActions
 
     public string ProfilePath => _storage.ProfilePath;
     public string ExecutableProfilePath => _storage.ExecutableProfilePath;
+
+    public string ProfileLocationText => _storage.Location switch
+    {
+        ProfileLocation.NextToApp => "Accanto all'app: viene trovato anche spostando la cartella.",
+        ProfileLocation.LinkedFromApp =>
+            $"Relativo all'app ({_storage.RelativeToApp}, scritto in {ProfileStorage.LinkFileName}): " +
+            "sposta insieme le cartelle e viene ritrovato.",
+        ProfileLocation.ThisPc => "Percorso ricordato solo su questo PC.",
+        _ => "Cartella dati di Windows (predefinita).",
+    };
 
     private Profile CurrentProfile() => new() { Library = _library, Settings = _settings };
 

@@ -39,7 +39,16 @@ powershell -File publish.ps1
 
 Libreria, categorie, preferiti e impostazioni (tranne i dispositivi audio) stanno in un unico
 file di profilo, `SoundBoardKing.sbk`, riscritto a ogni modifica. Si trova in `%APPDATA%\SoundBoardKing`
-finché da *Impostazioni → Profilo* non lo sposti altrove, ad esempio accanto all'eseguibile: lì viene
-trovato da solo anche copiando la cartella su un altro PC, e i suoni dentro quella cartella sono salvati
-con percorsi relativi. Restano sul PC, in `%APPDATA%\SoundBoardKing`, solo `local.json` (uscita audio,
+finché da *Impostazioni → Profilo* non lo sposti altrove. Accanto all'eseguibile, o in una cartella a
+fianco, viene ritrovato anche spostando tutto insieme su un altro PC:
+
+```
+Kit\App\SoundBoardKing.exe
+Kit\App\SoundBoardKing.sbklink    ← contiene ..\Config\SoundBoardKing.sbk
+Kit\Config\SoundBoardKing.sbk     ← i suoni sono scritti come ..\Suoni\…
+Kit\Suoni\…
+```
+
+I suoni nella cartella del profilo o in una cartella a fianco sono salvati con percorsi relativi;
+quelli altrove (un altro disco, cartelle lontane) restano assoluti. Restano sul PC, in `%APPDATA%\SoundBoardKing`, solo `local.json` (uscita audio,
 posizione del profilo) ed `error.log`. Il primo avvio converte da solo i vecchi `library.json` e `settings.json`.

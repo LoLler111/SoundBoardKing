@@ -51,8 +51,10 @@
 
         <TextBlock Text="Profilo (libreria e impostazioni)" FontWeight="SemiBold" Margin="0,18,0,0" />
         <TextBlock Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap" Margin="0,4,0,8"
-                   Text="Un unico file con tutta la libreria, i preferiti e le impostazioni (tranne i dispositivi audio), aggiornato a ogni modifica. Copialo per portarti tutto su un altro PC; se lo tieni accanto all'eseguibile, viene trovato da solo anche spostando la cartella." />
+                   Text="Un unico file con tutta la libreria, i preferiti e le impostazioni (tranne i dispositivi audio), aggiornato a ogni modifica. Copialo per portarti tutto su un altro PC; se lo tieni accanto all'eseguibile o in una cartella a fianco (es. App, Config e Suoni affiancate), viene ritrovato anche spostando tutto insieme, con i suoni vicini salvati in modo relativo." />
         <TextBox Text="{Binding ProfilePath, Mode=OneWay}" IsReadOnly="True" FontSize="12" />
+        <TextBlock Text="{Binding ProfileLocationText}" TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0"
+                   Foreground="{StaticResource TextDimBrush}" />
         <WrapPanel Margin="0,8,0,0">
             <Button Content="Accanto all'eseguibile" Click="MoveNextToExe_Click" Margin="0,0,8,6"
                     IsEnabled="{Binding CanMoveNextToExecutable}"
