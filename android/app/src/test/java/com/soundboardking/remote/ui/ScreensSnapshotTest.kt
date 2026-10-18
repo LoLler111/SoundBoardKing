@@ -100,6 +100,24 @@ class ScreensSnapshotTest {
     }
 
     @Test
+    @Config(qualifiers = "w1280dp-h800dp-land-hdpi")
+    fun tablet() = captureRoboImage("src/test/snapshots/tablet.png") {
+        SoundBoardTheme { RemoteScreen(connected, actions, SnackbarHostState(), Tab.Favorites) }
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-land-hdpi")
+    fun tabletFullScreen() = captureRoboImage("src/test/snapshots/tablet-fullscreen.png") {
+        val look = connected.copy(look = FavoritesLook(columns = 8, fontSp = 13, shape = 2))
+        SoundBoardTheme { RemoteScreen(look, actions, SnackbarHostState(), Tab.Favorites, startFullScreen = true) }
+    }
+
+    @Test
+    fun fullScreen() = captureRoboImage("src/test/snapshots/fullscreen.png") {
+        SoundBoardTheme { RemoteScreen(connected, actions, SnackbarHostState(), Tab.Favorites, startFullScreen = true) }
+    }
+
+    @Test
     fun lookPreview() = captureRoboImage("src/test/snapshots/look-dialog.png") {
         SoundBoardTheme { LookDialog(FavoritesLook(columns = 3, fontSp = 17, shape = 2), onChange = {}, onDismiss = {}) }
     }

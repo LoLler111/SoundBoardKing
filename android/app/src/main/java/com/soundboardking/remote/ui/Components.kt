@@ -1,5 +1,7 @@
 package com.soundboardking.remote.ui
 
+import android.app.Activity
+import android.content.ContextWrapper
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -22,15 +24,35 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.soundboardking.remote.data.PlayTarget
 import com.soundboardking.remote.data.SoundDto
 import com.soundboardking.remote.ui.theme.Gold
 import com.soundboardking.remote.ui.theme.TextDim
+
+/** Hides the status and navigation bars while [enabled]; a swipe from the edge shows them for a moment. */
+@Composable
+fun ImmersiveMode(enabled: Boolean) {
+    val view = LocalView.current
+    DisposableEffect(view, enabled) {
+        val window = generateSequence(view.context) { (it as? ContextWrapper)?.baseContext }
+            .filterIsInstance<Activity>().firstOrNull()?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        if (enabled && controller != null) {
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose { if (enabled) controller?.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+}
 
 /** The phone is used as a button panel: don't let the screen turn off while connected. */
 @Composable
@@ -127,5 +149,23 @@ fun StopIcon(modifier: Modifier = Modifier) {
         val side = size.width * 0.56f
         val inset = (size.width - side) / 2
         drawRoundRect(color, Offset(inset, inset), Size(side, side), CornerRadius(3f, 3f))
+    }
+}
+
+/** Four corner brackets: pointing out to enter full screen, pointing in ([exit]) to leave it. */
+@Composable
+fun FullScreenIcon(exit: Boolean, modifier: Modifier = Modifier) {
+    val color = LocalContentColor.current
+    Canvas(modifier.size(24.dp)) {
+        val stroke = size.width * 0.09f
+        val arm = size.width * 0.22f
+        val reach = size.width * if (exit) 0.12f else 0.38f
+        // Arms run towards the centre when entering, away from it when leaving.
+        val dir = if (exit) 1f else -1f
+        for (sx in listOf(-1f, 1f)) for (sy in listOf(-1f, 1f)) {
+            val c = Offset(center.x + sx * reach, center.y + sy * reach)
+            drawLine(color, c, Offset(c.x + sx * dir * arm, c.y), stroke, StrokeCap.Round)
+            drawLine(color, c, Offset(c.x, c.y + sy * dir * arm), stroke, StrokeCap.Round)
+        }
     }
 }

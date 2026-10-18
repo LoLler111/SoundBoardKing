@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -61,6 +62,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -77,6 +79,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -108,9 +111,22 @@ fun RemoteScreen(state: UiState, actions: RemoteActions, snackbar: SnackbarHostS
     RemoteScreen(state, actions, snackbar, Tab.Favorites)
 
 @Composable
-internal fun RemoteScreen(state: UiState, actions: RemoteActions, snackbar: SnackbarHostState, startTab: Tab) {
+internal fun RemoteScreen(
+    state: UiState,
+    actions: RemoteActions,
+    snackbar: SnackbarHostState,
+    startTab: Tab,
+    startFullScreen: Boolean = false,
+) {
     KeepScreenOn()
     var tab by rememberSaveable { mutableStateOf(startTab) }
+    // Full screen: only the favourites and the playing bars, no app or system bars.
+    var fullScreen by rememberSaveable { mutableStateOf(startFullScreen) }
+    ImmersiveMode(fullScreen)
+    BackHandler(enabled = fullScreen) { fullScreen = false }
+    // On a landscape tablet the playing bars go in a column on the right: the buttons keep the whole height.
+    val configuration = LocalConfiguration.current
+    val sidePanel = fullScreen && configuration.screenWidthDp > configuration.screenHeightDp
     val library = state.library
     val soundsById = remember(library) { library?.sounds?.associateBy { it.id }.orEmpty() }
     val playingIds = state.playback.sounds.mapNotNull { it.soundId }.toSet()
@@ -118,11 +134,24 @@ internal fun RemoteScreen(state: UiState, actions: RemoteActions, snackbar: Snac
     if (lookDialog) LookDialog(state.look, onChange = actions::setLook, onDismiss = { lookDialog = false })
 
     Scaffold(
-        topBar = { RemoteTopBar(state, onRefresh = actions::reconnect, onForget = actions::forgetServer, onLook = { lookDialog = true }) },
+        topBar = {
+            if (!fullScreen) {
+                RemoteTopBar(
+                    state,
+                    onRefresh = actions::reconnect,
+                    onForget = actions::forgetServer,
+                    onLook = { lookDialog = true },
+                    onFullScreen = {
+                        tab = Tab.Favorites
+                        fullScreen = true
+                    },
+                )
+            }
+        },
         bottomBar = {
             Column {
-                NowPlayingBar(state, soundsById, actions)
-                NavigationBar(containerColor = Panel) {
+                if (!sidePanel) NowPlayingBar(state, soundsById, actions, showMic = !fullScreen)
+                if (!fullScreen) NavigationBar(containerColor = Panel) {
                     Tab.entries.forEach { item ->
                         NavigationBarItem(
                             selected = tab == item,
@@ -145,23 +174,36 @@ internal fun RemoteScreen(state: UiState, actions: RemoteActions, snackbar: Snac
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize()) {
-            if (library == null) {
-                Column(
-                    Modifier.fillMaxSize().padding(24.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    if (state.connection == ConnectionState.Connecting) CircularProgressIndicator()
-                    Spacer(Modifier.height(16.dp))
-                    Text(state.connectionMessage ?: "Connessione al PC…", color = TextDim, textAlign = TextAlign.Center)
+        Row(Modifier.padding(padding).fillMaxSize()) {
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                if (library == null) {
+                    Column(
+                        Modifier.fillMaxSize().padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        if (state.connection == ConnectionState.Connecting) CircularProgressIndicator()
+                        Spacer(Modifier.height(16.dp))
+                        Text(state.connectionMessage ?: "Connessione al PC…", color = TextDim, textAlign = TextAlign.Center)
+                    }
+                } else {
+                    when (if (fullScreen) Tab.Favorites else tab) {
+                        Tab.Favorites -> FavoritesTab(library, soundsById, playingIds, state.look, actions::play, onExitFullScreen = if (fullScreen) ({ fullScreen = false }) else null)
+                        Tab.Categories -> CategoriesTab(library, soundsById, playingIds, actions::play)
+                        Tab.Search -> SearchTab(library, playingIds, actions::play)
+                    }
                 }
-            } else {
-                when (tab) {
-                    Tab.Favorites -> FavoritesTab(library, soundsById, playingIds, state.look, actions::play)
-                    Tab.Categories -> CategoriesTab(library, soundsById, playingIds, actions::play)
-                    Tab.Search -> SearchTab(library, playingIds, actions::play)
+                if (fullScreen && library == null) {
+                    IconButton(
+                        onClick = { fullScreen = false },
+                        modifier = Modifier.align(Alignment.TopEnd).padding(2.dp).size(32.dp).alpha(0.7f),
+                    ) {
+                        FullScreenIcon(exit = true, modifier = Modifier.alpha(0.8f))
+                    }
                 }
+            }
+            if (sidePanel) {
+                NowPlayingBar(state, soundsById, actions, showMic = false, side = true, modifier = Modifier.width(300.dp).fillMaxHeight())
             }
         }
     }
@@ -169,7 +211,7 @@ internal fun RemoteScreen(state: UiState, actions: RemoteActions, snackbar: Snac
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RemoteTopBar(state: UiState, onRefresh: () -> Unit, onForget: () -> Unit, onLook: () -> Unit) {
+private fun RemoteTopBar(state: UiState, onRefresh: () -> Unit, onForget: () -> Unit, onLook: () -> Unit, onFullScreen: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val (statusText, statusColor) = when (state.connection) {
         ConnectionState.Online -> "Connesso" to Online
@@ -189,6 +231,7 @@ private fun RemoteTopBar(state: UiState, onRefresh: () -> Unit, onForget: () -> 
             }
         },
         actions = {
+            IconButton(onClick = onFullScreen) { FullScreenIcon(exit = false) }
             IconButton(onClick = onRefresh) { Icon(Icons.Filled.Refresh, contentDescription = "Riconnetti") }
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Altro") }
@@ -222,6 +265,7 @@ private fun FavoritesTab(
     playingIds: Set<String>,
     look: FavoritesLook,
     onPlay: OnPlay,
+    onExitFullScreen: (() -> Unit)? = null,
 ) {
     val hotbar = library.hotbar
     val pagerState = rememberPagerState { hotbar.pages }
@@ -229,15 +273,37 @@ private fun FavoritesTab(
     val slots = remember(library) { hotbar.slots.associateBy { it.page to it.slot } }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(hotbar.pages) { page ->
-                FilterChip(
-                    selected = pagerState.currentPage == page,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(page) } },
-                    label = { Text("${page + 1}") },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Gold, selectedLabelColor = OnGold),
-                )
+        if (onExitFullScreen == null) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                repeat(hotbar.pages) { page ->
+                    FilterChip(
+                        selected = pagerState.currentPage == page,
+                        onClick = { scope.launch { pagerState.animateScrollToPage(page) } },
+                        label = { Text("${page + 1}") },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Gold, selectedLabelColor = OnGold),
+                    )
+                }
             }
+        } else {
+            // Full screen: a slim strip with the pages and the way out, so the grid gets nearly all the room.
+            Row(Modifier.fillMaxWidth().height(30.dp).padding(horizontal = look.gridMargin), verticalAlignment = Alignment.CenterVertically) {
+                repeat(hotbar.pages) { page ->
+                    val selected = pagerState.currentPage == page
+                    Box(
+                        Modifier
+                            .padding(end = 4.dp)
+                            .size(width = 34.dp, height = 22.dp)
+                            .background(if (selected) Gold else Panel2, RoundedCornerShape(6.dp))
+                            .clickable { scope.launch { pagerState.animateScrollToPage(page) } },
+                        contentAlignment = Alignment.Center,
+                    ) { Text("${page + 1}", fontSize = 12.sp, color = if (selected) OnGold else TextDim) }
+                }
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = onExitFullScreen, modifier = Modifier.size(30.dp)) {
+                    FullScreenIcon(exit = true, modifier = Modifier.size(20.dp))
+                }
+            }
+            Spacer(Modifier.height(4.dp))
         }
         HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
             LazyVerticalGrid(
@@ -372,7 +438,14 @@ private fun SearchTab(library: StateDto, playingIds: Set<String>, onPlay: OnPlay
 // ---- Now playing -----------------------------------------------------------------------------
 
 @Composable
-private fun NowPlayingBar(state: UiState, soundsById: Map<String, SoundDto>, actions: RemoteActions) {
+private fun NowPlayingBar(
+    state: UiState,
+    soundsById: Map<String, SoundDto>,
+    actions: RemoteActions,
+    showMic: Boolean = true,
+    side: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
     val playback = state.playback
     val sounds = playback.sounds
 
@@ -386,33 +459,50 @@ private fun NowPlayingBar(state: UiState, soundsById: Map<String, SoundDto>, act
     }
     val elapsed = if (playback.state == "playing") now - state.playbackReceivedAt else 0L
 
-    Surface(color = Panel) {
-        Column(Modifier.fillMaxWidth()) {
-            HorizontalDivider()
-            Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                // One bar per sound playing; each disappears when its sound ends or is stopped.
-                Column(Modifier.weight(1f).heightIn(max = 168.dp).verticalScroll(rememberScrollState())) {
-                    if (sounds.isEmpty()) {
-                        PlayingRow("Nessun suono in riproduzione", 0f, active = false, onStop = null)
-                    }
-                    sounds.forEach { sound ->
-                        val position = sound.positionMs + elapsed
-                        val fraction = if (sound.durationMs > 0) (position.toFloat() / sound.durationMs).coerceIn(0f, 1f) else 0f
-                        PlayingRow(
-                            sound.soundId?.let { soundsById[it]?.title }.orEmpty(),
-                            fraction,
-                            active = true,
-                            onStop = if (sound.id.isNotEmpty()) ({ actions.stopOne(sound.id) }) else null,
-                        )
-                    }
-                }
-                IconButton(onClick = actions::togglePause, enabled = playback.isActive) {
-                    if (playback.isPaused) Icon(Icons.Filled.PlayArrow, contentDescription = "Riprendi")
-                    else PauseIcon()
-                }
-                IconButton(onClick = actions::stop) { StopIcon() }
+    // One bar per sound playing; each disappears when its sound ends or is stopped.
+    val bars: @Composable (Modifier) -> Unit = { barsModifier ->
+        Column(barsModifier.verticalScroll(rememberScrollState())) {
+            if (sounds.isEmpty()) {
+                PlayingRow("Nessun suono in riproduzione", 0f, active = false, onStop = null)
             }
-            MicChip(state.mic, onToggle = { actions.setMic(!state.mic.enabled) })
+            sounds.forEach { sound ->
+                val position = sound.positionMs + elapsed
+                val fraction = if (sound.durationMs > 0) (position.toFloat() / sound.durationMs).coerceIn(0f, 1f) else 0f
+                PlayingRow(
+                    sound.soundId?.let { soundsById[it]?.title }.orEmpty(),
+                    fraction,
+                    active = true,
+                    onStop = if (sound.id.isNotEmpty()) ({ actions.stopOne(sound.id) }) else null,
+                )
+            }
+        }
+    }
+    val controls: @Composable () -> Unit = {
+        IconButton(onClick = actions::togglePause, enabled = playback.isActive) {
+            if (playback.isPaused) Icon(Icons.Filled.PlayArrow, contentDescription = "Riprendi")
+            else PauseIcon()
+        }
+        IconButton(onClick = actions::stop) { StopIcon() }
+    }
+
+    Surface(color = Panel, modifier = modifier) {
+        if (side) {
+            Row {
+                VerticalDivider()
+                Column(Modifier.fillMaxHeight().padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    bars(Modifier.weight(1f))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { controls() }
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxWidth()) {
+                HorizontalDivider()
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    bars(Modifier.weight(1f).heightIn(max = 168.dp))
+                    controls()
+                }
+                if (showMic) MicChip(state.mic, onToggle = { actions.setMic(!state.mic.enabled) })
+            }
         }
     }
 }
