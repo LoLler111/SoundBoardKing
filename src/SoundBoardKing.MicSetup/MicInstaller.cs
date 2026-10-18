@@ -35,7 +35,13 @@ internal sealed class MicInstaller(Action<string> log)
     private const string AudioPolicyKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Audio";
     private const string FxPropertyFormat = "{d04e05a6-594b-4fb6-a80d-01af5eed7d1d}";
     private const string ModesPropertyFormat = "{d3993a3f-99c2-4402-b5ec-a92a0367664b}";
-    private const string DefaultMode = "{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}";
+    // Default (ordinary recording), communications (call apps) and speech (voice recognition).
+    private static readonly string[] OwnModes =
+    [
+        "{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}",
+        "{98951333-B9CD-48B1-A0A3-FF40682D73F7}",
+        "{FC1CFC9B-B9D1-4CFA-B5BE-DB5D6F5A8F8E}",
+    ];
     private const string DisableSysFx = "{1da5d803-d492-4edd-8c23-e0c0ffee7f0e},5";
     private const string FxStore = "FxProperties";
     private const string PropertiesStore = "Properties";
@@ -192,7 +198,7 @@ internal sealed class MicInstaller(Action<string> log)
             return;
         }
 
-        EnsureDefaultMode(fx, slot, backup);
+        EnsureModes(fx, slot, backup);
         var composite = $"{FxPropertyFormat},{(int)slot + 8}";
         backup.SaveOriginal(FxStore, fx, composite);
         var list = fx.GetValue(composite) as string[];
@@ -216,8 +222,8 @@ internal sealed class MicInstaller(Action<string> log)
 
     // The Windows 8.1+ positions only run in the processing modes listed next to them: an effect
     // without that list is ignored (seen with a SteelSeries headset declaring only its own EFX).
-    // Without one from the driver, declare the default mode, which ordinary recording uses.
-    private void EnsureDefaultMode(RegistryKey fx, FxSlot slot, EndpointBackup backup)
+    // Without one from the driver, declare the modes recording and call apps use.
+    private void EnsureModes(RegistryKey fx, FxSlot slot, EndpointBackup backup)
     {
         var modes = $"{ModesPropertyFormat},{(int)slot}";
         backup.SaveOriginal(FxStore, fx, modes);
@@ -226,8 +232,8 @@ internal sealed class MicInstaller(Action<string> log)
             log($"Modalità già dichiarate dal driver per {slot}: {string.Join(", ", list)}.");
             return;
         }
-        fx.SetValue(modes, new[] { DefaultMode }, RegistryValueKind.MultiString);
-        log($"Dichiarata la modalità predefinita per {slot} ({modes}).");
+        fx.SetValue(modes, OwnModes, RegistryValueKind.MultiString);
+        log($"Dichiarate le modalità predefinita, comunicazioni e parlato per {slot} ({modes}).");
     }
 
     private void RestoreEndpoint(RegistryKey endpoints, string guid)
