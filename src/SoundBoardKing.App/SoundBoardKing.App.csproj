@@ -6,7 +6,13 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>SoundBoardKing</AssemblyName>
     <RootNamespace>SoundBoardKing.App</RootNamespace>
+    <!-- Same crown as the Android launcher icon. -->
+    <ApplicationIcon>Assets\SoundBoardKing.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\SoundBoardKing.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />

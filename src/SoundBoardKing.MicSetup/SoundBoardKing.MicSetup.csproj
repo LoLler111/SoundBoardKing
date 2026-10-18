@@ -5,6 +5,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>SoundBoardKing.MicSetup</AssemblyName>
+    <ApplicationIcon>..\SoundBoardKing.App\Assets\SoundBoardKing.ico</ApplicationIcon>
   </PropertyGroup>
 
 </Project>
