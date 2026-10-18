@@ -34,6 +34,8 @@ internal sealed class MicInstaller(Action<string> log)
     private const string CaptureRoot = @"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Capture";
     private const string AudioPolicyKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Audio";
     private const string FxPropertyFormat = "{d04e05a6-594b-4fb6-a80d-01af5eed7d1d}";
+    private const string ModesPropertyFormat = "{d3993a3f-99c2-4402-b5ec-a92a0367664b}";
+    private const string DefaultMode = "{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}";
     private const string DisableSysFx = "{1da5d803-d492-4edd-8c23-e0c0ffee7f0e},5";
     private const string FxStore = "FxProperties";
     private const string PropertiesStore = "Properties";
@@ -190,6 +192,7 @@ internal sealed class MicInstaller(Action<string> log)
             return;
         }
 
+        EnsureDefaultMode(fx, slot, backup);
         var composite = $"{FxPropertyFormat},{(int)slot + 8}";
         backup.SaveOriginal(FxStore, fx, composite);
         var list = fx.GetValue(composite) as string[];
@@ -209,6 +212,22 @@ internal sealed class MicInstaller(Action<string> log)
             fx.SetValue(composite, new[] { current, Clsid }, RegistryValueKind.MultiString);
             log($"Lo slot {single} era occupato da {current}: create la lista composita {composite} con entrambi.");
         }
+    }
+
+    // The Windows 8.1+ positions only run in the processing modes listed next to them: an effect
+    // without that list is ignored (seen with a SteelSeries headset declaring only its own EFX).
+    // Without one from the driver, declare the default mode, which ordinary recording uses.
+    private void EnsureDefaultMode(RegistryKey fx, FxSlot slot, EndpointBackup backup)
+    {
+        var modes = $"{ModesPropertyFormat},{(int)slot}";
+        backup.SaveOriginal(FxStore, fx, modes);
+        if (fx.GetValue(modes) is string[] { Length: > 0 } list)
+        {
+            log($"Modalità già dichiarate dal driver per {slot}: {string.Join(", ", list)}.");
+            return;
+        }
+        fx.SetValue(modes, new[] { DefaultMode }, RegistryValueKind.MultiString);
+        log($"Dichiarata la modalità predefinita per {slot} ({modes}).");
     }
 
     private void RestoreEndpoint(RegistryKey endpoints, string guid)
