@@ -27,7 +27,7 @@ public sealed class DialogService(Window owner) : IDialogService
             Filter = "Lista SoundPad (*.spl)|*.spl|Tutti i file (*.*)|*.*",
             InitialDirectory = initialFolder ?? "",
         };
-        return dialog.ShowDialog(owner) == true ? dialog.FileName : null;
+        return FileDialogs.Show(dialog, owner) ? dialog.FileName : null;
     }
 
     public IReadOnlyList<string> OpenAudioFiles()
@@ -39,7 +39,7 @@ public sealed class DialogService(Window owner) : IDialogService
             Filter = $"File audio|{patterns}|Tutti i file (*.*)|*.*",
             Multiselect = true,
         };
-        return dialog.ShowDialog(owner) == true ? dialog.FileNames : [];
+        return FileDialogs.Show(dialog, owner) ? dialog.FileNames : [];
     }
 
     public string? AskText(string title, string prompt, string initialValue = "")

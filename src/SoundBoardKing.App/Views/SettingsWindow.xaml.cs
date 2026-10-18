@@ -66,7 +66,7 @@ public partial class SettingsWindow : Window
             Filter = ProfileFilter,
             InitialDirectory = Path.GetDirectoryName(_model.ProfilePath) ?? "",
         };
-        if (dialog.ShowDialog(this) != true)
+        if (!FileDialogs.Show(dialog, this))
             return;
         if (string.Equals(Path.GetFullPath(dialog.FileName), _model.ProfilePath, StringComparison.OrdinalIgnoreCase))
             return;
@@ -95,7 +95,7 @@ public partial class SettingsWindow : Window
             FileName = ProfileStorage.FileName,
             InitialDirectory = Path.GetDirectoryName(_model.ExecutableProfilePath) ?? "",
         };
-        return dialog.ShowDialog(this) == true ? dialog.FileName : null;
+        return FileDialogs.Show(dialog, this) ? dialog.FileName : null;
     }
 
     private bool Ask(string message) =>
