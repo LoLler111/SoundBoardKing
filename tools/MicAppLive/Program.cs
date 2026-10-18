@@ -138,8 +138,8 @@ sealed class Recorder : IDisposable
             Marshal.ThrowExceptionForHR(hr);
         }
         _format = _client.MixFormat;
-        _client.Initialize(AudioClientShareMode.Shared, AudioClientStreamFlags.None, 2_000_000, 0, _format, Guid.Empty);
         Console.WriteLine($"formato: {_format.Encoding} {_format.SampleRate} Hz {_format.Channels} canali {_format.BitsPerSample} bit");
+        _client.Initialize(AudioClientShareMode.Shared, AudioClientStreamFlags.None, 2_000_000, 0, _format, Guid.Empty);
     }
 
     public int SampleRate => _format.SampleRate;

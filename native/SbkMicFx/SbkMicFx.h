@@ -88,6 +88,7 @@ namespace sbk
         };
 
         HRESULT CheckFormat(IAudioMediaType* opposite, IAudioMediaType* requested, IAudioMediaType** supported);
+        void Trace(const wchar_t* call);
         HRESULT LogCheck(const wchar_t* side, IAudioMediaType* opposite, IAudioMediaType* requested,
                          IAudioMediaType** supported);
 

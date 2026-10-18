@@ -90,6 +90,13 @@ namespace sbk
 
         if (!found)
         {
+            // Shows which interfaces the audio engine looks for that this APO does not have.
+            if (!m_owner->m_discovery)
+            {
+                wchar_t iid[40];
+                StringFromGUID2(riid, iid, _countof(iid));
+                Log(L"QueryInterface non supportata: %s", iid);
+            }
             *ppv = nullptr;
             return E_NOINTERFACE;
         }
@@ -111,12 +118,14 @@ namespace sbk
 
     STDMETHODIMP SbkMicFx::Reset()
     {
+        Trace(L"Reset");
         m_reader.Reset();
         return S_OK;
     }
 
     STDMETHODIMP SbkMicFx::GetLatency(HNSTIME* pTime)
     {
+        Trace(L"GetLatency");
         if (!pTime)
             return E_POINTER;
         *pTime = 0;
@@ -125,6 +134,7 @@ namespace sbk
 
     STDMETHODIMP SbkMicFx::GetRegistrationProperties(APO_REG_PROPERTIES** ppRegProps)
     {
+        Trace(L"GetRegistrationProperties");
         if (!ppRegProps)
             return E_POINTER;
 
@@ -206,6 +216,13 @@ namespace sbk
         return LogCheck(L"uscita", pOppositeFormat, pRequestedOutputFormat, ppSupportedOutputFormat);
     }
 
+    // Calls outside real-time processing, logged for instances that may process audio.
+    void SbkMicFx::Trace(const wchar_t* call)
+    {
+        if (!m_discovery)
+            Log(L"%s", call);
+    }
+
     HRESULT SbkMicFx::LogCheck(const wchar_t* side, IAudioMediaType* opposite, IAudioMediaType* requested,
                                IAudioMediaType** supported)
     {
@@ -223,6 +240,7 @@ namespace sbk
 
     STDMETHODIMP SbkMicFx::GetInputChannelCount(UINT32* pu32ChannelCount)
     {
+        Trace(L"GetInputChannelCount");
         if (!pu32ChannelCount)
             return E_POINTER;
         *pu32ChannelCount = m_channels;
@@ -300,6 +318,7 @@ namespace sbk
 
     STDMETHODIMP SbkMicFx::GetEffectsList(LPGUID* ppEffectsIds, UINT* pcEffects, HANDLE /*Event*/)
     {
+        Trace(L"GetEffectsList");
         if (!ppEffectsIds || !pcEffects)
             return E_POINTER;
         *ppEffectsIds = nullptr;
