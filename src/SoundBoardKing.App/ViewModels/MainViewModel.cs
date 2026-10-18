@@ -19,8 +19,6 @@ namespace SoundBoardKing.App.ViewModels;
 
 public sealed partial class MainViewModel : ObservableObject, IDisposable
 {
-    private const string IdleTitle = "Nessun suono in riproduzione";
-
     private readonly ProfileStorage _storage;
     private readonly AudioEngine _engine;
     private readonly ApoMicFeed _micFeed;
@@ -53,22 +51,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private int hotbarPage;
 
     [ObservableProperty]
-    private string nowPlayingTitle = IdleTitle;
-
-    [ObservableProperty]
     private bool isPlaying;
 
     [ObservableProperty]
     private bool isPaused;
-
-    [ObservableProperty]
-    private double positionSeconds;
-
-    [ObservableProperty]
-    private double durationSeconds = 1;
-
-    [ObservableProperty]
-    private string positionText = "";
 
     [ObservableProperty]
     private string statusText = "";
@@ -109,6 +95,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<CategoryNodeViewModel> CategoryRoots { get; } = [];
     public ObservableCollection<HotbarSlotViewModel> HotbarSlots { get; } = [];
+
+    /// <summary>Every sound playing right now, oldest first; each gets its own bar.</summary>
+    public ObservableCollection<PlayingSoundViewModel> NowPlaying { get; } = [];
 
     public string LibrarySummary
     {
@@ -233,10 +222,23 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         RaisePlaybackChanged();
     }
 
+    /// <summary>Stops one of the sounds in the playback bar.</summary>
+    [RelayCommand]
+    private void StopOne(PlayingSoundViewModel? item)
+    {
+        if (item is not null)
+            _engine.Stop(item.Playback);
+    }
+
     private void OnPlaybackStarted(object? sender, Playback playback)
     {
-        if (playback.Tag is Guid id && _soundsById.TryGetValue(id, out var sound))
+        var sound = playback.Tag is Guid id ? _soundsById.GetValueOrDefault(id) : null;
+        if (sound is not null)
             sound.IsPlaying = true;
+
+        var item = new PlayingSoundViewModel(playback, sound?.Title ?? "");
+        item.Refresh();
+        NowPlaying.Add(item);
         UpdateNowPlaying();
     }
 
@@ -245,37 +247,27 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // The same sound may already have been restarted, so check before clearing the marker.
         if (playback.Tag is Guid id && _soundsById.TryGetValue(id, out var sound) && !_engine.IsPlayingTag(id))
             sound.IsPlaying = false;
+
+        if (NowPlaying.FirstOrDefault(p => p.Playback == playback) is { } item)
+            NowPlaying.Remove(item);
         UpdateNowPlaying();
     }
 
     private void UpdateNowPlaying()
     {
-        var current = _engine.Current;
-        IsPlaying = current is not null;
+        IsPlaying = NowPlaying.Count > 0;
         IsPaused = _engine.IsPaused;
-        if (current is null)
-        {
+        if (IsPlaying)
+            _progressTimer.Start();
+        else
             _progressTimer.Stop();
-            NowPlayingTitle = IdleTitle;
-            PositionSeconds = 0;
-            PositionText = "";
-            RaisePlaybackChanged();
-            return;
-        }
-
-        NowPlayingTitle = current.Tag is Guid id && _soundsById.TryGetValue(id, out var sound) ? sound.Title : "";
-        UpdateProgress();
-        _progressTimer.Start();
         RaisePlaybackChanged();
     }
 
     private void UpdateProgress()
     {
-        if (_engine.Current is not { } current)
-            return;
-        DurationSeconds = Math.Max(current.Duration.TotalSeconds, 0.001);
-        PositionSeconds = Math.Min(current.Position.TotalSeconds, DurationSeconds);
-        PositionText = $"{TimeFormat.Format(current.Position)} / {TimeFormat.Format(current.Duration)}";
+        foreach (var item in NowPlaying)
+            item.Refresh();
     }
 
     private void UpdateMicStatus()

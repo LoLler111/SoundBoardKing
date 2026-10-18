@@ -140,6 +140,9 @@ public sealed class AudioEngine : IDisposable
         return playback;
     }
 
+    /// <summary>Stops one sound; the others keep playing.</summary>
+    public void Stop(Playback playback) => playback.Stop();
+
     public void StopAll()
     {
         foreach (var playback in Snapshot())

@@ -267,13 +267,47 @@
                     <Button Style="{StaticResource IconButton}" Content="&#xE71A;" Command="{Binding StopCommand}" ToolTip="Ferma tutto" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding PositionText}" Foreground="{StaticResource TextDimBrush}" />
-                        <TextBlock Text="{Binding NowPlayingTitle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                    </DockPanel>
-                    <ProgressBar Margin="0,6,0,0" Maximum="{Binding DurationSeconds}" Value="{Binding PositionSeconds}" />
-                </StackPanel>
+                <!-- One bar per sound playing; each disappears when its sound ends or is stopped. -->
+                <Grid Grid.Column="1" Margin="14,0" VerticalAlignment="Center">
+                    <StackPanel>
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="Nessun suono in riproduzione" FontWeight="SemiBold" />
+                        <ProgressBar Margin="0,6,0,0" Value="0" />
+                    </StackPanel>
+                    <ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="NowPlayingList" ItemsSource="{Binding NowPlaying}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding PositionText}" Foreground="{StaticResource TextDimBrush}" />
+                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+                                            <ProgressBar Margin="0,4,0,0" Maximum="{Binding DurationSeconds}" Value="{Binding PositionSeconds}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Style="{StaticResource SmallIconButton}" Content="&#xE711;" Margin="8,0,0,0"
+                                                VerticalAlignment="Center" ToolTip="Ferma questo suono"
+                                                Command="{Binding DataContext.StopOneCommand, ElementName=NowPlayingList}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE767;" VerticalAlignment="Center" Margin="0,0,8,0"
