@@ -11,7 +11,7 @@ public sealed record HotbarSlotDto(int Page, int Slot, Guid SoundId);
 public sealed record HotbarDto(int Pages, int SlotsPerPage, IReadOnlyList<HotbarSlotDto> Slots);
 
 /// <summary>One of the sounds playing at the same time; <see cref="Id"/> stops just this one.</summary>
-public sealed record PlayingDto(Guid Id, Guid? SoundId, long PositionMs, long DurationMs);
+public sealed record PlayingDto(Guid Id, Guid? SoundId, long PositionMs, long DurationMs, bool Paused = false);
 
 /// <summary>
 /// <see cref="State"/> is "stopped", "playing" or "paused" (all sounds pause together). SoundId and the

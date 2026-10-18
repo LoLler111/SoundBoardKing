@@ -18,6 +18,7 @@ interface RemoteActions {
     fun play(soundId: String, target: PlayTarget)
     fun stop()
     fun stopOne(playbackId: String)
+    fun togglePauseOne(playbackId: String)
     fun togglePause()
     fun setMic(enabled: Boolean)
     fun reconnect()

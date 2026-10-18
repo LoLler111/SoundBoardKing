@@ -133,7 +133,7 @@ public class SplImporterTests
         var result = SplImporter.Import(realList);
 
         Assert.Equal(985, result.Library.Sounds.Count);
-        Assert.Equal(Hotbar.PageCount * Hotbar.SlotsPerPage, result.Library.Hotbar.Slots.Count);
+        Assert.Equal(100, result.Library.Hotbar.Slots.Count); // SoundPad: 5 pages of 20, all filled
         Assert.Equal(5, result.Library.Categories.Count);
         // 10 sounds live on a NAS share and 1 in another user's Downloads folder; the D:\ paths relink by name.
         Assert.Equal(11, result.MissingFiles);

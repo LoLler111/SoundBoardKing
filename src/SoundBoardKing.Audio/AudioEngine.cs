@@ -32,7 +32,6 @@ public sealed class AudioEngine : IDisposable
     private string? _deviceId;
     private float _speakerVolume = 1f;
     private float _micVolume = 1f;
-    private bool _paused;
 
     public AudioEngine(IMicFeed? micFeed = null) => _micFeed = micFeed ?? new NullMicFeed();
 
@@ -41,7 +40,11 @@ public sealed class AudioEngine : IDisposable
     public event EventHandler<Exception>? OutputFailed;
 
     public bool IsMicAvailable => _micFeed.IsAvailable;
-    public bool IsPaused => _paused;
+    /// <summary>True when something is playing and every sound is paused.</summary>
+    public bool IsPaused
+    {
+        get { lock (_gate) return _playing.Count > 0 && _playing.TrueForAll(p => p.IsPaused); }
+    }
 
     /// <summary>The most recently started sound that is still playing.</summary>
     public Playback? Current
@@ -142,7 +145,9 @@ public sealed class AudioEngine : IDisposable
 
         if (!request.AllowOverlap)
             StopAll();
-        Resume();
+        // A new sound after the pause key resumes everything, as before; sounds paused one by one stay paused.
+        if (IsPaused)
+            SetAllPaused(false);
 
         playback.Attach(speaker, mic);
         lock (_gate)
@@ -163,24 +168,18 @@ public sealed class AudioEngine : IDisposable
     {
         foreach (var playback in Snapshot())
             playback.Stop();
-        _paused = false;
     }
 
-    public void TogglePause()
-    {
-        var playing = Snapshot();
-        _paused = playing.Count > 0 && !_paused;
-        foreach (var playback in playing)
-            playback.SetPaused(_paused);
-    }
+    /// <summary>Pauses every sound, or resumes them all when they are all paused.</summary>
+    public void TogglePause() => SetAllPaused(!IsPaused);
 
-    private void Resume()
+    /// <summary>Pauses or resumes one sound; the others carry on.</summary>
+    public void TogglePause(Playback playback) => playback.SetPaused(!playback.IsPaused);
+
+    private void SetAllPaused(bool paused)
     {
-        if (!_paused)
-            return;
-        _paused = false;
         foreach (var playback in Snapshot())
-            playback.SetPaused(false);
+            playback.SetPaused(paused);
     }
 
     private List<Playback> Snapshot()

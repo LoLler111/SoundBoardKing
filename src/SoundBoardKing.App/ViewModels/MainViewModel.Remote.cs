@@ -79,7 +79,7 @@ public sealed partial class MainViewModel
             (long)current.Duration.TotalMilliseconds,
             NowPlaying
                 .Select(p => p.Playback)
-                .Select(p => new PlayingDto(p.Id, p.Tag as Guid?, (long)p.Position.TotalMilliseconds, (long)p.Duration.TotalMilliseconds))
+                .Select(p => new PlayingDto(p.Id, p.Tag as Guid?, (long)p.Position.TotalMilliseconds, (long)p.Duration.TotalMilliseconds, p.IsPaused))
                 .ToList());
     }
 
@@ -89,6 +89,15 @@ public sealed partial class MainViewModel
         if (NowPlaying.FirstOrDefault(p => p.Playback.Id == playbackId) is not { } item)
             return false;
         _engine.Stop(item.Playback);
+        return true;
+    }
+
+    /// <summary>Pauses or resumes one of the sounds playing together; false when it already ended.</summary>
+    public bool TogglePausePlayback(Guid playbackId)
+    {
+        if (NowPlaying.FirstOrDefault(p => p.Playback.Id == playbackId) is not { } item)
+            return false;
+        PauseOne(item);
         return true;
     }
 

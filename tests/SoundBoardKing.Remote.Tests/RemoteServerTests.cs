@@ -138,6 +138,10 @@ public sealed class RemoteServerTests : IAsyncLifetime
             (await _http.SendAsync(Authorized(HttpMethod.Post, $"/api/stop/{FakeController.First}", token))).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,
             (await _http.SendAsync(Authorized(HttpMethod.Post, $"/api/stop/{Guid.NewGuid()}", token))).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await _http.SendAsync(Authorized(HttpMethod.Post, $"/api/pause/{FakeController.Second}", token))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await _http.SendAsync(Authorized(HttpMethod.Post, $"/api/pause/{Guid.NewGuid()}", token))).StatusCode);
         Assert.Equal(1, _controller.Stops);
     }
 
@@ -166,6 +170,7 @@ public sealed class RemoteServerTests : IAsyncLifetime
             Assert.Equal("File non trovato", error.RootElement.GetProperty("message").GetString());
 
         await SendAsync(socket, new { type = "stopOne", playbackId = FakeController.Second });
+        await SendAsync(socket, new { type = "togglePauseOne", playbackId = FakeController.First });
         // The connection survives errors.
         await SendAsync(socket, new { type = "stop" });
         Assert.Equal(WebSocketState.Open, socket.State);
@@ -173,6 +178,7 @@ public sealed class RemoteServerTests : IAsyncLifetime
         Assert.Equal([PlayTarget.Default, PlayTarget.Speakers], _controller.Targets);
         Assert.Equal(1, _controller.Pauses);
         Assert.Equal([FakeController.Second], _controller.StoppedOnes);
+        Assert.Equal([FakeController.First], _controller.PausedOnes);
         Assert.False(_controller.MicEnabled);
 
         _server.Broadcast(new { type = "libraryChanged", libraryVersion = 43 });
@@ -262,6 +268,14 @@ public sealed class RemoteServerTests : IAsyncLifetime
         public Task<bool> StopOneAsync(Guid playbackId)
         {
             StoppedOnes.Add(playbackId);
+            return Task.FromResult(playbackId == First || playbackId == Second);
+        }
+
+        public List<Guid> PausedOnes { get; } = [];
+
+        public Task<bool> TogglePauseOneAsync(Guid playbackId)
+        {
+            PausedOnes.Add(playbackId);
             return Task.FromResult(playbackId == First || playbackId == Second);
         }
 

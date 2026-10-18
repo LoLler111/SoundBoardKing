@@ -105,6 +105,11 @@ class SoundBoardApi(
             put("playbackId", playbackId)
         }.toString()
 
+        fun togglePauseOneCommand(playbackId: String) = buildJsonObject {
+            put("type", "togglePauseOne")
+            put("playbackId", playbackId)
+        }.toString()
+
         fun micCommand(enabled: Boolean) = buildJsonObject {
             put("type", "setMic")
             put("enabled", enabled)

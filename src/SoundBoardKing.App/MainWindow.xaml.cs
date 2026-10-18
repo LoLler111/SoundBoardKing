@@ -150,6 +150,17 @@ public partial class MainWindow : Window
             await _viewModel.AddPathsAsync(paths);
     }
 
+    // WPF does not scroll by itself during drag and drop: nudge the favourites when the pointer is near an edge.
+    private void HotbarScroll_PreviewDragOver(object sender, DragEventArgs e)
+    {
+        const double edge = 24, step = 8;
+        var y = e.GetPosition(HotbarScroll).Y;
+        if (y < edge)
+            HotbarScroll.ScrollToVerticalOffset(HotbarScroll.VerticalOffset - step);
+        else if (y > HotbarScroll.ActualHeight - edge)
+            HotbarScroll.ScrollToVerticalOffset(HotbarScroll.VerticalOffset + step);
+    }
+
     private void HotbarSlot_DragOver(object sender, DragEventArgs e)
     {
         e.Effects = e.Data.GetDataPresent(SoundsDataFormat) ? DragDropEffects.Copy : DragDropEffects.None;

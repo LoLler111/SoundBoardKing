@@ -51,6 +51,7 @@ data class PlayingDto(
     val soundId: String? = null,
     val positionMs: Long = 0,
     val durationMs: Long = 0,
+    val paused: Boolean = false,
 )
 
 /**

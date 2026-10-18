@@ -33,7 +33,8 @@ Ogni PC con SoundBoardKing risponde, direttamente al mittente:
 | POST | `/api/play/{soundId}?target=…` | sì | 204; 404 se il suono non esiste; 409 `{ error }` se non è partito (file mancante, nessun dispositivo audio, microfono non disponibile); 400 se `target` non è valido |
 | POST | `/api/stop` | sì | 204 |
 | POST | `/api/stop/{playbackId}` | sì | 204; 404 se quel suono è già finito |
-| POST | `/api/pause` | sì | 204 (mette in pausa o riprende) |
+| POST | `/api/pause` | sì | 204 (mette in pausa o riprende tutti i suoni) |
+| POST | `/api/pause/{playbackId}` | sì | 204 (mette in pausa o riprende solo quel suono); 404 se è già finito |
 
 Errori: 401 se il token manca o non è valido.
 
@@ -43,16 +44,17 @@ Errori: 401 se il token manca o non è valido.
   "serverId": "…", "name": "PC-SALOTTO", "protocol": 1, "libraryVersion": 7,
   "sounds": [ { "id": "guid", "title": "airhorn", "artist": "", "durationMs": 3000, "missing": false, "hotkey": "Ctrl+1" } ],
   "categories": [ { "id": "guid", "name": "Voice", "soundIds": ["guid"], "children": [ … ] } ],
-  "hotbar": { "pages": 5, "slotsPerPage": 20, "slots": [ { "page": 0, "slot": 0, "soundId": "guid" } ] },
+  "hotbar": { "pages": 5, "slotsPerPage": 100, "slots": [ { "page": 0, "slot": 0, "soundId": "guid" } ] },
   "playback": { "state": "playing", "soundId": "guid", "positionMs": 1200, "durationMs": 3000,
-                "playing": [ { "id": "guid", "soundId": "guid", "positionMs": 1200, "durationMs": 3000 } ] },
+                "playing": [ { "id": "guid", "soundId": "guid", "positionMs": 1200, "durationMs": 3000, "paused": false } ] },
   "mic": { "state": "active", "enabled": true }
 }
 ```
 - `playback.state`: `stopped` | `playing` | `paused`.
 - `playback.playing`: tutti i suoni in riproduzione insieme, dal più vecchio; `id` identifica quella riproduzione
-  (serve a `stopOne`). `soundId` e i tempi fuori dalla lista descrivono l'ultimo suono partito, per i telefoni
-  con una versione precedente. La pausa vale per tutti i suoni insieme.
+  (serve a `stopOne` e `togglePauseOne`); `paused` dice se quel suono è fermo in pausa. `soundId` e i tempi fuori dalla lista descrivono l'ultimo suono partito, per i telefoni
+  con una versione precedente.
+  `state` è `paused` solo quando tutti i suoni sono in pausa.
 - `mic.state`: `notInstalled` | `idle` | `active` | `incompatible` | `accessDenied`.
 
 ## WebSocket `/ws?token=…`
@@ -65,6 +67,7 @@ Dal telefono al PC:
 { "type": "stop" }
 { "type": "stopOne", "playbackId": "guid" }
 { "type": "togglePause" }
+{ "type": "togglePauseOne", "playbackId": "guid" }
 { "type": "setMic", "enabled": false }
 ```
 

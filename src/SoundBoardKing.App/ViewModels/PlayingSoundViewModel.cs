@@ -15,6 +15,9 @@ public sealed partial class PlayingSoundViewModel(Playback playback, string titl
     [ObservableProperty]
     private string positionText = "";
 
+    [ObservableProperty]
+    private bool isPaused;
+
     public Playback Playback { get; } = playback;
     public string Title { get; } = title;
 
@@ -23,5 +26,6 @@ public sealed partial class PlayingSoundViewModel(Playback playback, string titl
         DurationSeconds = Math.Max(Playback.Duration.TotalSeconds, 0.001);
         PositionSeconds = Math.Min(Playback.Position.TotalSeconds, DurationSeconds);
         PositionText = $"{TimeFormat.Format(Playback.Position)} / {TimeFormat.Format(Playback.Duration)}";
+        IsPaused = Playback.IsPaused;
     }
 }

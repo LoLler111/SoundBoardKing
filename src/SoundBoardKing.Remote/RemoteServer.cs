@@ -170,6 +170,13 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
             return Results.NoContent();
         });
 
+        app.MapPost("/api/pause/{playbackId:guid}", async (HttpContext context, Guid playbackId) =>
+        {
+            if (Authenticate(context) is null)
+                return Results.Unauthorized();
+            return await controller.TogglePauseOneAsync(playbackId) ? Results.NoContent() : Results.NotFound();
+        });
+
         app.Map("/ws", HandleWebSocketAsync);
     }
 
@@ -274,6 +281,12 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
                     break;
                 case "togglePause":
                     await controller.TogglePauseAsync();
+                    break;
+                case "togglePauseOne":
+                    if (root.TryGetProperty("playbackId", out var pauseElement) && pauseElement.TryGetGuid(out var pauseId))
+                        await controller.TogglePauseOneAsync(pauseId);
+                    else
+                        await SendErrorAsync(client, "playbackId mancante o non valido.");
                     break;
                 case "setMic":
                     if (root.TryGetProperty("enabled", out var enabled) && enabled.ValueKind is JsonValueKind.True or JsonValueKind.False)

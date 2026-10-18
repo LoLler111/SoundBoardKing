@@ -4,7 +4,7 @@ namespace SoundBoardKing.Core.Models;
 public sealed class Hotbar
 {
     public const int PageCount = 5;
-    public const int SlotsPerPage = 20;
+    public const int SlotsPerPage = 100;
 
     /// <summary>Keyed by page * 1000 + slot, the same numbering SoundPad uses.</summary>
     public Dictionary<int, Guid> Slots { get; set; } = [];

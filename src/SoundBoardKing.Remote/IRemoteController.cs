@@ -17,6 +17,8 @@ public interface IRemoteController
 
     /// <summary>Stops one of the sounds playing together; false when it already ended.</summary>
     Task<bool> StopOneAsync(Guid playbackId);
+    /// <summary>Pauses or resumes one of the sounds playing together; false when it already ended.</summary>
+    Task<bool> TogglePauseOneAsync(Guid playbackId);
     Task TogglePauseAsync();
     Task SetMicEnabledAsync(bool enabled);
 }

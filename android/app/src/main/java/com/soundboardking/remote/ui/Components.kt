@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -131,8 +132,8 @@ fun formatDuration(ms: Long): String {
 // The core icon set has no pause or stop glyphs; these are simple enough to draw.
 
 @Composable
-fun PauseIcon(modifier: Modifier = Modifier) {
-    val color = LocalContentColor.current
+fun PauseIcon(modifier: Modifier = Modifier, tint: Color = LocalContentColor.current) {
+    val color = tint
     Canvas(modifier.size(24.dp)) {
         val barWidth = size.width * 0.22f
         val top = size.height * 0.18f

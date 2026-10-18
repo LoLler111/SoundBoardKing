@@ -23,6 +23,9 @@ public sealed class Playback
     public TimeSpan Position => (_speaker ?? _mic)?.Position ?? TimeSpan.Zero;
     public TimeSpan Duration => (_speaker ?? _mic)?.Duration ?? TimeSpan.Zero;
 
+    /// <summary>Paused on its own or with all the others.</summary>
+    public bool IsPaused { get; private set; }
+
     internal Voice? SpeakerVoice => _speaker;
 
     internal IEnumerable<Voice> Voices
@@ -52,6 +55,7 @@ public sealed class Playback
 
     internal void SetPaused(bool paused)
     {
+        IsPaused = paused;
         foreach (var voice in Voices)
             voice.Paused = paused;
     }

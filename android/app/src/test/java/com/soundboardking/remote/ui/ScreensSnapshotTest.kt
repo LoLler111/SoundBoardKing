@@ -32,6 +32,7 @@ class ScreensSnapshotTest {
         override fun play(soundId: String, target: PlayTarget) {}
         override fun stop() {}
         override fun stopOne(playbackId: String) {}
+        override fun togglePauseOne(playbackId: String) {}
         override fun togglePause() {}
         override fun setMic(enabled: Boolean) {}
         override fun reconnect() {}
@@ -63,7 +64,10 @@ class ScreensSnapshotTest {
             CategoryDto("music", "Musica", sounds.drop(5).map { it.id }),
             CategoryDto("earrape", "Earrape"),
         ),
-        hotbar = HotbarDto(slots = sounds.take(14).mapIndexed { i, s -> HotbarSlotDto(0, if (i < 12) i else i + 3, s.id) }),
+        hotbar = HotbarDto(
+            slotsPerPage = 100,
+            slots = sounds.take(14).mapIndexed { i, s -> HotbarSlotDto(0, if (i < 12) i else i + 3, s.id) } + HotbarSlotDto(0, 45, "s15"),
+        ),
     )
     private val connected = UiState(
         server = SavedServer("pc", "PC-SALOTTO", listOf("192.168.1.10"), 8765, "t"),
@@ -71,7 +75,7 @@ class ScreensSnapshotTest {
         library = library,
         playback = PlaybackDto(
             "playing", "s3", 400, 12_400,
-            listOf(PlayingDto("p1", "s1", 1_200, 6_200), PlayingDto("p2", "s3", 400, 12_400)),
+            listOf(PlayingDto("p1", "s1", 1_200, 6_200, paused = true), PlayingDto("p2", "s3", 400, 12_400)),
         ),
         mic = MicDto("active", true),
     )

@@ -248,6 +248,23 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private void TogglePause()
     {
         _engine.TogglePause();
+        PauseChanged();
+    }
+
+    /// <summary>Pauses or resumes one of the sounds in the playback bar.</summary>
+    [RelayCommand]
+    private void PauseOne(PlayingSoundViewModel? item)
+    {
+        if (item is null)
+            return;
+        _engine.TogglePause(item.Playback);
+        PauseChanged();
+    }
+
+    private void PauseChanged()
+    {
+        foreach (var item in NowPlaying)
+            item.Refresh();
         IsPaused = _engine.IsPaused;
         RaisePlaybackChanged();
     }

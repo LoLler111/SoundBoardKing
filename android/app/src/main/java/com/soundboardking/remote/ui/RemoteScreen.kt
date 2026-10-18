@@ -20,9 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
@@ -301,7 +298,10 @@ private fun FavoritesTab(
                 horizontalArrangement = Arrangement.spacedBy(look.tileGap),
                 verticalArrangement = Arrangement.spacedBy(look.tileGap),
             ) {
-                items(hotbar.slotsPerPage) { slot ->
+                // Up to 100 slots a page: stop after the last row that has a sound, or the page is mostly empty tiles.
+                val lastUsed = slots.keys.filter { it.first == page }.maxOfOrNull { it.second } ?: -1
+                val rows = (maxOf(lastUsed + 1, MinVisibleSlots) + look.columns - 1) / look.columns
+                items(minOf(rows * look.columns, hotbar.slotsPerPage)) { slot ->
                     val sound = slots[page to slot]?.let { soundsById[it.soundId] }
                     SlotTile(slot + 1, sound, playing = sound != null && sound.id in playingIds, look, onPlay)
                 }
@@ -309,6 +309,9 @@ private fun FavoritesTab(
         }
     }
 }
+
+// Even an empty page shows a few tiles, so it doesn't look broken.
+private const val MinVisibleSlots = 20
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -450,19 +453,23 @@ private fun NowPlayingBar(
         Column(Modifier.fillMaxWidth()) {
             HorizontalDivider()
             Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                // One bar per sound playing; each disappears when its sound ends or is stopped.
-                Column(Modifier.weight(1f).heightIn(max = 168.dp).verticalScroll(rememberScrollState())) {
+                // One bar per sound playing, side by side; each disappears when its sound ends or is stopped.
+                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (sounds.isEmpty()) {
-                        PlayingRow("Nessun suono in riproduzione", 0f, active = false, onStop = null)
+                        PlayingRow("Nessun suono in riproduzione", 0f, active = false, onStop = null, Modifier.weight(1f))
                     }
                     sounds.forEach { sound ->
-                        val position = sound.positionMs + elapsed
+                        // A sound paused on its own stands still while the others move on.
+                        val position = sound.positionMs + if (sound.paused) 0 else elapsed
                         val fraction = if (sound.durationMs > 0) (position.toFloat() / sound.durationMs).coerceIn(0f, 1f) else 0f
                         PlayingRow(
                             sound.soundId?.let { soundsById[it]?.title }.orEmpty(),
                             fraction,
                             active = true,
                             onStop = if (sound.id.isNotEmpty()) ({ actions.stopOne(sound.id) }) else null,
+                            paused = sound.paused,
+                            onPause = if (sound.id.isNotEmpty()) ({ actions.togglePauseOne(sound.id) }) else null,
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
@@ -478,8 +485,16 @@ private fun NowPlayingBar(
 }
 
 @Composable
-private fun PlayingRow(title: String, fraction: Float, active: Boolean, onStop: (() -> Unit)?) {
-    Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun PlayingRow(
+    title: String,
+    fraction: Float,
+    active: Boolean,
+    onStop: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    paused: Boolean = false,
+    onPause: (() -> Unit)? = null,
+) {
+    Row(modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(
                 title,
@@ -492,10 +507,16 @@ private fun PlayingRow(title: String, fraction: Float, active: Boolean, onStop: 
             LinearProgressIndicator(
                 progress = { fraction },
                 modifier = Modifier.fillMaxWidth(),
-                color = Gold,
+                color = if (paused) TextDim else Gold,
                 trackColor = Panel2,
                 drawStopIndicator = {},
             )
+        }
+        if (onPause != null) {
+            IconButton(onClick = onPause, modifier = Modifier.size(36.dp)) {
+                if (paused) Icon(Icons.Filled.PlayArrow, contentDescription = "Riprendi questo suono", tint = TextDim, modifier = Modifier.size(20.dp))
+                else PauseIcon(Modifier.size(18.dp), tint = TextDim)
+            }
         }
         if (onStop != null) {
             IconButton(onClick = onStop, modifier = Modifier.size(36.dp)) {
