@@ -170,6 +170,24 @@ public partial class MainWindow : Window
             _viewModel.ClearHotbarSlotCommand.Execute(slot);
     }
 
+    private void PlayHotbarSlot_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is HotbarSlotViewModel slot)
+            _viewModel.PlayHotbarSlotCommand.Execute(slot);
+    }
+
+    private void PreviewHotbarSlot_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is HotbarSlotViewModel slot)
+            _viewModel.PreviewHotbarSlotCommand.Execute(slot);
+    }
+
+    private void PlayHotbarSlotOnMic_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is HotbarSlotViewModel slot)
+            _viewModel.PlayHotbarSlotOnMicCommand.Execute(slot);
+    }
+
     private void CategoryItem_DragOver(object sender, DragEventArgs e)
     {
         bool accepts = e.Data.GetDataPresent(SoundsDataFormat) &&

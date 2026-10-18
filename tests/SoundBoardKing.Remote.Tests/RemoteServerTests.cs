@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using SoundBoardKing.Core.Models;
 using SoundBoardKing.Core.Storage;
 
 namespace SoundBoardKing.Remote.Tests;
@@ -123,8 +124,13 @@ public sealed class RemoteServerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Conflict, broken.StatusCode);
         Assert.Contains("File non trovato", await broken.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.NoContent,
+            (await _http.SendAsync(Authorized(HttpMethod.Post, $"/api/play/{Airhorn}?target=mic", token))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await _http.SendAsync(Authorized(HttpMethod.Post, $"/api/play/{Airhorn}?target=altrove", token))).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent,
             (await _http.SendAsync(Authorized(HttpMethod.Post, "/api/stop", token))).StatusCode);
-        Assert.Equal([Airhorn], _controller.Played);
+        Assert.Equal([Airhorn, Airhorn], _controller.Played);
+        Assert.Equal([PlayTarget.Default, PlayTarget.Mic], _controller.Targets);
         Assert.Equal(1, _controller.Stops);
     }
 
@@ -142,6 +148,7 @@ public sealed class RemoteServerTests : IAsyncLifetime
         }
 
         await SendAsync(socket, new { type = "play", soundId = Airhorn });
+        await SendAsync(socket, new { type = "play", soundId = Airhorn, target = "speakers" });
         await SendAsync(socket, new { type = "togglePause" });
         await SendAsync(socket, new { type = "setMic", enabled = false });
         await SendAsync(socket, new { type = "play", soundId = Guid.NewGuid() });
@@ -155,7 +162,7 @@ public sealed class RemoteServerTests : IAsyncLifetime
         await SendAsync(socket, new { type = "stop" });
         Assert.Equal(WebSocketState.Open, socket.State);
 
-        Assert.Equal([Airhorn], _controller.Played);
+        Assert.Equal([PlayTarget.Default, PlayTarget.Speakers], _controller.Targets);
         Assert.Equal(1, _controller.Pauses);
         Assert.False(_controller.MicEnabled);
 
@@ -224,6 +231,7 @@ public sealed class RemoteServerTests : IAsyncLifetime
     private sealed class FakeController : IRemoteController
     {
         public List<Guid> Played { get; } = [];
+        public List<PlayTarget> Targets { get; } = [];
         public int Stops { get; private set; }
         public int Pauses { get; private set; }
         public bool MicEnabled { get; private set; } = true;
@@ -239,13 +247,14 @@ public sealed class RemoteServerTests : IAsyncLifetime
 
         public static readonly Guid Broken = Guid.NewGuid();
 
-        public Task<PlayResult> PlayAsync(Guid soundId)
+        public Task<PlayResult> PlayAsync(Guid soundId, PlayTarget target = PlayTarget.Default)
         {
             if (soundId == Broken)
                 return Task.FromResult(PlayResult.Failed("File non trovato"));
             if (soundId != Airhorn)
                 return Task.FromResult(PlayResult.NotFound);
             Played.Add(soundId);
+            Targets.Add(target);
             return Task.FromResult(PlayResult.Started);
         }
 

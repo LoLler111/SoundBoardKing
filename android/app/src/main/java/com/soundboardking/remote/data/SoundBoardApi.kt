@@ -92,9 +92,10 @@ class SoundBoardApi(
 
         fun baseUrl(host: String, port: Int) = "http://$host:$port"
 
-        fun playCommand(soundId: String) = buildJsonObject {
+        fun playCommand(soundId: String, target: PlayTarget = PlayTarget.Default) = buildJsonObject {
             put("type", "play")
             put("soundId", soundId)
+            target.wire?.let { put("target", it) }
         }.toString()
 
         fun simpleCommand(type: String) = buildJsonObject { put("type", type) }.toString()

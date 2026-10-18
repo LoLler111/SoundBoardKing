@@ -11,6 +11,7 @@ import com.soundboardking.remote.data.MicDto
 import com.soundboardking.remote.data.PROTOCOL_VERSION
 import com.soundboardking.remote.data.PairingLink
 import com.soundboardking.remote.data.PairingRefusedException
+import com.soundboardking.remote.data.PlayTarget
 import com.soundboardking.remote.data.PlaybackDto
 import com.soundboardking.remote.data.SavedServer
 import com.soundboardking.remote.data.ServerEvent
@@ -312,7 +313,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
 
     // ---- Commands --------------------------------------------------------------------------
 
-    override fun play(soundId: String) = send(SoundBoardApi.playCommand(soundId))
+    override fun play(soundId: String, target: PlayTarget) = send(SoundBoardApi.playCommand(soundId, target))
 
     override fun stop() = send(SoundBoardApi.simpleCommand("stop"))
 

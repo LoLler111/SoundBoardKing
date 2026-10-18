@@ -1,14 +1,22 @@
 package com.soundboardking.remote.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.CornerRadius
@@ -19,6 +27,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.soundboardking.remote.data.PlayTarget
 import com.soundboardking.remote.data.SoundDto
 import com.soundboardking.remote.ui.theme.Gold
 import com.soundboardking.remote.ui.theme.TextDim
@@ -33,30 +42,59 @@ fun KeepScreenOn() {
     }
 }
 
+typealias OnPlay = (soundId: String, target: PlayTarget) -> Unit
+
+/** Long-press menu of a sound: play as usual, preview in the PC's headphones only, or mic only. */
 @Composable
-fun SoundRow(sound: SoundDto, playing: Boolean, onPlay: (String) -> Unit) {
+fun PlayMenu(expanded: Boolean, onDismiss: () -> Unit, onPick: (PlayTarget) -> Unit) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        listOf(
+            PlayTarget.Default to "Riproduci",
+            PlayTarget.Speakers to "Anteprima (solo in cuffia sul PC)",
+            PlayTarget.Mic to "Solo nel microfono",
+        ).forEach { (target, label) ->
+            DropdownMenuItem(text = { Text(label) }, onClick = {
+                onDismiss()
+                onPick(target)
+            })
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun SoundRow(sound: SoundDto, playing: Boolean, onPlay: OnPlay) {
     val haptic = LocalHapticFeedback.current
+    var menu by remember { mutableStateOf(false) }
     val subtitle = when {
         sound.missing -> "File mancante sul PC"
         sound.artist.isNotBlank() -> sound.artist
         else -> null
     }
-    ListItem(
-        headlineContent = {
-            Text(sound.title, maxLines = 2, overflow = TextOverflow.Ellipsis, color = if (playing) Gold else LocalContentColor.current)
-        },
-        supportingContent = if (subtitle == null) null else {
-            { Text(subtitle, color = TextDim, maxLines = 1) }
-        },
-        trailingContent = { Text(formatDuration(sound.durationMs), color = TextDim) },
-        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-        modifier = Modifier
-            .alpha(if (sound.missing) 0.5f else 1f)
-            .clickable {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onPlay(sound.id)
+    Box {
+        ListItem(
+            headlineContent = {
+                Text(sound.title, maxLines = 2, overflow = TextOverflow.Ellipsis, color = if (playing) Gold else LocalContentColor.current)
             },
-    )
+            supportingContent = if (subtitle == null) null else {
+                { Text(subtitle, color = TextDim, maxLines = 1) }
+            },
+            trailingContent = { Text(formatDuration(sound.durationMs), color = TextDim) },
+            colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+            modifier = Modifier
+                .alpha(if (sound.missing) 0.5f else 1f)
+                .combinedClickable(
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        menu = true
+                    },
+                ) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onPlay(sound.id, PlayTarget.Default)
+                },
+        )
+        PlayMenu(menu, onDismiss = { menu = false }) { onPlay(sound.id, it) }
+    }
 }
 
 fun formatDuration(ms: Long): String {

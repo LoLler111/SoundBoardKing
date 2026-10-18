@@ -113,3 +113,14 @@ sealed interface ServerEvent {
         }
     }
 }
+
+/** Where a sound goes on the PC; [wire] is the protocol's `target`, absent for the usual. */
+enum class PlayTarget(val wire: String?) {
+    Default(null),
+
+    /** Preview: only in the PC's headphones, never in the microphone. */
+    Speakers("speakers"),
+
+    /** Only in the microphone, even when it is switched off. */
+    Mic("mic"),
+}

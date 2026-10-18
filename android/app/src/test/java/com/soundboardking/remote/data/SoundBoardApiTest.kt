@@ -94,4 +94,11 @@ class SoundBoardApiTest {
         assertEquals("/ws?token=tok", server.takeRequest().path)
         socket.close(1000, null)
     }
+
+    @Test
+    fun play_command_carries_the_target_only_when_not_the_usual() {
+        assertEquals("""{"type":"play","soundId":"s1","target":"mic"}""", SoundBoardApi.playCommand("s1", PlayTarget.Mic))
+        assertEquals("""{"type":"play","soundId":"s1","target":"speakers"}""", SoundBoardApi.playCommand("s1", PlayTarget.Speakers))
+        assertEquals("""{"type":"play","soundId":"s1"}""", SoundBoardApi.playCommand("s1", PlayTarget.Default))
+    }
 }

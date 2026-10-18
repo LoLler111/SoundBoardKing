@@ -187,16 +187,40 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             TryPlay(sound);
     }
 
-    /// <summary>Returns why the sound could not start (also shown in the status bar), or null.</summary>
-    private string? TryPlay(SoundItemViewModel sound)
+    /// <summary>Preview: only in the headphones, never in the microphone.</summary>
+    [RelayCommand]
+    private void PreviewSound(SoundItemViewModel? sound)
     {
+        sound ??= SelectedSound;
+        if (sound is not null)
+            TryPlay(sound, PlayTarget.Speakers);
+    }
+
+    [RelayCommand]
+    private void PlaySoundOnMic(SoundItemViewModel? sound)
+    {
+        sound ??= SelectedSound;
+        if (sound is not null)
+            TryPlay(sound, PlayTarget.Mic);
+    }
+
+    /// <summary>Returns why the sound could not start (also shown in the status bar), or null.</summary>
+    private string? TryPlay(SoundItemViewModel sound, PlayTarget target = PlayTarget.Default)
+    {
+        if (target == PlayTarget.Mic && !_engine.IsMicAvailable)
+            return StatusText = "Microfono non disponibile: installa il modulo dalle impostazioni.";
         try
         {
             _engine.Play(sound.Model.Path, new PlayRequest(
                 sound.Id,
                 sound.Model.Volume,
-                Speakers: true,
-                Mic: _settings.PlayOnMic && _engine.IsMicAvailable,
+                Speakers: target != PlayTarget.Mic,
+                Mic: target switch
+                {
+                    PlayTarget.Speakers => false,
+                    PlayTarget.Mic => true,
+                    _ => _settings.PlayOnMic && _engine.IsMicAvailable,
+                },
                 AllowOverlap: _settings.AllowOverlap));
             return null;
         }
@@ -312,6 +336,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         if (slot?.Sound is { } sound)
             PlaySound(sound);
+    }
+
+    [RelayCommand]
+    private void PreviewHotbarSlot(HotbarSlotViewModel? slot)
+    {
+        if (slot?.Sound is { } sound)
+            TryPlay(sound, PlayTarget.Speakers);
+    }
+
+    [RelayCommand]
+    private void PlayHotbarSlotOnMic(HotbarSlotViewModel? slot)
+    {
+        if (slot?.Sound is { } sound)
+            TryPlay(sound, PlayTarget.Mic);
     }
 
     [RelayCommand]

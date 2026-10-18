@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using SoundBoardKing.Core.Models;
 using SoundBoardKing.Core.Storage;
 
 namespace SoundBoardKing.Remote;
@@ -136,7 +137,9 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
         {
             if (Authenticate(context) is null)
                 return Results.Unauthorized();
-            var result = await controller.PlayAsync(soundId);
+            if (!TryParseTarget(context.Request.Query["target"], out var target))
+                return Results.Json(new { error = "target non valido: usa speakers o mic." }, Json, statusCode: StatusCodes.Status400BadRequest);
+            var result = await controller.PlayAsync(soundId, target);
             if (!result.Found)
                 return Results.NotFound();
             return result.Error is null
@@ -241,9 +244,13 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
                     {
                         await SendErrorAsync(client, "soundId mancante o non valido.");
                     }
+                    else if (!TryParseTarget(root.TryGetProperty("target", out var targetElement) ? targetElement.GetString() : null, out var target))
+                    {
+                        await SendErrorAsync(client, "target non valido: usa speakers o mic.");
+                    }
                     else
                     {
-                        var result = await controller.PlayAsync(soundId);
+                        var result = await controller.PlayAsync(soundId, target);
                         if (result.Error is not null)
                             await SendErrorAsync(client, result.Error);
                     }
@@ -269,6 +276,19 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
         {
             await SendErrorAsync(client, "Messaggio non valido.");
         }
+    }
+
+    /// <summary>"speakers" (preview, headphones only) or "mic" (microphone only); absent means the usual.</summary>
+    private static bool TryParseTarget(string? text, out PlayTarget target)
+    {
+        target = text switch
+        {
+            null or "" or "default" => PlayTarget.Default,
+            "speakers" => PlayTarget.Speakers,
+            "mic" => PlayTarget.Mic,
+            _ => (PlayTarget)(-1),
+        };
+        return Enum.IsDefined(target);
     }
 
     private static Task SendErrorAsync(Client client, string message) =>

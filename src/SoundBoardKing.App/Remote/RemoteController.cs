@@ -1,5 +1,6 @@
 using System.Windows.Threading;
 using SoundBoardKing.App.ViewModels;
+using SoundBoardKing.Core.Models;
 using SoundBoardKing.Remote;
 
 namespace SoundBoardKing.App.Remote;
@@ -11,7 +12,8 @@ internal sealed class RemoteController(MainViewModel viewModel, Dispatcher dispa
 
     public Task<StateDto> GetStateAsync() => dispatcher.InvokeAsync(viewModel.BuildRemoteState).Task;
 
-    public Task<PlayResult> PlayAsync(Guid soundId) => dispatcher.InvokeAsync(() => viewModel.PlaySoundById(soundId)).Task;
+    public Task<PlayResult> PlayAsync(Guid soundId, PlayTarget target) =>
+        dispatcher.InvokeAsync(() => viewModel.PlaySoundById(soundId, target)).Task;
 
     public Task StopAsync() => dispatcher.InvokeAsync(() => viewModel.StopCommand.Execute(null)).Task;
 

@@ -1,6 +1,7 @@
 package com.soundboardking.remote.ui
 
 import com.soundboardking.remote.data.DiscoveredPc
+import com.soundboardking.remote.data.PlayTarget
 
 /** What the pairing screen can ask for. Implemented by [AppViewModel]; screens stay free of it. */
 interface ConnectActions {
@@ -13,7 +14,7 @@ interface ConnectActions {
 
 /** What the remote screen can ask for. */
 interface RemoteActions {
-    fun play(soundId: String)
+    fun play(soundId: String, target: PlayTarget)
     fun stop()
     fun togglePause()
     fun setMic(enabled: Boolean)

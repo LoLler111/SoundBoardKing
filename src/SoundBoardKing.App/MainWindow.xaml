@@ -161,6 +161,9 @@
                 <DataGrid.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="Riproduci" Command="{Binding PlaySoundCommand}" InputGestureText="Invio" FontWeight="SemiBold" />
+                        <MenuItem Header="Anteprima (solo in cuffia)" Command="{Binding PreviewSoundCommand}" />
+                        <MenuItem Header="Solo nel microfono" Command="{Binding PlaySoundOnMicCommand}" />
+                        <Separator />
                         <MenuItem Header="Aggiungi ai preferiti" Command="{Binding AddToHotbarCommand}" />
                         <MenuItem Header="Tasto rapido…" Command="{Binding AssignHotkeyCommand}" />
                         <MenuItem Header="Rinomina…" Command="{Binding RenameSoundCommand}" InputGestureText="F2" />
@@ -212,6 +215,10 @@
                                     AllowDrop="True" DragOver="HotbarSlot_DragOver" Drop="HotbarSlot_Drop">
                                 <Button.ContextMenu>
                                     <ContextMenu>
+                                        <MenuItem Header="Riproduci" Click="PlayHotbarSlot_Click" FontWeight="SemiBold" />
+                                        <MenuItem Header="Anteprima (solo in cuffia)" Click="PreviewHotbarSlot_Click" />
+                                        <MenuItem Header="Solo nel microfono" Click="PlayHotbarSlotOnMic_Click" />
+                                        <Separator />
                                         <MenuItem Header="Svuota slot" Click="ClearHotbarSlot_Click" />
                                     </ContextMenu>
                                 </Button.ContextMenu>

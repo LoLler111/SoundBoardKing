@@ -61,11 +61,11 @@ public sealed partial class MainViewModel
         CurrentPlayback(),
         CurrentMic());
 
-    public PlayResult PlaySoundById(Guid soundId)
+    public PlayResult PlaySoundById(Guid soundId, PlayTarget target = PlayTarget.Default)
     {
         if (!_soundsById.TryGetValue(soundId, out var sound))
             return PlayResult.NotFound;
-        return TryPlay(sound) is { } error ? PlayResult.Failed(error) : PlayResult.Started;
+        return TryPlay(sound, target) is { } error ? PlayResult.Failed(error) : PlayResult.Started;
     }
 
     public PlaybackDto CurrentPlayback()

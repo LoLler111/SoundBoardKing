@@ -4,7 +4,9 @@ import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -79,6 +81,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.soundboardking.remote.data.CategoryDto
 import com.soundboardking.remote.data.MicDto
+import com.soundboardking.remote.data.PlayTarget
 import com.soundboardking.remote.data.PlaybackDto
 import com.soundboardking.remote.data.SoundDto
 import com.soundboardking.remote.data.StateDto
@@ -199,7 +202,7 @@ private fun RemoteTopBar(state: UiState, onRefresh: () -> Unit, onForget: () -> 
 // ---- Favourites ------------------------------------------------------------------------------
 
 @Composable
-private fun FavoritesTab(library: StateDto, soundsById: Map<String, SoundDto>, playingId: String?, onPlay: (String) -> Unit) {
+private fun FavoritesTab(library: StateDto, soundsById: Map<String, SoundDto>, playingId: String?, onPlay: OnPlay) {
     val hotbar = library.hotbar
     val pagerState = rememberPagerState { hotbar.pages }
     val scope = rememberCoroutineScope()
@@ -232,40 +235,51 @@ private fun FavoritesTab(library: StateDto, soundsById: Map<String, SoundDto>, p
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SlotTile(number: Int, sound: SoundDto?, playing: Boolean, onPlay: (String) -> Unit) {
+private fun SlotTile(number: Int, sound: SoundDto?, playing: Boolean, onPlay: OnPlay) {
     val haptic = LocalHapticFeedback.current
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = if (playing) GoldSoft else Panel2,
-        border = if (playing) BorderStroke(1.dp, Gold) else null,
-        modifier = Modifier
-            .aspectRatio(1f)
-            .alpha(if (sound == null) 0.35f else if (sound.missing) 0.55f else 1f)
-            .clickable(enabled = sound != null) {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                sound?.let { onPlay(it.id) }
-            },
-    ) {
-        Box(Modifier.padding(6.dp)) {
-            Text("$number", fontSize = 10.sp, color = TextDim, modifier = Modifier.align(Alignment.TopStart))
-            Text(
-                sound?.title.orEmpty(),
-                fontSize = 12.sp,
-                lineHeight = 14.sp,
-                textAlign = TextAlign.Center,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.align(Alignment.Center).padding(top = 6.dp),
-            )
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = if (playing) GoldSoft else Panel2,
+            border = if (playing) BorderStroke(1.dp, Gold) else null,
+            modifier = Modifier
+                .aspectRatio(1f)
+                .alpha(if (sound == null) 0.35f else if (sound.missing) 0.55f else 1f)
+                .combinedClickable(
+                    enabled = sound != null,
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        menu = true
+                    },
+                ) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    sound?.let { onPlay(it.id, PlayTarget.Default) }
+                },
+        ) {
+            Box(Modifier.padding(6.dp)) {
+                Text("$number", fontSize = 10.sp, color = TextDim, modifier = Modifier.align(Alignment.TopStart))
+                Text(
+                    sound?.title.orEmpty(),
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.align(Alignment.Center).padding(top = 6.dp),
+                )
+            }
         }
+        if (sound != null) PlayMenu(menu, onDismiss = { menu = false }) { onPlay(sound.id, it) }
     }
 }
 
 // ---- Categories ------------------------------------------------------------------------------
 
 @Composable
-private fun CategoriesTab(library: StateDto, soundsById: Map<String, SoundDto>, playingId: String?, onPlay: (String) -> Unit) {
+private fun CategoriesTab(library: StateDto, soundsById: Map<String, SoundDto>, playingId: String?, onPlay: OnPlay) {
     var path by rememberSaveable { mutableStateOf(listOf<String>()) }
     val trail = remember(library, path) { resolvePath(library.categories, path) }
     val current = trail.lastOrNull()
@@ -321,7 +335,7 @@ internal fun resolvePath(roots: List<CategoryDto>, path: List<String>): List<Cat
 // ---- Search ----------------------------------------------------------------------------------
 
 @Composable
-private fun SearchTab(library: StateDto, playingId: String?, onPlay: (String) -> Unit) {
+private fun SearchTab(library: StateDto, playingId: String?, onPlay: OnPlay) {
     var query by rememberSaveable { mutableStateOf("") }
     val results = remember(library, query) {
         val all = library.sounds.sortedBy { it.title.lowercase() }

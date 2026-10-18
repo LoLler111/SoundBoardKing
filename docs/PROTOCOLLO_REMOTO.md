@@ -30,7 +30,7 @@ Ogni PC con SoundBoardKing risponde, direttamente al mittente:
 | GET | `/api/info` | no | `{ name, protocol, serverId }` |
 | POST | `/api/pair` | codice | `{ token, deviceId }` |
 | GET | `/api/state` | sì | stato completo, vedi sotto |
-| POST | `/api/play/{soundId}` | sì | 204; 404 se il suono non esiste; 409 `{ error }` se non è partito (file mancante, nessun dispositivo audio) |
+| POST | `/api/play/{soundId}?target=…` | sì | 204; 404 se il suono non esiste; 409 `{ error }` se non è partito (file mancante, nessun dispositivo audio, microfono non disponibile); 400 se `target` non è valido |
 | POST | `/api/stop` | sì | 204 |
 | POST | `/api/pause` | sì | 204 (mette in pausa o riprende) |
 
@@ -56,10 +56,14 @@ Messaggi JSON con un campo `type`.
 Dal telefono al PC:
 ```json
 { "type": "play", "soundId": "guid" }
+{ "type": "play", "soundId": "guid", "target": "speakers" }
 { "type": "stop" }
 { "type": "togglePause" }
 { "type": "setMic", "enabled": false }
 ```
+
+`target` (facoltativo) sceglie dove va il suono: assente = come al solito (cuffie, più microfono se acceso),
+`speakers` = anteprima solo in cuffia, `mic` = solo nel microfono anche se è spento.
 
 Dal PC al telefono:
 ```json

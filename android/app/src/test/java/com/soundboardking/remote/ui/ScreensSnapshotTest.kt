@@ -8,6 +8,7 @@ import com.soundboardking.remote.data.DiscoveryReply
 import com.soundboardking.remote.data.HotbarDto
 import com.soundboardking.remote.data.HotbarSlotDto
 import com.soundboardking.remote.data.MicDto
+import com.soundboardking.remote.data.PlayTarget
 import com.soundboardking.remote.data.PlaybackDto
 import com.soundboardking.remote.data.SavedServer
 import com.soundboardking.remote.data.SoundDto
@@ -26,7 +27,7 @@ import org.robolectric.annotation.GraphicsMode
 class ScreensSnapshotTest {
 
     private val actions = object : RemoteActions, ConnectActions {
-        override fun play(soundId: String) {}
+        override fun play(soundId: String, target: PlayTarget) {}
         override fun stop() {}
         override fun togglePause() {}
         override fun setMic(enabled: Boolean) {}
