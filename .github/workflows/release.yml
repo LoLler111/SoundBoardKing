@@ -35,6 +35,26 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Downloads cached by the Test workflow on main (a tag can read main's caches, not write
+      # ones the next tag could use): restore only.
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: NuGet dalla cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-
+
+      - name: Robolectric dalla cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ hashFiles('android/app/build.gradle.kts') }}
+          restore-keys: robolectric-
+
       - name: Chiave di firma Android
         shell: pwsh
         env:
