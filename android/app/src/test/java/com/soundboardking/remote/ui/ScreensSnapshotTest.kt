@@ -1,6 +1,7 @@
 package com.soundboardking.remote.ui
 
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.ui.input.pointer.PointerId
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.soundboardking.remote.data.CategoryDto
 import com.soundboardking.remote.data.DiscoveredPc
@@ -139,6 +140,15 @@ class ScreensSnapshotTest {
     @Test
     fun padDialog() = captureRoboImage("src/test/snapshots/pad-dialog.png") {
         SoundBoardTheme { PadDialog(SoundEffect.Echo, 35, 1.41, onChange = { _, _ -> }, onDismiss = {}) }
+    }
+
+    @Test
+    fun padHeld() = captureRoboImage("src/test/snapshots/pad-held.png") {
+        val hold = PadHold().apply {
+            start(PointerId(0), 45, 1.0)
+            move(0.3f, 0.4f)
+        }
+        SoundBoardTheme { PadHoldOverlay(SoundEffect.Robot, hold) }
     }
 
     @Test

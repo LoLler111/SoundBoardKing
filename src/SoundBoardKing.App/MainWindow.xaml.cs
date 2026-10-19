@@ -65,6 +65,10 @@ public partial class MainWindow : Window
         ContentRendered += OnContentRendered;
         Closed += (_, _) => _viewModel.Dispose();
         _viewModel.RenameRequested += (_, sound) => StartRename(sound);
+        PreviewMouseDown += ClosePadOnClickElsewhere;
+        Deactivated += ClosePad;
+        LocationChanged += ClosePad;
+        SizeChanged += ClosePad;
         _viewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.HasArtists))
@@ -172,8 +176,125 @@ public partial class MainWindow : Window
         menu.IsOpen = true;
     }
 
-    // Clicking outside closes the pad: un-press its button too.
+    // Something closed the pad: un-press its button too.
     private void PadPopup_Closed(object? sender, EventArgs e) => PadToggle.IsChecked = false;
+
+    // The pad stays open on its own (a popup that closes itself on outside clicks swallows them,
+    // and the clicks on its button are needed while it is open): close it here instead, on a click
+    // elsewhere in the window, when the window moves or another one comes forward.
+    private void ClosePadOnClickElsewhere(object sender, MouseButtonEventArgs e)
+    {
+        if (PadToggle.IsChecked == true && _padPress is null && !PadToggle.IsMouseOver)
+            PadToggle.IsChecked = false;
+    }
+
+    private void ClosePad(object? sender, EventArgs e)
+    {
+        if (_padPress is null)
+            PadToggle.IsChecked = false;
+    }
+
+    // ---- Effect pad held from its button ----------------------------------------------------
+
+    // A click opens or closes the pad, a double click resets it. Pressed and dragged (the pad open or
+    // not), the pad shows and its point follows the mouse from where it was; letting go puts strength
+    // and speed back as they were and closes it, unless the right button was pressed meanwhile (the
+    // phone's second finger): then they stay. Right again unlocks.
+    private Point? _padPress;
+    private bool _padHolding, _padLocked, _padDoubleClick, _padOpenBeforeClick;
+    private double _padStartAmount, _padStartSpeed;
+
+    private void PadToggle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true; // the toggle opens on the release instead, if it was not a drag
+        _padPress = e.GetPosition(PadToggle);
+        _padHolding = _padLocked = false;
+        _padDoubleClick = e.ClickCount == 2;
+        if (_padDoubleClick)
+            _viewModel.ResetPadCommand.Execute(null);
+        else
+            _padOpenBeforeClick = PadToggle.IsChecked == true;
+        PadToggle.CaptureMouse();
+    }
+
+    private void PadToggle_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_padPress is not { } start)
+            return;
+        var delta = e.GetPosition(PadToggle) - start;
+        if (!_padHolding)
+        {
+            if (Math.Abs(delta.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                Math.Abs(delta.Y) < SystemParameters.MinimumVerticalDragDistance)
+                return;
+            StartPadHold();
+        }
+        // The mouse moves the point as if it were on the pad, starting from where the point was.
+        _viewModel.EffectAmount = Math.Round(Math.Clamp(_padStartAmount + delta.X / Pad.Width * 100, 0, 100));
+        _viewModel.PadSpeed = Math.Round(Math.Clamp(_padStartSpeed - delta.Y / Pad.Height * 200, -100, 100));
+    }
+
+    private void PadToggle_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_padPress is null)
+            return;
+        e.Handled = true;
+        EndPadPress(click: true);
+    }
+
+    private void PadToggle_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_padPress is null)
+            return;
+        e.Handled = true;
+        if (!_padHolding)
+            StartPadHold();
+        _padLocked = !_padLocked;
+        UpdatePadHoldHint();
+    }
+
+    private void PadToggle_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e) => e.Handled = _padPress is not null;
+
+    // Taken away by another window or Alt+Tab: as if the button was let go.
+    private void PadToggle_LostMouseCapture(object sender, MouseEventArgs e) => EndPadPress(click: false);
+
+    private void StartPadHold()
+    {
+        _padHolding = true;
+        _padStartAmount = _viewModel.EffectAmount;
+        _padStartSpeed = _viewModel.PadSpeed;
+        PadToggle.IsChecked = true;
+        UpdatePadHoldHint();
+    }
+
+    private void UpdatePadHoldHint()
+    {
+        PadHoldHint.Text = _padLocked ? "resta così al rilascio" : "tasto destro: resta così";
+        PadHoldHint.Visibility = _padHolding ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void EndPadPress(bool click)
+    {
+        if (_padPress is null)
+            return;
+        _padPress = null; // first: releasing the capture comes back here
+        PadToggle.ReleaseMouseCapture();
+        if (!_padHolding)
+        {
+            // The first click of a double click opened or closed the pad: the second puts it back.
+            if (click)
+                PadToggle.IsChecked = _padDoubleClick ? _padOpenBeforeClick : !_padOpenBeforeClick;
+            return;
+        }
+        _padHolding = false;
+        if (!_padLocked)
+        {
+            _viewModel.EffectAmount = _padStartAmount;
+            _viewModel.PadSpeed = _padStartSpeed;
+        }
+        PadToggle.IsChecked = false;
+        UpdatePadHoldHint();
+    }
 
     private void PhoneButton_Click(object sender, RoutedEventArgs e)
     {

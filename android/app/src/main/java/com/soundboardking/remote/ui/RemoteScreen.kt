@@ -133,8 +133,10 @@ internal fun RemoteScreen(
     val playingIds = state.playback.sounds.mapNotNull { it.soundId }.toSet()
     var lookDialog by rememberSaveable { mutableStateOf(false) }
     if (lookDialog) LookDialog(state.look, onChange = actions::setLook, onDismiss = { lookDialog = false })
+    val padHold = remember { PadHold() }
 
     Scaffold(
+        modifier = Modifier.padHoldSecondFinger(padHold),
         topBar = {
             if (!fullScreen) {
                 RemoteTopBar(
@@ -152,7 +154,7 @@ internal fun RemoteScreen(
         },
         bottomBar = {
             Column {
-                NowPlayingBar(state, soundsById, actions, showMic = !fullScreen)
+                NowPlayingBar(state, soundsById, actions, padHold, showMic = !fullScreen)
                 if (!fullScreen) NavigationBar(containerColor = Panel) {
                     Tab.entries.forEach { item ->
                         NavigationBarItem(
@@ -203,6 +205,9 @@ internal fun RemoteScreen(
                 ) {
                     FullScreenIcon(exit = true, modifier = Modifier.alpha(0.8f))
                 }
+            }
+            if (padHold.active) {
+                PadHoldOverlay(state.effect, padHold, Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
             }
         }
     }
@@ -462,6 +467,7 @@ private fun NowPlayingBar(
     state: UiState,
     soundsById: Map<String, SoundDto>,
     actions: RemoteActions,
+    padHold: PadHold,
     showMic: Boolean = true,
 ) {
     val playback = state.playback
@@ -524,16 +530,31 @@ private fun NowPlayingBar(
                         fontSize = 12.sp,
                         modifier = Modifier.padding(start = 6.dp, bottom = 6.dp),
                     )
-                    var pad by remember { mutableStateOf(false) }
-                    FilterChip(
-                        selected = state.playbackSpeed != 1.0,
-                        onClick = { pad = true },
-                        label = { Text("Pad ×${"%.2f".format(state.playbackSpeed)}") },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = GoldSoft, selectedLabelColor = Gold),
+                    PadChip(
+                        state.effect,
+                        state.effectAmount,
+                        state.playbackSpeed,
+                        padHold,
+                        onChange = actions::setPad,
                         modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
                     )
-                    if (pad) {
-                        PadDialog(state.effect, state.effectAmount, state.playbackSpeed, onChange = actions::setPad, onDismiss = { pad = false })
+                    // Back to normal speed and the default strength, as Reset in the pad does.
+                    val padChanged = state.effectAmount != 70 || state.playbackSpeed != 1.0
+                    Box(
+                        Modifier
+                            .padding(start = 6.dp, end = 12.dp, bottom = 6.dp)
+                            .size(36.dp)
+                            .background(Panel2, RoundedCornerShape(8.dp))
+                            .clickable(onClickLabel = "Reset del pad") { actions.setPad(70, 1.0) }
+                            .semantics { contentDescription = "Reset del pad" },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = null,
+                            tint = if (padChanged) Gold else TextDim,
+                            modifier = Modifier.size(20.dp),
+                        )
                     }
                 }
             }

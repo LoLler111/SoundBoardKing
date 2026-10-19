@@ -468,8 +468,15 @@
                     <TextBlock Text="{Binding EffectAmountPercent, StringFormat={}{0}%}" Width="34" Margin="4,0,0,0" VerticalAlignment="Center"
                                FontSize="12" Foreground="{StaticResource TextDimBrush}" />
                     <!-- Effect pad: across = strength, up and down = speed of the sounds, like a record. -->
+                    <!-- Pressed and dragged it works the pad on the fly: let go and the effect goes back, unless the right button was pressed too. -->
                     <ToggleButton x:Name="PadToggle" Margin="4,0,0,0" Cursor="Hand"
-                                  ToolTip="Pad degli effetti: orizzontale = intensità, verticale = velocità">
+                                  PreviewMouseLeftButtonDown="PadToggle_PreviewMouseLeftButtonDown"
+                                  PreviewMouseMove="PadToggle_PreviewMouseMove"
+                                  PreviewMouseLeftButtonUp="PadToggle_PreviewMouseLeftButtonUp"
+                                  PreviewMouseRightButtonDown="PadToggle_PreviewMouseRightButtonDown"
+                                  PreviewMouseRightButtonUp="PadToggle_PreviewMouseRightButtonUp"
+                                  LostMouseCapture="PadToggle_LostMouseCapture"
+                                  ToolTip="Pad degli effetti: orizzontale = intensità, verticale = velocità. Tienilo premuto e trascina per un effetto al volo: al rilascio torna com'era, a meno che nel frattempo premi anche il tasto destro. Doppio clic: reset">
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="ToggleButton">
                                 <Border x:Name="Bd" Background="{StaticResource Panel2Brush}" CornerRadius="6" Padding="8,5">
@@ -490,8 +497,8 @@
                             <TextBlock Text="{Binding SpeedText}" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0" />
                         </StackPanel>
                     </ToggleButton>
-                    <Popup IsOpen="{Binding IsChecked, ElementName=PadToggle}" PlacementTarget="{Binding ElementName=PadToggle}"
-                           Placement="Top" VerticalOffset="-8" StaysOpen="False" AllowsTransparency="True"
+                    <Popup x:Name="PadPopup" IsOpen="{Binding IsChecked, ElementName=PadToggle}" PlacementTarget="{Binding ElementName=PadToggle}"
+                           Placement="Top" VerticalOffset="-8" StaysOpen="True" AllowsTransparency="True"
                            Closed="PadPopup_Closed">
                         <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
                                 CornerRadius="10" Padding="12">
@@ -508,7 +515,7 @@
                                     </TextBlock>
                                 </DockPanel>
                                 <Grid>
-                                    <ctl:XYPad Width="280" Height="180" X="{Binding EffectAmount}" Y="{Binding PadSpeed}"
+                                    <ctl:XYPad x:Name="Pad" Width="280" Height="180" X="{Binding EffectAmount}" Y="{Binding PadSpeed}"
                                                Background="{StaticResource Panel2Brush}" Line="{StaticResource LineBrush}"
                                                Fill="{StaticResource AccentBrush}" />
                                     <TextBlock Text="intensità →" FontSize="10" Foreground="{StaticResource TextDimBrush}"
@@ -517,6 +524,8 @@
                                                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,4,0,0" IsHitTestVisible="False" />
                                     <TextBlock Text="↓ più lento" FontSize="10" Foreground="{StaticResource TextDimBrush}"
                                                HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8,0,0,4" IsHitTestVisible="False" />
+                                    <TextBlock x:Name="PadHoldHint" FontSize="10" Foreground="{StaticResource AccentBrush}" Visibility="Collapsed"
+                                               HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,8,0" IsHitTestVisible="False" />
                                 </Grid>
                             </StackPanel>
                         </Border>
