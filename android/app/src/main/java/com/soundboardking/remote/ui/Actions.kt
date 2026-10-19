@@ -39,6 +39,7 @@ interface RemoteActions {
     fun setEffectAmount(percent: Int)
     fun setPad(percent: Int, speed: Double)
     fun setEffectTarget(target: EffectTarget)
+    fun renameSound(soundId: String, title: String)
     fun reconnect()
     fun forgetServer()
     fun setLook(look: FavoritesLook)

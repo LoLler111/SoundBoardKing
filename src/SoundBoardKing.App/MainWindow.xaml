@@ -123,14 +123,60 @@
 
             <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="{StaticResource BgBrush}" />
 
-            <DataGrid x:Name="SoundGrid" Grid.Column="2"
+            <DockPanel Grid.Column="2">
+            <!-- How the list on screen is ordered; each category remembers its own, and the phones show the same. -->
+            <Border DockPanel.Dock="Top" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}"
+                    BorderThickness="0,0,0,1" Padding="10,5">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Ordina:" VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" FontSize="12" Margin="0,0,6,0" />
+                    <Button x:Name="SortButton" Cursor="Hand" Click="SortButton_Click"
+                            ToolTip="Come sono ordinati i suoni di questa lista (anche sul telefono)">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" Background="{StaticResource Panel2Brush}" CornerRadius="6" Padding="10,4">
+                                    <ContentPresenter />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource LineBrush}" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <Button.ContextMenu>
+                            <ContextMenu ItemsSource="{Binding SortOptions}">
+                                <ContextMenu.ItemContainerStyle>
+                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                        <Setter Property="Header" Value="{Binding Label}" />
+                                        <Setter Property="IsCheckable" Value="False" />
+                                        <Setter Property="IsChecked" Value="{Binding IsSelected, Mode=OneWay}" />
+                                        <Setter Property="Command" Value="{Binding DataContext.SetSortCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                        <Setter Property="CommandParameter" Value="{Binding}" />
+                                    </Style>
+                                </ContextMenu.ItemContainerStyle>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8CB;" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBlock Text="{Binding CurrentSortLabel}" VerticalAlignment="Center" FontSize="12" />
+                            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70D;" FontSize="9" VerticalAlignment="Center" Margin="6,1,0,0" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="Trascina le righe per riordinarle · F2 per rinominare" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="12,0,0,0" />
+                </StackPanel>
+            </Border>
+            <DataGrid x:Name="SoundGrid"
                       ItemsSource="{Binding VisibleSounds}" SelectedItem="{Binding SelectedSound}"
-                      AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow"
+                      AutoGenerateColumns="False" SelectionMode="Extended" SelectionUnit="FullRow"
                       CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False"
                       EnableRowVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling"
                       MouseDoubleClick="SoundGrid_MouseDoubleClick" PreviewKeyDown="SoundGrid_PreviewKeyDown"
                       PreviewMouseLeftButtonDown="SoundGrid_PreviewMouseLeftButtonDown"
-                      PreviewMouseMove="SoundGrid_PreviewMouseMove">
+                      PreviewMouseMove="SoundGrid_PreviewMouseMove"
+                      BeginningEdit="SoundGrid_BeginningEdit" PreparingCellForEdit="SoundGrid_PreparingCellForEdit"
+                      CellEditEnding="SoundGrid_CellEditEnding" Sorting="SoundGrid_Sorting"
+                      AllowDrop="True" DragOver="SoundGrid_DragOver" DragLeave="SoundGrid_DragLeave" Drop="SoundGrid_Drop">
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                         <Style.Triggers>
@@ -154,10 +200,24 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Titolo" Binding="{Binding Title}" Width="*" />
-                    <DataGridTextColumn Header="Artista" Binding="{Binding Artist}" Width="170" />
-                    <DataGridTextColumn Header="Durata" Binding="{Binding Duration}" SortMemberPath="Model.DurationMs" Width="80" />
-                    <DataGridTextColumn Header="Tasto rapido" Binding="{Binding Hotkey}" Width="130" />
+                    <!-- Only the title is edited, right in the row; the window applies it (see SoundGrid_CellEditEnding). -->
+                    <DataGridTextColumn x:Name="TitleColumn" Header="Titolo" Binding="{Binding EditableTitle}" Width="*">
+                        <DataGridTextColumn.EditingElementStyle>
+                            <Style TargetType="TextBox">
+                                <Setter Property="Background" Value="{StaticResource Panel2Brush}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                <Setter Property="CaretBrush" Value="{StaticResource TextBrush}" />
+                                <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter Property="BorderThickness" Value="1" />
+                                <Setter Property="Padding" Value="2,0" />
+                                <Setter Property="MaxLength" Value="200" />
+                            </Style>
+                        </DataGridTextColumn.EditingElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn x:Name="ArtistColumn" Header="Artista" Binding="{Binding Artist}" Width="170" IsReadOnly="True" CanUserSort="False" />
+                    <DataGridTextColumn x:Name="DurationColumn" Header="Durata" Binding="{Binding Duration}" Width="80" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Tasto rapido" Binding="{Binding Hotkey}" Width="130" IsReadOnly="True" CanUserSort="False" />
                 </DataGrid.Columns>
                 <DataGrid.ContextMenu>
                     <ContextMenu>
@@ -167,7 +227,10 @@
                         <Separator />
                         <MenuItem Header="Aggiungi ai preferiti" Command="{Binding AddToHotbarCommand}" />
                         <MenuItem Header="Tasto rapido…" Command="{Binding AssignHotkeyCommand}" />
-                        <MenuItem Header="Rinomina…" Command="{Binding RenameSoundCommand}" InputGestureText="F2" />
+                        <MenuItem Header="Rinomina" Command="{Binding RenameSoundCommand}" InputGestureText="F2" />
+                        <MenuItem Header="Sistema i nomi" Command="{Binding CleanTitlesCommand}"
+                                  ToolTip="Toglie trattini bassi, (1), - Copia e numeri di traccia dai nomi selezionati"
+                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                         <MenuItem Header="Mostra il file in Esplora risorse" Command="{Binding OpenFileLocationCommand}" />
                         <Separator />
                         <MenuItem Header="Togli dalla categoria" Command="{Binding RemoveFromCategoryCommand}"
@@ -177,6 +240,7 @@
                     </ContextMenu>
                 </DataGrid.ContextMenu>
             </DataGrid>
+            </DockPanel>
         </Grid>
 
         <!-- Hotbar (favourites) -->

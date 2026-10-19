@@ -33,4 +33,7 @@ public interface IRemoteController
 
     /// <summary>Whether the effect changes the sounds, the voice, both or nothing.</summary>
     Task SetEffectTargetAsync(EffectTarget target);
+
+    /// <summary>Changes a sound's title (not its file); false when the sound does not exist.</summary>
+    Task<bool> RenameSoundAsync(Guid soundId, string title);
 }

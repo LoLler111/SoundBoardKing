@@ -9,4 +9,7 @@ public sealed class Category
 
     /// <summary>Sounds in this category, in display order. A sound can belong to several categories.</summary>
     public List<Guid> SoundIds { get; set; } = [];
+
+    /// <summary>How <see cref="SoundIds"/> is kept in order.</summary>
+    public SoundSort Sort { get; set; }
 }

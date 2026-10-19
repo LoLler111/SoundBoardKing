@@ -266,6 +266,7 @@ public sealed class ProfileStorage
                 Sounds = library.Sounds.Select(s => s.WithPath(PortablePath(s.Path, folder))).ToList(),
                 Categories = library.Categories,
                 Hotbar = library.Hotbar,
+                Sort = library.Sort,
             },
         };
         new JsonFileStore<Profile>(path).Save(portable);

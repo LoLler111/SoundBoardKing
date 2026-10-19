@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LocalContentColor
@@ -78,7 +79,7 @@ typealias OnPlay = (soundId: String, target: PlayTarget) -> Unit
 
 /** Long-press menu of a sound: play as usual, preview in the PC's headphones only, or mic only. */
 @Composable
-fun PlayMenu(expanded: Boolean, onDismiss: () -> Unit, onPick: (PlayTarget) -> Unit) {
+fun PlayMenu(expanded: Boolean, onDismiss: () -> Unit, onRename: (() -> Unit)? = null, onPick: (PlayTarget) -> Unit) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         listOf(
             PlayTarget.Default to "Riproduci",
@@ -90,6 +91,24 @@ fun PlayMenu(expanded: Boolean, onDismiss: () -> Unit, onPick: (PlayTarget) -> U
                 onPick(target)
             })
         }
+        if (onRename != null) {
+            HorizontalDivider()
+            DropdownMenuItem(text = { Text("Rinomina") }, onClick = {
+                onDismiss()
+                onRename()
+            })
+        }
+    }
+}
+
+/** The long-press menu of a sound, with "Rinomina" when the PC can rename it. */
+@Composable
+fun SoundMenu(sound: SoundDto, expanded: Boolean, onDismiss: () -> Unit, onPlay: OnPlay) {
+    val rename = LocalRenameSound.current
+    var renaming by remember { mutableStateOf(false) }
+    PlayMenu(expanded, onDismiss, onRename = rename?.let { { renaming = true } }) { onPlay(sound.id, it) }
+    if (renaming && rename != null) {
+        RenameDialog(sound.title, onConfirm = { rename(sound.id, it) }, onDismiss = { renaming = false })
     }
 }
 
@@ -125,7 +144,7 @@ fun SoundRow(sound: SoundDto, playing: Boolean, onPlay: OnPlay) {
                     onPlay(sound.id, PlayTarget.Default)
                 },
         )
-        PlayMenu(menu, onDismiss = { menu = false }) { onPlay(sound.id, it) }
+        SoundMenu(sound, menu, onDismiss = { menu = false }, onPlay)
     }
 }
 

@@ -41,6 +41,7 @@ class ScreensSnapshotTest {
         override fun setEffectAmount(percent: Int) {}
         override fun setPad(percent: Int, speed: Double) {}
         override fun setEffectTarget(target: EffectTarget) {}
+        override fun renameSound(soundId: String, title: String) {}
         override fun reconnect() {}
         override fun forgetServer() {}
         override fun setLook(look: FavoritesLook) {}
@@ -128,6 +129,11 @@ class ScreensSnapshotTest {
     @Test
     fun fullScreen() = captureRoboImage("src/test/snapshots/fullscreen.png") {
         SoundBoardTheme { RemoteScreen(connected, actions, SnackbarHostState(), Tab.Favorites, startFullScreen = true) }
+    }
+
+    @Test
+    fun renameDialog() = captureRoboImage("src/test/snapshots/rename-dialog.png") {
+        SoundBoardTheme { RenameDialog("01_bruh_sound_effect (1)", onConfirm = {}, onDismiss = {}) }
     }
 
     @Test

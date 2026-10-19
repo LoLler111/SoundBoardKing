@@ -130,6 +130,12 @@ class SoundBoardApi(
             put("target", target.wire)
         }.toString()
 
+        fun renameCommand(soundId: String, title: String) = buildJsonObject {
+            put("type", "renameSound")
+            put("soundId", soundId)
+            put("title", title)
+        }.toString()
+
         /** What the pad sends: strength and speed together. */
         fun padCommand(percent: Int, speed: Double) = buildJsonObject {
             put("type", "setEffect")

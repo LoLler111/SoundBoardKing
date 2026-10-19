@@ -457,6 +457,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
         send(SoundBoardApi.effectTargetCommand(target))
     }
 
+    // The new title shows at once; the PC then sends the library again, re-sorted if it orders by name.
+    override fun renameSound(soundId: String, title: String) {
+        _state.update { state ->
+            state.copy(library = state.library?.let { library ->
+                library.copy(sounds = library.sounds.map { if (it.id == soundId) it.copy(title = title) else it })
+            })
+        }
+        send(SoundBoardApi.renameCommand(soundId, title))
+    }
+
     override fun setPad(percent: Int, speed: Double) {
         _state.update { it.copy(effectAmount = percent, playbackSpeed = speed) }
         send(SoundBoardApi.padCommand(percent, speed))

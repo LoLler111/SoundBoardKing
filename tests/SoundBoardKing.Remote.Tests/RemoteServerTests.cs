@@ -205,6 +205,34 @@ public sealed class RemoteServerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Sounds_can_be_renamed_over_rest_and_websocket()
+    {
+        var token = await PairAsync();
+        var rename = Authorized(HttpMethod.Post, $"/api/rename/{Airhorn}", token);
+        rename.Content = JsonContent.Create(new { title = "Tromba" });
+        Assert.Equal(HttpStatusCode.NoContent, (await _http.SendAsync(rename)).StatusCode);
+        var empty = Authorized(HttpMethod.Post, $"/api/rename/{Airhorn}", token);
+        empty.Content = JsonContent.Create(new { title = " " });
+        Assert.Equal(HttpStatusCode.BadRequest, (await _http.SendAsync(empty)).StatusCode);
+        var unknown = Authorized(HttpMethod.Post, $"/api/rename/{Guid.NewGuid()}", token);
+        unknown.Content = JsonContent.Create(new { title = "x" });
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.SendAsync(unknown)).StatusCode);
+
+        using var socket = new ClientWebSocket();
+        await socket.ConnectAsync(new Uri($"ws://127.0.0.1:{_server.Port}/ws?token={token}"), CancellationToken.None);
+        (await ReceiveAsync(socket)).Dispose();
+        await SendAsync(socket, new { type = "renameSound", soundId = 5, title = "x" });
+        using (var error = await ReceiveAsync(socket))
+            Assert.Equal("error", error.RootElement.GetProperty("type").GetString());
+        await SendAsync(socket, new { type = "renameSound", soundId = Airhorn, title = "Clacson" });
+        await SendAsync(socket, new { type = "stop" }); // processed in order: the rename is done once this is
+        for (int i = 0; i < 50 && _controller.Stops == 0; i++)
+            await Task.Delay(20);
+
+        Assert.Equal([(Airhorn, "Tromba"), (Airhorn, "Clacson")], _controller.Renames);
+    }
+
+    [Fact]
     public async Task Websocket_rejects_unknown_tokens_and_revoked_devices_are_dropped()
     {
         using var stranger = new ClientWebSocket();
@@ -334,6 +362,16 @@ public sealed class RemoteServerTests : IAsyncLifetime
         {
             Effects.Add(effect);
             return Task.CompletedTask;
+        }
+
+        public List<(Guid id, string title)> Renames { get; } = [];
+
+        public Task<bool> RenameSoundAsync(Guid soundId, string title)
+        {
+            if (soundId != Airhorn)
+                return Task.FromResult(false);
+            Renames.Add((soundId, title));
+            return Task.FromResult(true);
         }
 
         public List<EffectTarget> Targets2 { get; } = [];

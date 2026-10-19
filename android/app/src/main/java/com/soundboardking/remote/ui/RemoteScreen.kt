@@ -64,6 +64,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -184,10 +185,12 @@ internal fun RemoteScreen(
                     Text(state.connectionMessage ?: "Connessione al PC…", color = TextDim, textAlign = TextAlign.Center)
                 }
             } else {
-                when (if (fullScreen) Tab.Favorites else tab) {
-                    Tab.Favorites -> FavoritesTab(library, soundsById, playingIds, state.look, actions::play, onExitFullScreen = if (fullScreen) ({ fullScreen = false }) else null)
-                    Tab.Categories -> CategoriesTab(library, soundsById, playingIds, actions::play)
-                    Tab.Search -> SearchTab(library, playingIds, actions::play)
+                CompositionLocalProvider(LocalRenameSound provides actions::renameSound) {
+                    when (if (fullScreen) Tab.Favorites else tab) {
+                        Tab.Favorites -> FavoritesTab(library, soundsById, playingIds, state.look, actions::play, onExitFullScreen = if (fullScreen) ({ fullScreen = false }) else null)
+                        Tab.Categories -> CategoriesTab(library, soundsById, playingIds, actions::play)
+                        Tab.Search -> SearchTab(library, playingIds, actions::play)
+                    }
                 }
             }
             if (fullScreen && library == null) {
@@ -360,7 +363,7 @@ private fun SlotTile(number: Int, sound: SoundDto?, playing: Boolean, look: Favo
         ) {
             TileContent(number, sound?.title.orEmpty(), look)
         }
-        if (sound != null) PlayMenu(menu, onDismiss = { menu = false }) { onPlay(sound.id, it) }
+        if (sound != null) SoundMenu(sound, menu, onDismiss = { menu = false }, onPlay)
     }
 }
 
@@ -426,7 +429,7 @@ internal fun resolvePath(roots: List<CategoryDto>, path: List<String>): List<Cat
 private fun SearchTab(library: StateDto, playingIds: Set<String>, onPlay: OnPlay) {
     var query by rememberSaveable { mutableStateOf("") }
     val results = remember(library, query) {
-        val all = library.sounds.sortedBy { it.title.lowercase() }
+        val all = library.sounds // already in the order chosen on the PC
         val text = query.trim()
         if (text.isEmpty()) all
         else all.filter { it.title.contains(text, ignoreCase = true) || it.artist.contains(text, ignoreCase = true) }

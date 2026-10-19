@@ -197,6 +197,26 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
             return Results.NoContent();
         });
 
+        app.MapPost("/api/rename/{soundId:guid}", async (HttpContext context, Guid soundId) =>
+        {
+            if (Authenticate(context) is null)
+                return Results.Unauthorized();
+            string? title = null;
+            try
+            {
+                using var body = await JsonDocument.ParseAsync(context.Request.Body);
+                if (body.RootElement.ValueKind == JsonValueKind.Object &&
+                    body.RootElement.TryGetProperty("title", out var titleElement) && titleElement.ValueKind == JsonValueKind.String)
+                    title = titleElement.GetString();
+            }
+            catch (JsonException)
+            {
+            }
+            if (string.IsNullOrWhiteSpace(title))
+                return Results.BadRequest(new { error = "title mancante." });
+            return await controller.RenameSoundAsync(soundId, title) ? Results.NoContent() : Results.NotFound();
+        });
+
         app.Map("/ws", HandleWebSocketAsync);
     }
 
@@ -341,6 +361,14 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
                         await controller.SetPlaybackSpeedAsync(speed);
                     if (hasTarget)
                         await controller.SetEffectTargetAsync(effectTarget);
+                    break;
+                case "renameSound":
+                    if (!root.TryGetProperty("soundId", out var renameElement) || renameElement.ValueKind != JsonValueKind.String || !renameElement.TryGetGuid(out var renameId) ||
+                        !root.TryGetProperty("title", out var titleElement) || titleElement.ValueKind != JsonValueKind.String ||
+                        string.IsNullOrWhiteSpace(titleElement.GetString()))
+                        await SendErrorAsync(client, "soundId o title mancanti o non validi.");
+                    else if (!await controller.RenameSoundAsync(renameId, titleElement.GetString()!))
+                        await SendErrorAsync(client, PlayResult.NotFound.Error!);
                     break;
                 default:
                     await SendErrorAsync(client, $"Comando sconosciuto: {type}");

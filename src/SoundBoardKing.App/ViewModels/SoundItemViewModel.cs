@@ -26,7 +26,21 @@ public sealed partial class SoundItemViewModel : ObservableObject
     public string Title
     {
         get => Model.Title;
-        set => SetProperty(Model.Title, value, Model, (m, v) => m.Title = v);
+        set
+        {
+            if (SetProperty(Model.Title, value, Model, (m, v) => m.Title = v))
+                OnPropertyChanged(nameof(EditableTitle));
+        }
+    }
+
+    /// <summary>
+    /// The title as the list edits it. The grid only edits two-way bindings, but the new title goes
+    /// through MainViewModel.RenameSound (trim, save, reorder, phones), so the setter keeps nothing.
+    /// </summary>
+    public string EditableTitle
+    {
+        get => Title;
+        set { }
     }
 
     public string? Hotkey

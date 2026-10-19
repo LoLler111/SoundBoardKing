@@ -16,6 +16,12 @@ public sealed class Sound
 
     public DateOnly AddedOn { get; set; } = DateOnly.FromDateTime(DateTime.Today);
 
+    /// <summary>How many times it was played (previews excluded), for the "most played" order.</summary>
+    public int PlayCount { get; set; }
+
+    /// <summary>When it was last played, UTC.</summary>
+    public DateTime? LastPlayed { get; set; }
+
     public Sound WithPath(string path)
     {
         var copy = (Sound)MemberwiseClone();

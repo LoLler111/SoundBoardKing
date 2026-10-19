@@ -104,6 +104,26 @@ public class ProfileStorageTests
     }
 
     [Fact]
+    public void Orders_and_play_counts_are_saved()
+    {
+        using var dir = new TempDirectory();
+        var storage = Open(dir);
+        var profile = SampleProfile(@"D:\a.mp3");
+        profile.Library.Sort = SoundSort.Name;
+        profile.Library.Categories[0].Sort = SoundSort.MostPlayed;
+        profile.Library.Sounds[0].PlayCount = 7;
+        profile.Library.Sounds[0].LastPlayed = new DateTime(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc);
+
+        storage.MoveTo(Path.Combine(dir.Path, "sync", "mine.sbk"), profile);
+
+        var library = Open(dir).Open().Profile.Library;
+        Assert.Equal(SoundSort.Name, library.Sort);
+        Assert.Equal(SoundSort.MostPlayed, library.Categories[0].Sort);
+        Assert.Equal(7, library.Sounds[0].PlayCount);
+        Assert.Equal(profile.Library.Sounds[0].LastPlayed, library.Sounds[0].LastPlayed);
+    }
+
+    [Fact]
     public void Missing_chosen_profile_is_reported_not_replaced()
     {
         using var dir = new TempDirectory();

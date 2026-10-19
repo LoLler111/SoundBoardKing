@@ -374,6 +374,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 },
                 AllowOverlap: _settings.AllowOverlap,
                 Effect: EffectOnSounds ? _settings.SoundEffect : SoundEffect.None));
+            if (target != PlayTarget.Speakers) // previews do not count as uses
+            {
+                sound.Model.PlayCount++;
+                sound.Model.LastPlayed = DateTime.UtcNow;
+                ScheduleSave();
+            }
             return null;
         }
         catch (Exception ex) when (ex is COMException or IOException or UnauthorizedAccessException or InvalidOperationException)
@@ -641,7 +647,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         StatusText = $"Aggiunta di {files.Count} suoni…";
         var sounds = await Task.Run(() => files.Select(file => new Sound
         {
-            Title = Path.GetFileNameWithoutExtension(file),
+            Title = TitleCleaner.Clean(Path.GetFileNameWithoutExtension(file)),
             Path = file,
             DurationMs = (long)(AudioFileProbe.TryGetDuration(file)?.TotalMilliseconds ?? 0),
         }).ToList());
@@ -704,18 +710,140 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         StatusText = $"Rimossi {ids.Count} suoni.";
     }
 
+    /// <summary>The view edits the title right in the list: F2 and "Rinomina" ask it to start.</summary>
+    public event EventHandler<SoundItemViewModel>? RenameRequested;
+
     [RelayCommand]
     private void RenameSound(SoundItemViewModel? sound)
     {
         sound ??= SelectedSound;
-        if (sound is null)
-            return;
-        var title = _dialogs.AskText("Rinomina suono", "Titolo:", sound.Title)?.Trim();
-        if (string.IsNullOrEmpty(title) || title == sound.Title)
-            return;
-        sound.Title = title;
-        LibraryEdited();
+        if (sound is not null)
+            RenameRequested?.Invoke(this, sound);
     }
+
+    public const int MaxTitleLength = 200;
+
+    /// <summary>Changes the title shown in the app and on the phones; the file on disk keeps its name.</summary>
+    public bool RenameSound(SoundItemViewModel sound, string title)
+    {
+        title = title.Trim();
+        if (title.Length > MaxTitleLength)
+            title = title[..MaxTitleLength];
+        if (title.Length == 0 || title == sound.Title)
+            return false;
+        sound.Title = title;
+        LibraryEdited(); // with the "name" order the sound also moves to its new place
+        return true;
+    }
+
+    /// <summary>Tidies the titles of the selected sounds the way new files are named on import.</summary>
+    [RelayCommand]
+    private void CleanTitles(IList? selection)
+    {
+        var changes = GetSelection(selection)
+            .Select(s => (sound: s, title: TitleCleaner.Clean(s.Title)))
+            .Where(c => c.title != c.sound.Title)
+            .ToList();
+        if (changes.Count == 0)
+        {
+            StatusText = "I nomi selezionati sono già puliti.";
+            return;
+        }
+        var preview = string.Join("\n", changes.Take(8).Select(c => $"{c.sound.Title}  →  {c.title}"));
+        if (changes.Count > 8)
+            preview += $"\n… e altri {changes.Count - 8}";
+        if (!_dialogs.Confirm($"Sistemare {changes.Count} nomi?\n\n{preview}\n\nI file sul disco non vengono rinominati."))
+            return;
+        foreach (var (sound, title) in changes)
+            sound.Title = title;
+        LibraryEdited();
+        StatusText = $"Sistemati {changes.Count} nomi.";
+    }
+
+    // ---- Order -------------------------------------------------------------------------------
+
+    /// <summary>The choices of the "order by" menu, with the current list's one ticked.</summary>
+    public IReadOnlyList<SortOptionViewModel> SortOptions { get; } =
+        Enum.GetValues<SoundSort>().Select(s => new SortOptionViewModel(s)).ToList();
+
+    /// <summary>How the list on screen (all sounds or the selected category) is ordered; each keeps its own.</summary>
+    public SoundSort CurrentSort
+    {
+        get => SelectedCategory?.Model?.Sort ?? _library.Sort;
+        set
+        {
+            if (value == CurrentSort)
+                return;
+            if (SelectedCategory?.Model is { } category)
+                category.Sort = value;
+            else
+                _library.Sort = value;
+            SortChanged();
+            LibraryEdited();
+        }
+    }
+
+    public string CurrentSortLabel => SortOptionViewModel.LabelOf(CurrentSort);
+
+    [RelayCommand]
+    private void SetSort(SortOptionViewModel? option)
+    {
+        if (option is not null)
+            CurrentSort = option.Sort;
+    }
+
+    private void SortChanged()
+    {
+        foreach (var option in SortOptions)
+            option.IsSelected = option.Sort == CurrentSort;
+        OnPropertyChanged(nameof(CurrentSort));
+        OnPropertyChanged(nameof(CurrentSortLabel));
+    }
+
+    /// <summary>
+    /// Drag and drop inside the list: puts <paramref name="sounds"/> right before <paramref name="before"/>
+    /// (at the end when null). The list switches to the manual order, starting from the one on screen.
+    /// </summary>
+    public bool MoveSounds(IReadOnlyList<SoundItemViewModel> sounds, SoundItemViewModel? before)
+    {
+        if (SearchText.Trim().Length > 0)
+        {
+            StatusText = "Per spostare i suoni svuota prima la ricerca.";
+            return false;
+        }
+        var moving = sounds.Select(s => s.Id).ToHashSet();
+        if (moving.Count == 0 || (before is not null && moving.Contains(before.Id)))
+            return false;
+
+        if (SelectedCategory?.Model is { } category)
+        {
+            category.Sort = SoundSort.Manual;
+            MoveIds(category.SoundIds, moving, before?.Id);
+        }
+        else
+        {
+            _library.Sort = SoundSort.Manual;
+            var ids = _library.Sounds.Select(s => s.Id).ToList();
+            MoveIds(ids, moving, before?.Id);
+            var byId = _library.Sounds.ToDictionary(s => s.Id);
+            _library.Sounds.Clear();
+            _library.Sounds.AddRange(ids.Select(id => byId[id]));
+        }
+        SortChanged();
+        LibraryEdited();
+        return true;
+    }
+
+    private static void MoveIds(List<Guid> ids, HashSet<Guid> moving, Guid? before)
+    {
+        var moved = ids.Where(moving.Contains).ToList();
+        ids.RemoveAll(moving.Contains);
+        int index = before is Guid id ? ids.IndexOf(id) : -1;
+        ids.InsertRange(index < 0 ? ids.Count : index, moved);
+    }
+
+    /// <summary>Whether any sound has an artist: otherwise the column only takes room.</summary>
+    public bool HasArtists => _library.Sounds.Any(s => s.Artist.Length > 0);
 
     [RelayCommand]
     private void OpenFileLocation(SoundItemViewModel? sound)
@@ -741,7 +869,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     // ---- Categories --------------------------------------------------------------------------
 
-    partial void OnSelectedCategoryChanged(CategoryNodeViewModel? value) => RefreshVisible();
+    partial void OnSelectedCategoryChanged(CategoryNodeViewModel? value)
+    {
+        SortChanged();
+        RefreshVisible();
+    }
 
     partial void OnSearchTextChanged(string value) => RefreshVisible();
 
@@ -828,6 +960,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private void RebuildAll()
     {
+        _library.ApplySorts();
+        OnPropertyChanged(nameof(HasArtists));
         _soundsById.Clear();
         foreach (var sound in _library.Sounds)
             _soundsById[sound.Id] = new SoundItemViewModel(sound);
@@ -888,7 +1022,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 s.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
                 s.Artist.Contains(query, StringComparison.CurrentCultureIgnoreCase));
         }
-        VisibleSounds = sounds.ToList();
+        // Same sounds in the same order: keep the list as it is, with its selection and scroll position.
+        var list = sounds.ToList();
+        if (!list.SequenceEqual(VisibleSounds))
+            VisibleSounds = list;
     }
 
     // ---- Hotkeys and settings ----------------------------------------------------------------

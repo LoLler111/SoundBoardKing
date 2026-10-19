@@ -2,7 +2,11 @@ using System.Diagnostics;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Threading;
+using SoundBoardKing.App.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using SoundBoardKing.App.Hotkeys;
@@ -57,6 +61,12 @@ public partial class MainWindow : Window
         _viewModel.StatusText = "Caricamento della libreria…";
         ContentRendered += OnContentRendered;
         Closed += (_, _) => _viewModel.Dispose();
+        _viewModel.RenameRequested += (_, sound) => StartRename(sound);
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.HasArtists))
+                ArtistColumn.Visibility = _viewModel.HasArtists ? Visibility.Visible : Visibility.Collapsed;
+        };
     }
 
     // Until WPF draws, Windows fills the window with this colour: dark like the theme, not white.
@@ -94,16 +104,18 @@ public partial class MainWindow : Window
         base.OnClosing(e);
     }
 
-    private void EffectButton_Click(object sender, RoutedEventArgs e) => OpenMenuAbove(EffectButton);
+    private void EffectButton_Click(object sender, RoutedEventArgs e) => OpenMenu(EffectButton);
 
-    private void EffectTargetButton_Click(object sender, RoutedEventArgs e) => OpenMenuAbove(EffectTargetButton);
+    private void EffectTargetButton_Click(object sender, RoutedEventArgs e) => OpenMenu(EffectTargetButton);
 
-    // The bottom-bar dropdowns: the button's own context menu, opened upwards on a normal click.
-    private static void OpenMenuAbove(Button button)
+    private void SortButton_Click(object sender, RoutedEventArgs e) => OpenMenu(SortButton, PlacementMode.Bottom);
+
+    // The dropdowns: the button's own context menu, opened on a normal click (upwards in the bottom bar).
+    private static void OpenMenu(Button button, PlacementMode placement = PlacementMode.Top)
     {
         var menu = button.ContextMenu;
         menu.PlacementTarget = button;
-        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
+        menu.Placement = placement;
         menu.IsOpen = true;
     }
 
@@ -136,6 +148,24 @@ public partial class MainWindow : Window
 
     private void SoundGrid_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (_renaming is not null)
+        {
+            // Enter confirms; Tab / Shift+Tab confirm and go on renaming the next / previous sound. Esc cancels (the grid does it).
+            if (e.Key is Key.Enter or Key.Tab)
+            {
+                var sounds = _viewModel.VisibleSounds;
+                int index = sounds is IList<SoundItemViewModel> list ? list.IndexOf(_renaming) : -1;
+                int step = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? -1 : 1;
+                var next = e.Key == Key.Tab && index >= 0 && index + step >= 0 && index + step < sounds.Count
+                    ? sounds[index + step]
+                    : null;
+                SoundGrid.CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true);
+                if (next is not null)
+                    Dispatcher.BeginInvoke(() => StartRename(next), DispatcherPriority.Background);
+                e.Handled = true;
+            }
+            return;
+        }
         switch (e.Key)
         {
             case Key.Enter:
@@ -161,7 +191,7 @@ public partial class MainWindow : Window
 
     private void SoundGrid_PreviewMouseMove(object sender, MouseEventArgs e)
     {
-        if (!_dragArmed || e.LeftButton != MouseButtonState.Pressed)
+        if (!_dragArmed || e.LeftButton != MouseButtonState.Pressed || _renaming is not null)
             return;
         var delta = e.GetPosition(null) - _dragStart;
         if (Math.Abs(delta.X) < SystemParameters.MinimumHorizontalDragDistance &&
@@ -170,8 +200,179 @@ public partial class MainWindow : Window
 
         _dragArmed = false;
         var sounds = SoundGrid.SelectedItems.OfType<SoundItemViewModel>().ToList();
-        if (sounds.Count > 0)
-            DragDrop.DoDragDrop(SoundGrid, new DataObject(SoundsDataFormat, sounds), DragDropEffects.Copy);
+        if (sounds.Count == 0)
+            return;
+        // Copy onto a category or a favourite, move within the list itself.
+        _draggingRows = true;
+        try
+        {
+            DragDrop.DoDragDrop(SoundGrid, new DataObject(SoundsDataFormat, sounds), DragDropEffects.Copy | DragDropEffects.Move);
+        }
+        finally
+        {
+            _draggingRows = false;
+            HideInsertionLine();
+        }
+    }
+
+    // ---- Rename in the row -------------------------------------------------------------------
+
+    private SoundItemViewModel? _renaming;
+    private bool _startingRename;
+
+    private void StartRename(SoundItemViewModel sound)
+    {
+        if (!_viewModel.VisibleSounds.Contains(sound))
+            return;
+        SoundGrid.SelectedItem = sound;
+        SoundGrid.ScrollIntoView(sound, TitleColumn);
+        SoundGrid.Focus();
+        SoundGrid.CurrentCell = new DataGridCellInfo(sound, TitleColumn);
+        _startingRename = true;
+        try
+        {
+            SoundGrid.BeginEdit();
+        }
+        finally
+        {
+            _startingRename = false;
+        }
+    }
+
+    // Only F2, "Rinomina" and Tab start editing: a click on a selected row (or a double click, which plays) must not.
+    private void SoundGrid_BeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
+    {
+        if (!_startingRename || e.Column != TitleColumn)
+            e.Cancel = true;
+    }
+
+    private void SoundGrid_PreparingCellForEdit(object? sender, DataGridPreparingCellForEditEventArgs e)
+    {
+        _renaming = e.Row.Item as SoundItemViewModel;
+        if (e.EditingElement is TextBox box)
+        {
+            box.Focus();
+            box.SelectAll();
+        }
+    }
+
+    private void SoundGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
+    {
+        var sound = _renaming;
+        _renaming = null;
+        if (e.EditAction != DataGridEditAction.Commit || sound is null || e.EditingElement is not TextBox box)
+            return;
+        // The list may reorder itself after the rename: let the grid finish editing first.
+        var title = box.Text;
+        Dispatcher.BeginInvoke(() => _viewModel.RenameSound(sound, title), DispatcherPriority.Background);
+    }
+
+    // A click on a column header picks the matching order instead of a temporary sort.
+    private void SoundGrid_Sorting(object? sender, DataGridSortingEventArgs e)
+    {
+        e.Handled = true;
+        if (e.Column == TitleColumn)
+            _viewModel.CurrentSort = SoundSort.Name;
+        else if (e.Column == DurationColumn)
+            _viewModel.CurrentSort = _viewModel.CurrentSort == SoundSort.Shortest ? SoundSort.Longest : SoundSort.Shortest;
+    }
+
+    // ---- Reorder by dragging rows ------------------------------------------------------------
+
+    private bool _draggingRows;
+    private InsertionAdorner? _insertionLine;
+
+    /// <summary>The sound the dragged rows would go in front of (null: at the end), and where to draw the line.</summary>
+    private (SoundItemViewModel? before, double y)? DropPosition(DragEventArgs e)
+    {
+        var row = FindAncestor<DataGridRow>(SoundGrid.InputHitTest(e.GetPosition(SoundGrid)) as DependencyObject);
+        if (row?.Item is not SoundItemViewModel over)
+        {
+            // Below the last row: at the end.
+            var sounds = _viewModel.VisibleSounds;
+            if (sounds.Count == 0 || SoundGrid.ItemContainerGenerator.ContainerFromItem(sounds[^1]) is not DataGridRow last)
+                return null;
+            return (null, last.TranslatePoint(new Point(0, last.ActualHeight), SoundGrid).Y);
+        }
+        bool lowerHalf = e.GetPosition(row).Y > row.ActualHeight / 2;
+        var list = _viewModel.VisibleSounds;
+        int index = list is IList<SoundItemViewModel> l ? l.IndexOf(over) : -1;
+        var before = lowerHalf ? (index + 1 < list.Count ? list[index + 1] : null) : over;
+        double y = row.TranslatePoint(new Point(0, lowerHalf ? row.ActualHeight : 0), SoundGrid).Y;
+        return (before, y);
+    }
+
+    private void SoundGrid_DragOver(object sender, DragEventArgs e)
+    {
+        if (!_draggingRows || !e.Data.GetDataPresent(SoundsDataFormat))
+            return; // files dropped from Explorer go on to the window
+        e.Handled = true;
+        e.Effects = DragDropEffects.None;
+        AutoScroll(e);
+        if (_viewModel.SearchText.Trim().Length > 0 || DropPosition(e) is not { } drop)
+        {
+            HideInsertionLine();
+            return;
+        }
+        e.Effects = DragDropEffects.Move;
+        if (_insertionLine is null && AdornerLayer.GetAdornerLayer(SoundGrid) is { } layer)
+        {
+            _insertionLine = new InsertionAdorner(SoundGrid, (Brush)FindResource("AccentBrush"));
+            layer.Add(_insertionLine);
+        }
+        if (_insertionLine is not null)
+            _insertionLine.Y = drop.y;
+    }
+
+    private void SoundGrid_DragLeave(object sender, DragEventArgs e) => HideInsertionLine();
+
+    private void SoundGrid_Drop(object sender, DragEventArgs e)
+    {
+        if (!_draggingRows || e.Data.GetData(SoundsDataFormat) is not List<SoundItemViewModel> sounds)
+            return;
+        e.Handled = true;
+        var drop = DropPosition(e);
+        HideInsertionLine();
+        if (drop is not { } position || !_viewModel.MoveSounds(sounds, position.before))
+            return;
+        // Keep the moved rows selected, so they can be dragged again.
+        SoundGrid.SelectedItems.Clear();
+        foreach (var sound in sounds)
+            SoundGrid.SelectedItems.Add(sound);
+    }
+
+    private void HideInsertionLine()
+    {
+        if (_insertionLine is null)
+            return;
+        AdornerLayer.GetAdornerLayer(SoundGrid)?.Remove(_insertionLine);
+        _insertionLine = null;
+    }
+
+    // Near the top or bottom edge the list scrolls, so a sound can be carried far.
+    private void AutoScroll(DragEventArgs e)
+    {
+        if (FindDescendant<ScrollViewer>(SoundGrid) is not { } scroll)
+            return;
+        const double edge = 28;
+        double y = e.GetPosition(SoundGrid).Y;
+        if (y < edge + 26) // the header row is about 26 px tall
+            scroll.LineUp();
+        else if (y > SoundGrid.ActualHeight - edge)
+            scroll.LineDown();
+    }
+
+    private static T? FindDescendant<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T match)
+                return match;
+            if (FindDescendant<T>(child) is { } deeper)
+                return deeper;
+        }
+        return null;
     }
 
     // ---- Drop targets ------------------------------------------------------------------------

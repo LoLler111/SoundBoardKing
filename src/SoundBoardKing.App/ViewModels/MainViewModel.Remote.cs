@@ -75,6 +75,15 @@ public sealed partial class MainViewModel
         return TryPlay(sound, target) is { } error ? PlayResult.Failed(error) : PlayResult.Started;
     }
 
+    /// <summary>Rename from a phone; false when the sound does not exist or the title is empty.</summary>
+    public bool RenameSoundById(Guid soundId, string title)
+    {
+        if (!_soundsById.TryGetValue(soundId, out var sound) || title.Trim().Length == 0)
+            return false;
+        RenameSound(sound, title);
+        return true;
+    }
+
     public PlaybackDto CurrentPlayback()
     {
         if (_engine.Current is not { } current)
@@ -114,6 +123,10 @@ public sealed partial class MainViewModel
     /// <summary>Saves and tells connected phones that the library changed.</summary>
     private void LibraryEdited()
     {
+        // Every list goes back to its chosen order before the phones hear of the change. Playing a
+        // sound does not count, so "most played" moves only at the next edit, not under the mouse.
+        _library.ApplySorts();
+        RefreshVisible();
         ScheduleSave();
         NotifyLibraryChanged();
     }

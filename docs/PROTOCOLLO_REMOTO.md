@@ -37,6 +37,7 @@ Ogni PC con SoundBoardKing risponde, direttamente al mittente:
 | POST | `/api/pause/{playbackId}` | sì | 204 (mette in pausa o riprende solo quel suono); 404 se è già finito |
 | POST | `/api/effect/{nome}` | sì | 204 (cambia l'effetto sulla voce dei suoni); 400 se il nome non esiste |
 | POST | `/api/effect-amount/{0-100}` | sì | 204 (intensità dell'effetto, vale subito anche per i suoni in corso); 400 fuori da 0-100 |
+| POST | `/api/rename/{soundId}` | sì | corpo `{ "title": "…" }`: 204 (cambia il titolo mostrato, non il file); 400 se il titolo è vuoto; 404 se il suono non esiste |
 
 Errori: 401 se il token manca o non è valido.
 
@@ -64,6 +65,8 @@ Errori: 401 se il token manca o non è valido.
 - `effectAmount`: intensità dell'effetto da 0 a 100 (70 se manca); cambia al volo anche i suoni già partiti.
 - `playbackSpeed`: velocità di tutti i suoni, come un disco (più veloce = più acuto), da 0.5 a 2; cambia al volo anche quelli in corso. Non viene salvata: a ogni avvio torna 1.
 - `effectTarget`: a cosa si applica l'effetto: `sounds` (solo i suoni), `voice` (solo la voce nel microfono), `both`, `off`.
+- Ordine: `sounds` (la lista "Tutti i suoni") e `soundIds` di ogni categoria arrivano già nell'ordine scelto sul PC
+  (nome, più usati, manuale…). Il telefono li mostra così come sono, senza riordinarli, così le due liste coincidono.
 
 ## WebSocket `/ws?token=…`
 Messaggi JSON con un campo `type`.
@@ -81,6 +84,7 @@ Dal telefono al PC:
 { "type": "setEffect", "amount": 40, "speed": 1.5 }
 { "type": "setEffect", "target": "voice" }
 { "type": "setMic", "enabled": false }
+{ "type": "renameSound", "soundId": "guid", "title": "Nuovo titolo" }
 ```
 
 `target` (facoltativo) sceglie dove va il suono: assente = come al solito (cuffie, più microfono se acceso),
