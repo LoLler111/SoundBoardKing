@@ -65,6 +65,8 @@ public class MicFxEndToEndTests(ITestOutputHelper output)
             Gain = 0.5,
         };
         feed.Attach(sine);
+        // Robot on the voice, refreshed like the app does every second: the harness checks the APO reads it.
+        using var heartbeat = new Timer(_ => feed.SetVoiceEffect(3, 0.8f), null, 0, 500);
 
         var rest = await process.StandardOutput.ReadToEndAsync();
         await process.WaitForExitAsync();

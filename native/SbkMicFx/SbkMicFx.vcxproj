@@ -86,11 +86,13 @@
     <ClCompile Include="MicReader.cpp" />
     <ClCompile Include="Module.cpp" />
     <ClCompile Include="SbkMicFx.cpp" />
+    <ClCompile Include="VoiceFx.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Log.h" />
     <ClInclude Include="MicReader.h" />
     <ClInclude Include="SbkMicFx.h" />
+    <ClInclude Include="VoiceFx.h" />
     <ClInclude Include="SharedRing.h" />
   </ItemGroup>
   <ItemGroup>

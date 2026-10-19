@@ -17,6 +17,9 @@ public sealed class AppSettings
     /// <summary>Voice effect every sound plays through, in the headphones and in the microphone.</summary>
     public SoundEffect SoundEffect { get; set; }
 
+    /// <summary>Whether the effect changes the sounds, the user's voice, both or nothing.</summary>
+    public EffectTarget EffectTarget { get; set; }
+
     /// <summary>How strong the effect is, 0..1.</summary>
     public float EffectAmount { get; set; } = 0.7f;
 

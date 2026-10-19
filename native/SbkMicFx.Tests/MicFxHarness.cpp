@@ -5,6 +5,7 @@
 // Exit code 0 = pass. Usage: MicFxHarness.exe [seconds-to-wait-for-producer]
 
 #include "../SbkMicFx/SbkMicFx.h"
+#include "../SbkMicFx/VoiceFx.h"
 
 #include <mmreg.h>
 #include <ks.h>
@@ -177,6 +178,47 @@ int wmain(int argc, wchar_t** argv)
     process(false, 0.25f);
     Check(std::fabs(rms() - 0.25) < 1e-6, "senza app: microfono passa invariato");
 
+    // Voice effects on their own: a 440 Hz sine through VoiceFx, frequency estimated from zero crossings.
+    {
+        auto run = [](VoiceEffect effect, float amount, std::vector<float>& out) {
+            VoiceFx voice;
+            voice.Prepare(48000, 1);
+            out.assign(48000, 0.0f);
+            for (size_t i = 0; i < out.size(); ++i)
+                out[i] = 0.5f * static_cast<float>(std::sin(2 * 3.14159265358979 * 440 * i / 48000.0));
+            for (size_t start = 0; start < out.size(); start += 480)
+                voice.Process(out.data() + start, 480, effect, amount);
+        };
+        auto frequency = [](const std::vector<float>& s) {
+            int crossings = 0;
+            for (size_t i = 24001; i < s.size(); ++i)   // second half: past the start-up
+                crossings += (s[i - 1] < 0) != (s[i] < 0);
+            return crossings / 2.0 / 0.5;
+        };
+        std::vector<float> out, dry;
+        run(VoiceEffect::None, 1, dry);
+        run(VoiceEffect::Chipmunk, 1, out);
+        const double up = frequency(out);
+        run(VoiceEffect::Deep, 1, out);
+        const double down = frequency(out);
+        std::printf("voce: scoiattolo %.0f Hz, profonda %.0f Hz (da 440)\n", up, down);
+        Check(up > 440 * 1.65 * 0.92 && up < 440 * 1.65 * 1.08, "voce: scoiattolo alza il tono di ~1.65");
+        Check(down > 440 * 0.6 * 0.92 && down < 440 * 0.6 * 1.08, "voce: voce profonda abbassa il tono di ~0.6");
+        run(VoiceEffect::Robot, 0, out);
+        Check(out == dry, "voce: intensità 0 lascia la voce com'è");
+        run(VoiceEffect::Robot, 1, out);
+        Check(out != dry, "voce: il robot cambia la voce");
+
+        VoiceFx echo;
+        echo.Prepare(48000, 1);
+        std::vector<float> impulse(48000, 0.0f);
+        impulse[0] = 1.0f;
+        for (size_t start = 0; start < impulse.size(); start += 480)
+            echo.Process(impulse.data() + start, 480, VoiceEffect::Echo, 1);
+        const size_t delay = static_cast<size_t>(48000 * 0.28);
+        Check(std::fabs(impulse[delay]) > 0.5f, "voce: l'eco ripete dopo 280 ms");
+    }
+
     std::printf("READY\n");
     std::fflush(stdout);
 
@@ -208,6 +250,19 @@ int wmain(int argc, wchar_t** argv)
     Check(mixedPeriods >= 90, "l'audio del produttore arriva nel microfono");
     Check(peakRms > 0.30 && peakRms < 0.40, "livello corretto (sinusoide 0.5 -> RMS ~0.354)");
     Check(channelsMatch, "stesso segnale su entrambi i canali");
+
+    // The app asks for the robot on the voice through the same shared memory (written by the C# test).
+    {
+        // Asked through the APO's own reader: a second opener in this process would lack the rights
+        // that LOCAL SERVICE has inside audiodg.
+        uint32_t voiceEffect = 0;
+        float voiceAmount = 0;
+        bool asked = false;
+        for (int i = 0; i < 300 && !asked; ++i, Sleep(10))
+            asked = fx->VoiceEffectWanted(voiceEffect, voiceAmount) && voiceEffect == 3;
+        std::printf("voce chiesta dall'app: effetto %u, intensita %.2f\n", voiceEffect, voiceAmount);
+        Check(asked && voiceAmount > 0.79f && voiceAmount < 0.81f, "il modulo riceve dall'app l'effetto sulla voce (robot, 80%)");
+    }
 
     // Mixing on top of a real (non-silent) microphone signal must add, not replace.
     process(false, 0.1f);

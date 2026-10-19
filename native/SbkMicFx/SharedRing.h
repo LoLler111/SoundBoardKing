@@ -36,7 +36,9 @@ namespace sbk
         uint32_t readerSampleRate;    // readers: microphone sample rate
         uint32_t readerChannels;      // readers: microphone channel count
         int32_t producerActive;       // producer: 1 while attached
-        uint32_t reserved[3];
+        uint32_t voiceEffect;         // producer: VoiceEffect applied to the microphone itself (0 = none)
+        float voiceAmount;            // producer: its strength, 0..1
+        uint32_t voiceHeartbeatMs;    // producer: low 32 bits of GetTickCount64(); stale = app gone, voice untouched
     };
 #pragma pack(pop)
 
@@ -44,6 +46,8 @@ namespace sbk
     static_assert(offsetof(SharedHeader, writePos) == 16, "layout shared with C#");
     static_assert(offsetof(SharedHeader, readerSampleRate) == 40, "layout shared with C#");
     static_assert(offsetof(SharedHeader, producerActive) == 48, "layout shared with C#");
+    static_assert(offsetof(SharedHeader, voiceEffect) == 52, "layout shared with C#");
+    static_assert(offsetof(SharedHeader, voiceHeartbeatMs) == 60, "layout shared with C#");
 
     inline constexpr size_t SharedSize = sizeof(SharedHeader) + size_t{RingFrames} * sizeof(float);
 }

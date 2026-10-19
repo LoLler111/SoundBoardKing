@@ -134,3 +134,21 @@ namespace sbk
         return true;
     }
 }
+
+namespace sbk
+{
+    bool MicReader::VoiceEffectWanted(uint32_t& effect, float& amount) const
+    {
+        if (!m_header)
+            return false;
+        // The app refreshes this every second; after 3 s without it the voice goes back to normal.
+        constexpr uint32_t VoiceTimeoutMs = 3000;
+        const uint32_t beat = std::atomic_ref<uint32_t>(m_header->voiceHeartbeatMs).load(std::memory_order_acquire);
+        const uint32_t now = static_cast<uint32_t>(GetTickCount64());
+        if (beat == 0 || now - beat > VoiceTimeoutMs)
+            return false;
+        effect = std::atomic_ref<uint32_t>(m_header->voiceEffect).load(std::memory_order_relaxed);
+        amount = std::atomic_ref<float>(m_header->voiceAmount).load(std::memory_order_relaxed);
+        return effect != 0;
+    }
+}

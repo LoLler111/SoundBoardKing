@@ -49,6 +49,7 @@
     <ClCompile Include="..\SbkMicFx\Log.cpp" />
     <ClCompile Include="..\SbkMicFx\MicReader.cpp" />
     <ClCompile Include="..\SbkMicFx\SbkMicFx.cpp" />
+    <ClCompile Include="..\SbkMicFx\VoiceFx.cpp" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

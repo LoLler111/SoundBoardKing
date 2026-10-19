@@ -6,6 +6,7 @@
 #include <atomic>
 
 #include "MicReader.h"
+#include "VoiceFx.h"
 
 namespace sbk
 {
@@ -74,6 +75,9 @@ namespace sbk
         // IAudioSystemEffects2
         STDMETHODIMP GetEffectsList(LPGUID* ppEffectsIds, UINT* pcEffects, HANDLE Event) override;
 
+        // What the app currently asks for on the voice (for the test harness).
+        bool VoiceEffectWanted(uint32_t& effect, float& amount) const { return m_reader.VoiceEffectWanted(effect, amount); }
+
     private:
         class InnerUnknown final : public IUnknown
         {
@@ -100,6 +104,7 @@ namespace sbk
         UINT32 m_channels = 0;
         UINT32 m_sampleRate = 0;
         MicReader m_reader;
+        VoiceFx m_voice;
     };
 
     // Module-wide object count for DllCanUnloadNow.

@@ -13,6 +13,7 @@ import com.soundboardking.remote.data.Discovery
 import com.soundboardking.remote.data.FavoritesLook
 import com.soundboardking.remote.data.LookStore
 import com.soundboardking.remote.data.SoundEffect
+import com.soundboardking.remote.data.EffectTarget
 import com.soundboardking.remote.data.DiscoveredPc
 import com.soundboardking.remote.data.MicDto
 import com.soundboardking.remote.data.PROTOCOL_VERSION
@@ -58,6 +59,7 @@ data class UiState(
     val effect: SoundEffect = SoundEffect.None,
     val effectAmount: Int = 70,
     val playbackSpeed: Double = 1.0,
+    val effectTarget: EffectTarget = EffectTarget.Sounds,
     val discovered: List<DiscoveredPc> = emptyList(),
     val discovering: Boolean = false,
     val pairingBusy: Boolean = false,
@@ -365,6 +367,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
                 effect = SoundEffect.fromWire(library.effect),
                 effectAmount = library.effectAmount,
                 playbackSpeed = library.playbackSpeed,
+                effectTarget = EffectTarget.fromWire(library.effectTarget),
             )
         }
     }
@@ -409,7 +412,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
                 it.copy(playback = event.playback, playbackReceivedAt = SystemClock.elapsedRealtime())
             }
             is ServerEvent.Mic -> _state.update { it.copy(mic = event.mic) }
-            is ServerEvent.Effect -> _state.update { it.copy(effect = SoundEffect.fromWire(event.effect), effectAmount = event.amount, playbackSpeed = event.speed) }
+            is ServerEvent.Effect -> _state.update { it.copy(effect = SoundEffect.fromWire(event.effect), effectAmount = event.amount, playbackSpeed = event.speed, effectTarget = EffectTarget.fromWire(event.target)) }
             is ServerEvent.Error -> showMessage(event.message)
         }
     }
@@ -447,6 +450,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
     override fun setEffectAmount(percent: Int) {
         _state.update { it.copy(effectAmount = percent) }
         send(SoundBoardApi.effectAmountCommand(percent))
+    }
+
+    override fun setEffectTarget(target: EffectTarget) {
+        _state.update { it.copy(effectTarget = target) }
+        send(SoundBoardApi.effectTargetCommand(target))
     }
 
     override fun setPad(percent: Int, speed: Double) {

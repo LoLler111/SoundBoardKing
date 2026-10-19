@@ -25,6 +25,10 @@ namespace sbk
         // is attached, in which case dst is untouched.
         bool MixInto(float* dst, UINT32 frames, UINT32 channels, UINT32 deviceRate);
 
+        // The effect the app wants on the voice, while the app is alive (fresh heartbeat).
+        // Real-time safe. Returns false (no effect) otherwise.
+        bool VoiceEffectWanted(uint32_t& effect, float& amount) const;
+
     private:
         HANDLE m_mapping = nullptr;
         SharedHeader* m_header = nullptr;

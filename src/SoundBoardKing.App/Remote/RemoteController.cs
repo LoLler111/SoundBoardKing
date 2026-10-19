@@ -32,4 +32,6 @@ internal sealed class RemoteController(MainViewModel viewModel, Dispatcher dispa
 
     public Task SetPlaybackSpeedAsync(double speed) =>
         dispatcher.InvokeAsync(() => viewModel.PadSpeed = Math.Log2(speed) * 100).Task;
+
+    public Task SetEffectTargetAsync(EffectTarget target) => dispatcher.InvokeAsync(() => viewModel.EffectTarget = target).Task;
 }

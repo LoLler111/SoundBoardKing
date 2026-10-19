@@ -89,6 +89,7 @@ import com.soundboardking.remote.data.MicDto
 import com.soundboardking.remote.data.PlayTarget
 import com.soundboardking.remote.data.PlaybackDto
 import com.soundboardking.remote.data.SoundEffect
+import com.soundboardking.remote.data.EffectTarget
 import com.soundboardking.remote.data.SoundDto
 import com.soundboardking.remote.data.StateDto
 import com.soundboardking.remote.ui.theme.Danger
@@ -503,6 +504,13 @@ private fun NowPlayingBar(
                 Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
                     MicChip(state.mic, onToggle = { actions.setMic(!state.mic.enabled) })
                     EffectChip(state.effect, onPick = actions::setEffect)
+                    FilterChip(
+                        selected = state.effectTarget != EffectTarget.Off,
+                        onClick = { actions.setEffectTarget(state.effectTarget.next) },
+                        label = { Text(state.effectTarget.label) },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = GoldSoft, selectedLabelColor = Gold),
+                        modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
+                    )
                     Knob(
                         state.effectAmount,
                         enabled = state.effect != SoundEffect.None,

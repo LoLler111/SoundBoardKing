@@ -265,6 +265,7 @@ namespace sbk
         m_channels = format.dwSamplesPerFrame;
         m_sampleRate = static_cast<UINT32>(format.fFramesPerSecond + 0.5f);
         const bool shared = m_reader.Open();
+        m_voice.Prepare(m_sampleRate, m_channels);
         m_locked = true;
 
         Log(L"LockForProcess: %u Hz, %u canali, max %u frame, memoria condivisa %s",
@@ -305,6 +306,12 @@ namespace sbk
             ZeroMemory(target, bytes);
         else if (target != source)
             CopyMemory(target, source, bytes);
+
+        // The voice effect works on the microphone alone, before the sounds are added (they have their own).
+        uint32_t voiceEffect = 0;
+        float voiceAmount = 0;
+        if (!silent && m_reader.VoiceEffectWanted(voiceEffect, voiceAmount))
+            m_voice.Process(target, frames, static_cast<VoiceEffect>(voiceEffect), voiceAmount);
 
         const bool mixed = m_reader.MixInto(target, frames, m_channels, m_sampleRate);
 

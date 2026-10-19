@@ -50,7 +50,7 @@ Errori: 401 se il token manca o non è valido.
   "playback": { "state": "playing", "soundId": "guid", "positionMs": 1200, "durationMs": 3000,
                 "playing": [ { "id": "guid", "soundId": "guid", "positionMs": 1200, "durationMs": 3000, "paused": false } ] },
   "mic": { "state": "active", "enabled": true },
-  "effect": "none", "effectAmount": 70, "playbackSpeed": 1.0
+  "effect": "none", "effectAmount": 70, "playbackSpeed": 1.0, "effectTarget": "sounds"
 }
 ```
 - `playback.state`: `stopped` | `playing` | `paused`.
@@ -63,6 +63,7 @@ Errori: 401 se il token manca o non è valido.
   I PC senza effetti non lo mandano: va inteso come `none`.
 - `effectAmount`: intensità dell'effetto da 0 a 100 (70 se manca); cambia al volo anche i suoni già partiti.
 - `playbackSpeed`: velocità di tutti i suoni, come un disco (più veloce = più acuto), da 0.5 a 2; cambia al volo anche quelli in corso. Non viene salvata: a ogni avvio torna 1.
+- `effectTarget`: a cosa si applica l'effetto: `sounds` (solo i suoni), `voice` (solo la voce nel microfono), `both`, `off`.
 
 ## WebSocket `/ws?token=…`
 Messaggi JSON con un campo `type`.
@@ -78,6 +79,7 @@ Dal telefono al PC:
 { "type": "setEffect", "effect": "robot" }
 { "type": "setEffect", "amount": 40 }
 { "type": "setEffect", "amount": 40, "speed": 1.5 }
+{ "type": "setEffect", "target": "voice" }
 { "type": "setMic", "enabled": false }
 ```
 
@@ -90,7 +92,7 @@ Dal PC al telefono:
 { "type": "playback", "state": "playing", "soundId": "guid", "positionMs": 0, "durationMs": 3000, "playing": [ … ] }
 { "type": "libraryChanged", "libraryVersion": 8 }
 { "type": "mic", "state": "idle", "enabled": true }
-{ "type": "effect", "effect": "robot", "amount": 40, "speed": 1.0 }
+{ "type": "effect", "effect": "robot", "amount": 40, "speed": 1.0, "target": "both" }
 { "type": "error", "message": "…" }
 ```
 Se un `play` non va a buon fine (suono inesistente, file mancante, nessun dispositivo audio),

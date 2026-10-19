@@ -15,6 +15,7 @@ import com.soundboardking.remote.data.PlayingDto
 import com.soundboardking.remote.data.SavedServer
 import com.soundboardking.remote.data.SoundDto
 import com.soundboardking.remote.data.SoundEffect
+import com.soundboardking.remote.data.EffectTarget
 import com.soundboardking.remote.data.StateDto
 import com.soundboardking.remote.ui.theme.SoundBoardTheme
 import org.junit.Test
@@ -39,6 +40,7 @@ class ScreensSnapshotTest {
         override fun setEffect(effect: SoundEffect) {}
         override fun setEffectAmount(percent: Int) {}
         override fun setPad(percent: Int, speed: Double) {}
+        override fun setEffectTarget(target: EffectTarget) {}
         override fun reconnect() {}
         override fun forgetServer() {}
         override fun setLook(look: FavoritesLook) {}
@@ -84,6 +86,7 @@ class ScreensSnapshotTest {
         mic = MicDto("active", true),
         effect = SoundEffect.Robot,
         effectAmount = 45,
+        effectTarget = EffectTarget.Both,
     )
 
     @Test

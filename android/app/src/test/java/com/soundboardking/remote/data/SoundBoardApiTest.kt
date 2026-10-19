@@ -102,6 +102,7 @@ class SoundBoardApiTest {
         assertEquals("""{"type":"setEffect","effect":"robot"}""", SoundBoardApi.effectCommand(SoundEffect.Robot))
         assertEquals("""{"type":"setEffect","amount":40}""", SoundBoardApi.effectAmountCommand(40))
         assertEquals("""{"type":"setEffect","amount":40,"speed":1.5}""", SoundBoardApi.padCommand(40, 1.5))
+        assertEquals("""{"type":"setEffect","target":"voice"}""", SoundBoardApi.effectTargetCommand(EffectTarget.Voice))
         assertEquals("""{"type":"play","soundId":"s1","target":"mic"}""", SoundBoardApi.playCommand("s1", PlayTarget.Mic))
         assertEquals("""{"type":"play","soundId":"s1","target":"speakers"}""", SoundBoardApi.playCommand("s1", PlayTarget.Speakers))
         assertEquals("""{"type":"play","soundId":"s1"}""", SoundBoardApi.playCommand("s1", PlayTarget.Default))

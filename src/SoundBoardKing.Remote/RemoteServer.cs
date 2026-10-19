@@ -315,19 +315,22 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
                         await SendErrorAsync(client, "enabled mancante.");
                     break;
                 case "setEffect":
-                    // Any of "effect", "amount" (0-100) and "speed" (0.5-2): the knob and the pad send only what they change.
+                    // Any of "effect", "amount" (0-100), "speed" (0.5-2) and "target": the knob and the pad send only what they change.
                     bool hasEffect = root.TryGetProperty("effect", out var effectElement);
                     bool hasAmount = root.TryGetProperty("amount", out var amountElement);
                     bool hasSpeed = root.TryGetProperty("speed", out var speedElement);
+                    bool hasTarget = root.TryGetProperty("target", out var fxTargetElement);
                     SoundEffect effect = default;
                     int amount = 0;
                     double speed = 1;
-                    if ((!hasEffect && !hasAmount && !hasSpeed) ||
+                    EffectTarget effectTarget = default;
+                    if ((!hasEffect && !hasAmount && !hasSpeed && !hasTarget) ||
                         (hasSpeed && (speedElement.ValueKind != JsonValueKind.Number || !speedElement.TryGetDouble(out speed) || speed is < 0.5 or > 2)) ||
+                        (hasTarget && (fxTargetElement.ValueKind != JsonValueKind.String || !EffectNames.TryParseTarget(fxTargetElement.GetString(), out effectTarget))) ||
                         (hasEffect && (effectElement.ValueKind != JsonValueKind.String || !EffectNames.TryParse(effectElement.GetString(), out effect))) ||
                         (hasAmount && (amountElement.ValueKind != JsonValueKind.Number || !amountElement.TryGetInt32(out amount) || amount is < 0 or > 100)))
                     {
-                        await SendErrorAsync(client, "effect, amount (0-100) o speed (0.5-2) mancanti o non validi.");
+                        await SendErrorAsync(client, "effect, amount (0-100), speed (0.5-2) o target mancanti o non validi.");
                         break;
                     }
                     if (hasEffect)
@@ -336,6 +339,8 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
                         await controller.SetEffectAmountAsync(amount);
                     if (hasSpeed)
                         await controller.SetPlaybackSpeedAsync(speed);
+                    if (hasTarget)
+                        await controller.SetEffectTargetAsync(effectTarget);
                     break;
                 default:
                     await SendErrorAsync(client, $"Comando sconosciuto: {type}");

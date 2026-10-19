@@ -8,6 +8,12 @@ using NAudio.Wave;
 using SoundBoardKing.Audio;
 using SoundBoardKing.Audio.MicFx;
 
+if (args.Length > 0 && args[0] == "--voce")
+{
+    VoiceTest.Run(args.Length > 1 ? args[1] : "CABLE", args.Length > 2 ? args[2] : ".");
+    return;
+}
+
 var micName = args.Length > 0 ? args[0] : "CABLE Output";
 var soundPath = args.Length > 1 ? args[1] : WriteTone(Path.Combine(Path.GetTempPath(), "micapplive-tone.wav"));
 var outDir = args.Length > 2 ? args[2] : ".";

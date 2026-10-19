@@ -18,6 +18,18 @@ public sealed class EffectControl
         set => Volatile.Write(ref _amount, Math.Clamp(value, 0f, 1f));
     }
 
+    private volatile bool _soundsEnabled = true;
+
+    /// <summary>False when the effect is set to the voice only (or off): sounds play clean, even those already playing.</summary>
+    public bool SoundsEnabled
+    {
+        get => _soundsEnabled;
+        set => _soundsEnabled = value;
+    }
+
+    /// <summary>The amount the sound effects use: 0 while they are switched off.</summary>
+    public float Wet => _soundsEnabled ? Amount : 0f;
+
     private float _speed = 1f;
 
     public const float MinSpeed = 0.5f;
@@ -114,7 +126,7 @@ internal sealed class PitchEffect(ISampleProvider source, EffectControl control,
 
     public int Read(float[] buffer, int offset, int count)
     {
-        _shifter.PitchFactor = factor(control.Amount);
+        _shifter.PitchFactor = factor(control.Wet);
         return _shifter.Read(buffer, offset, count);
     }
 }
@@ -132,7 +144,7 @@ internal sealed class RobotEffect(ISampleProvider source, EffectControl control)
     public int Read(float[] buffer, int offset, int count)
     {
         int read = source.Read(buffer, offset, count);
-        float wet = control.Amount;
+        float wet = control.Wet;
         for (int i = 0; i < read; i += _channels)
         {
             float carrier = (float)Math.Sin(_phase) * 1.4f;
@@ -173,7 +185,7 @@ internal sealed class RadioEffect : ISampleProvider
     {
         int read = _source.Read(buffer, offset, count);
         int channels = _highPass.Length;
-        float wet = _control.Amount;
+        float wet = _control.Wet;
         float drive = 1f + 3f * wet;
         float level = 0.6f / MathF.Tanh(drive * 0.5f + 0.5f);
         for (int i = 0; i < read; i++)
@@ -229,7 +241,7 @@ internal sealed class EchoEffect : ISampleProvider
         }
 
         // More amount: louder repeats that last longer.
-        float amount = _control.Amount;
+        float amount = _control.Wet;
         float wet = 0.8f * amount;
         float feedback = 0.2f + 0.4f * amount;
         for (int i = offset; i < offset + total; i++)

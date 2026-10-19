@@ -99,6 +99,8 @@ data class StateDto(
     val effectAmount: Int = 70,
     /** Playback speed of every sound, like a record, 0.5-2. */
     val playbackSpeed: Double = 1.0,
+    /** "sounds", "voice", "both" or "off". */
+    val effectTarget: String = "sounds",
 )
 
 @Serializable
@@ -122,7 +124,7 @@ sealed interface ServerEvent {
     data class Playback(val playback: PlaybackDto) : ServerEvent
     data class LibraryChanged(val libraryVersion: Long) : ServerEvent
     data class Mic(val mic: MicDto) : ServerEvent
-    data class Effect(val effect: String, val amount: Int, val speed: Double = 1.0) : ServerEvent
+    data class Effect(val effect: String, val amount: Int, val speed: Double = 1.0, val target: String = "sounds") : ServerEvent
     data class Error(val message: String) : ServerEvent
 
     companion object {
@@ -136,7 +138,7 @@ sealed interface ServerEvent {
                 // The other fields of these events sit next to "type", in the DTO's shape.
                 "playback" -> Playback(ProtocolJson.decodeFromJsonElement(PlaybackDto.serializer(), json))
                 "mic" -> Mic(ProtocolJson.decodeFromJsonElement(MicDto.serializer(), json))
-                "effect" -> Effect(json["effect"]?.jsonPrimitive?.contentOrNull ?: "none", json["amount"]?.jsonPrimitive?.intOrNull ?: 70, json["speed"]?.jsonPrimitive?.doubleOrNull ?: 1.0)
+                "effect" -> Effect(json["effect"]?.jsonPrimitive?.contentOrNull ?: "none", json["amount"]?.jsonPrimitive?.intOrNull ?: 70, json["speed"]?.jsonPrimitive?.doubleOrNull ?: 1.0, json["target"]?.jsonPrimitive?.contentOrNull ?: "sounds")
                 "error" -> Error(json["message"]?.jsonPrimitive?.contentOrNull ?: "Errore sconosciuto")
                 else -> null
             }
@@ -167,5 +169,20 @@ enum class SoundEffect(val wire: String, val label: String) {
 
     companion object {
         fun fromWire(wire: String?): SoundEffect = entries.firstOrNull { it.wire == wire } ?: None
+    }
+}
+
+/** What the voice effect is applied to; the button steps through them in this order. */
+enum class EffectTarget(val wire: String, val label: String) {
+    Sounds("sounds", "Solo suoni"),
+    Voice("voice", "Solo microfono"),
+    Both("both", "Suoni e microfono"),
+    Off("off", "Nessuno"),
+    ;
+
+    val next: EffectTarget get() = entries[(ordinal + 1) % entries.size]
+
+    companion object {
+        fun fromWire(wire: String?): EffectTarget = entries.firstOrNull { it.wire == wire } ?: Sounds
     }
 }

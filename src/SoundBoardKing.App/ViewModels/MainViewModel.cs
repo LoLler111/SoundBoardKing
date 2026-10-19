@@ -166,6 +166,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             OnPropertyChanged();
             OnPropertyChanged(nameof(SoundEffectLabel));
             OnPropertyChanged(nameof(HasEffect));
+            PushVoiceEffect();
             EffectChanged?.Invoke(this, EventArgs.Empty);
             ScheduleSave();
         }
@@ -174,6 +175,53 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public string SoundEffectLabel => EffectOptionViewModel.LabelOf(SoundEffect);
 
     public bool HasEffect => SoundEffect != SoundEffect.None;
+
+    /// <summary>Sounds only, voice only, both or nothing; the button steps through them.</summary>
+    public EffectTarget EffectTarget
+    {
+        get => _settings.EffectTarget;
+        set
+        {
+            if (value == _settings.EffectTarget)
+                return;
+            _settings.EffectTarget = value;
+            ApplyEffectTarget();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(EffectTargetLabel));
+            EffectChanged?.Invoke(this, EventArgs.Empty);
+            ScheduleSave();
+        }
+    }
+
+    public string EffectTargetLabel => EffectTarget switch
+    {
+        EffectTarget.Voice => "Solo microfono",
+        EffectTarget.Both => "Suoni e microfono",
+        EffectTarget.Off => "Nessuno",
+        _ => "Solo suoni",
+    };
+
+    private bool EffectOnSounds => EffectTarget is EffectTarget.Sounds or EffectTarget.Both;
+    private bool EffectOnVoice => EffectTarget is EffectTarget.Voice or EffectTarget.Both;
+
+    [RelayCommand]
+    private void CycleEffectTarget() => EffectTarget = EffectTarget switch
+    {
+        EffectTarget.Sounds => EffectTarget.Voice,
+        EffectTarget.Voice => EffectTarget.Both,
+        EffectTarget.Both => EffectTarget.Off,
+        _ => EffectTarget.Sounds,
+    };
+
+    private void ApplyEffectTarget()
+    {
+        _engine.EffectControl.SoundsEnabled = EffectOnSounds;
+        PushVoiceEffect();
+    }
+
+    // Also the heartbeat the mic module waits for: called every second by the mic timer.
+    private void PushVoiceEffect() =>
+        _micFeed.SetVoiceEffect(EffectOnVoice ? (int)SoundEffect : 0, _settings.EffectAmount);
 
     /// <summary>Effect strength 0-100 for the knob; also changes the sounds already playing.</summary>
     public double EffectAmount
@@ -188,6 +236,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _engine.EffectControl.Amount = amount;
             OnPropertyChanged();
             OnPropertyChanged(nameof(EffectAmountPercent));
+            PushVoiceEffect();
             EffectChanged?.Invoke(this, EventArgs.Empty);
             ScheduleSave();
         }
@@ -267,6 +316,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(EffectAmount));
         OnPropertyChanged(nameof(EffectAmountPercent));
         OnPropertyChanged(nameof(HasEffect));
+        ApplyEffectTarget();
+        OnPropertyChanged(nameof(EffectTarget));
+        OnPropertyChanged(nameof(EffectTargetLabel));
         UpdateMicStatus();
         _micTimer.Start();
 
@@ -323,7 +375,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                     _ => _settings.PlayOnMic && _engine.IsMicAvailable,
                 },
                 AllowOverlap: _settings.AllowOverlap,
-                Effect: _settings.SoundEffect));
+                Effect: EffectOnSounds ? _settings.SoundEffect : SoundEffect.None));
             return null;
         }
         catch (Exception ex) when (ex is COMException or IOException or UnauthorizedAccessException or InvalidOperationException)
@@ -415,6 +467,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private void UpdateMicStatus()
     {
+        PushVoiceEffect();
         var status = _micFeed.GetStatus();
         if (status.State != _micState || PlayOnMic != _micReportedEnabled)
         {
@@ -982,6 +1035,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _micTimer.Stop();
         if (_initialized)
             SaveNow();
+        _micFeed.SetVoiceEffect(0, 0); // the voice goes back to normal at once, not after the timeout
         _hotkeys.Dispose();
         _engine.Dispose();
         ApplyDownloadedUpdate();

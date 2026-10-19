@@ -206,6 +206,21 @@ public sealed unsafe class ApoMicFeed : IMicFeed
         }
     }
 
+    /// <summary>
+    /// Effect the APO applies to the voice itself (0 = none; same numbers as SoundEffect). Call it
+    /// about once a second: the APO drops the effect when it stops hearing from the app.
+    /// </summary>
+    public void SetVoiceEffect(int effect, float amount)
+    {
+        if (!TryOpen())
+            return;
+        Volatile.Write(ref *(int*)(_base + MicFxLayout.VoiceEffectOffset), effect);
+        Volatile.Write(ref *(float*)(_base + MicFxLayout.VoiceAmountOffset), Math.Clamp(amount, 0f, 1f));
+        // 0 means "never": skip it when the tick count wraps onto it.
+        uint beat = (uint)Environment.TickCount64;
+        Volatile.Write(ref *(uint*)(_base + MicFxLayout.VoiceHeartbeatOffset), effect == 0 ? 0 : Math.Max(beat, 1));
+    }
+
     public void Dispose()
     {
         Detach();

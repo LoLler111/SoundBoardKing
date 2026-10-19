@@ -13,4 +13,10 @@ public static class EffectNames
 
     public static bool TryParse(string? text, out SoundEffect effect) =>
         Enum.TryParse(text, ignoreCase: true, out effect) && Enum.IsDefined(effect) && !int.TryParse(text, out _);
+
+    /// <summary>"sounds", "voice", "both" or "off".</summary>
+    public static string ToWire(EffectTarget target) => target.ToString().ToLowerInvariant();
+
+    public static bool TryParseTarget(string? text, out EffectTarget target) =>
+        Enum.TryParse(text, ignoreCase: true, out target) && Enum.IsDefined(target) && !int.TryParse(text, out _);
 }

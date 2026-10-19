@@ -30,4 +30,7 @@ public interface IRemoteController
 
     /// <summary>Playback speed of every sound, like a record: 0.5 to 2.</summary>
     Task SetPlaybackSpeedAsync(double speed);
+
+    /// <summary>Whether the effect changes the sounds, the voice, both or nothing.</summary>
+    Task SetEffectTargetAsync(EffectTarget target);
 }

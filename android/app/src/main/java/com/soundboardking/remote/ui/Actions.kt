@@ -4,6 +4,7 @@ import com.soundboardking.remote.data.DiscoveredPc
 import com.soundboardking.remote.data.FavoritesLook
 import com.soundboardking.remote.data.PlayTarget
 import com.soundboardking.remote.data.SoundEffect
+import com.soundboardking.remote.data.EffectTarget
 
 /** What the pairing screen can ask for. Implemented by [AppViewModel]; screens stay free of it. */
 interface ConnectActions {
@@ -37,6 +38,7 @@ interface RemoteActions {
     fun setEffect(effect: SoundEffect)
     fun setEffectAmount(percent: Int)
     fun setPad(percent: Int, speed: Double)
+    fun setEffectTarget(target: EffectTarget)
     fun reconnect()
     fun forgetServer()
     fun setLook(look: FavoritesLook)

@@ -22,4 +22,7 @@ internal static class MicFxLayout
     public const int ReaderSampleRateOffset = 40;
     public const int ReaderChannelsOffset = 44;
     public const int ProducerActiveOffset = 48;
+    public const int VoiceEffectOffset = 52;
+    public const int VoiceAmountOffset = 56;
+    public const int VoiceHeartbeatOffset = 60;
 }
