@@ -127,6 +127,7 @@ public sealed partial class MainViewModel
         // sound does not count, so "most played" moves only at the next edit, not under the mouse.
         _library.ApplySorts();
         RefreshVisible();
+        RefreshHotbar(); // a sound may have moved to another category
         ScheduleSave();
         NotifyLibraryChanged();
     }

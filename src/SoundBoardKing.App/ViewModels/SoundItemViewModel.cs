@@ -29,9 +29,15 @@ public sealed partial class SoundItemViewModel : ObservableObject
         set
         {
             if (SetProperty(Model.Title, value, Model, (m, v) => m.Title = v))
+            {
                 OnPropertyChanged(nameof(EditableTitle));
+                OnPropertyChanged(nameof(TileTitle));
+            }
         }
     }
+
+    /// <summary>The title on a favourite button: "-" and "_" become spaces, so a long name can wrap.</summary>
+    public string TileTitle => string.Join(' ', Title.Split([' ', '_', '-'], StringSplitOptions.RemoveEmptyEntries));
 
     /// <summary>
     /// The title as the list edits it. The grid only edits two-way bindings, but the new title goes

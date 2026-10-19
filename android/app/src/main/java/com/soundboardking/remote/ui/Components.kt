@@ -181,6 +181,22 @@ fun StopIcon(modifier: Modifier = Modifier) {
     }
 }
 
+/** A microphone capsule on its stand; [off] crosses it out. */
+@Composable
+fun MicIcon(modifier: Modifier = Modifier, off: Boolean = false, tint: Color = LocalContentColor.current) {
+    Canvas(modifier.size(24.dp)) {
+        val w = size.width
+        val stroke = w * 0.08f
+        val capsuleWidth = w * 0.3f
+        drawRoundRect(tint, Offset((w - capsuleWidth) / 2, w * 0.12f), Size(capsuleWidth, w * 0.44f), CornerRadius(capsuleWidth / 2, capsuleWidth / 2))
+        // The cradle around the capsule, then the stand and its foot.
+        drawArc(tint, 0f, 180f, false, Offset(w * 0.24f, w * 0.26f), Size(w * 0.52f, w * 0.44f), style = Stroke(stroke, cap = StrokeCap.Round))
+        drawLine(tint, Offset(w / 2, w * 0.7f), Offset(w / 2, w * 0.84f), stroke, StrokeCap.Round)
+        drawLine(tint, Offset(w * 0.36f, w * 0.86f), Offset(w * 0.64f, w * 0.86f), stroke, StrokeCap.Round)
+        if (off) drawLine(tint, Offset(w * 0.18f, w * 0.12f), Offset(w * 0.82f, w * 0.88f), stroke, StrokeCap.Round)
+    }
+}
+
 /** Four corner brackets: pointing out to enter full screen, pointing in ([exit]) to leave it. */
 @Composable
 fun FullScreenIcon(exit: Boolean, modifier: Modifier = Modifier) {

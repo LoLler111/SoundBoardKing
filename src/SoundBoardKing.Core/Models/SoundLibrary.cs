@@ -12,6 +12,28 @@ public sealed class SoundLibrary
 
     public Sound? FindSound(Guid id) => Sounds.Find(s => s.Id == id);
 
+    /// <summary>
+    /// For every sound, the category it is in; with several, the most specific (deepest) one,
+    /// the first in the tree among equals.
+    /// </summary>
+    public Dictionary<Guid, Category> CategoryOfSounds()
+    {
+        var result = new Dictionary<Guid, (Category category, int depth)>();
+        void Visit(Category category, int depth)
+        {
+            foreach (var id in category.SoundIds)
+            {
+                if (!result.TryGetValue(id, out var found) || depth > found.depth)
+                    result[id] = (category, depth);
+            }
+            foreach (var child in category.Children)
+                Visit(child, depth + 1);
+        }
+        foreach (var category in Categories)
+            Visit(category, 0);
+        return result.ToDictionary(p => p.Key, p => p.Value.category);
+    }
+
     /// <summary>All categories, depth first.</summary>
     public IEnumerable<Category> EnumerateCategories() => Categories.SelectMany(Walk);
 

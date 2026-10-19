@@ -56,6 +56,22 @@ public class SoundSorterTests
     }
 
     [Fact]
+    public void A_sound_shows_its_most_specific_category()
+    {
+        var voice = new Category { Name = "Voice", SoundIds = [A.Id, B.Id] };
+        var teorema = new Category { Name = "Teorema", SoundIds = [B.Id] };
+        voice.Children.Add(teorema);
+        var music = new Category { Name = "Musica", SoundIds = [A.Id, C.Id] };
+        var library = new SoundLibrary { Sounds = [A, B, C], Categories = [voice, music] };
+
+        var of = library.CategoryOfSounds();
+
+        Assert.Same(voice, of[A.Id]);   // first in the tree among equals
+        Assert.Same(teorema, of[B.Id]); // deeper wins
+        Assert.Same(music, of[C.Id]);
+    }
+
+    [Fact]
     public void Categories_follow_their_own_order_and_unknown_ids_go_last()
     {
         var library = new SoundLibrary { Sounds = [A, B, C], Sort = SoundSort.Shortest };

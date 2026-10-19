@@ -129,20 +129,8 @@
                     BorderThickness="0,0,0,1" Padding="10,5">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="Ordina:" VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" FontSize="12" Margin="0,0,6,0" />
-                    <Button x:Name="SortButton" Cursor="Hand" Click="SortButton_Click"
+                    <Button x:Name="SortButton" Style="{StaticResource DropdownButton}" Height="26" Click="SortButton_Click"
                             ToolTip="Come sono ordinati i suoni di questa lista (anche sul telefono)">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="Bd" Background="{StaticResource Panel2Brush}" CornerRadius="6" Padding="10,4">
-                                    <ContentPresenter />
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource LineBrush}" />
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
                         <Button.ContextMenu>
                             <ContextMenu ItemsSource="{Binding SortOptions}">
                                 <ContextMenu.ItemContainerStyle>
@@ -158,8 +146,7 @@
                         </Button.ContextMenu>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8CB;" VerticalAlignment="Center" Margin="0,0,6,0" />
-                            <TextBlock Text="{Binding CurrentSortLabel}" VerticalAlignment="Center" FontSize="12" />
-                            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70D;" FontSize="9" VerticalAlignment="Center" Margin="6,1,0,0" />
+                            <TextBlock Text="{Binding CurrentSortLabel}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <TextBlock Text="Trascina le righe per riordinarle · F2 per rinominare" VerticalAlignment="Center"
@@ -293,9 +280,13 @@
                                 <Grid>
                                     <TextBlock Text="{Binding Number}" FontSize="10" Foreground="{StaticResource TextDimBrush}"
                                                HorizontalAlignment="Left" VerticalAlignment="Top" />
-                                    <TextBlock Text="{Binding Sound.Title}" FontSize="12" TextAlignment="Center"
+                                    <!-- The category, small at the top; kept clear of the slot number. -->
+                                    <TextBlock Text="{Binding Category}" FontSize="9" Foreground="{StaticResource TextDimBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Top" Margin="16,0,16,0"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Sound.TileTitle}" FontSize="12" TextAlignment="Center"
                                                TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="34"
-                                               VerticalAlignment="Center" Margin="4,8,4,0" />
+                                               VerticalAlignment="Center" Margin="4,10,4,0" />
                                 </Grid>
                             </Button>
                             <DataTemplate.Triggers>
@@ -431,20 +422,8 @@
                         </StackPanel>
                     </Border>
                     <!-- Voice effect for the sounds: a click opens the list. -->
-                    <Button x:Name="EffectButton" Margin="12,0,0,0" Cursor="Hand" Click="EffectButton_Click"
+                    <Button x:Name="EffectButton" Margin="12,0,0,0" Style="{StaticResource DropdownButton}" Click="EffectButton_Click"
                             ToolTip="Effetto sulla voce dei suoni, anche di quelli già in riproduzione (nelle cuffie e nel microfono)">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="Bd" Background="{StaticResource Panel2Brush}" CornerRadius="6" Padding="10,5">
-                                    <ContentPresenter />
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource LineBrush}" />
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
                         <Button.ContextMenu>
                             <ContextMenu ItemsSource="{Binding EffectOptions}">
                                 <ContextMenu.ItemContainerStyle>
@@ -460,25 +439,12 @@
                         </Button.ContextMenu>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8D6;" VerticalAlignment="Center" Margin="0,0,6,0" />
-                            <TextBlock Text="{Binding SoundEffectLabel}" VerticalAlignment="Center" FontSize="12" />
-                            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70D;" FontSize="9" VerticalAlignment="Center" Margin="6,1,0,0" />
+                            <TextBlock Text="{Binding SoundEffectLabel}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <!-- Where the effect goes: sounds only, voice only, both or none, picked from a list. -->
-                    <Button x:Name="EffectTargetButton" Margin="6,0,0,0" Cursor="Hand" Click="EffectTargetButton_Click"
+                    <Button x:Name="EffectTargetButton" Margin="6,0,0,0" Style="{StaticResource DropdownButton}" Click="EffectTargetButton_Click"
                             ToolTip="A cosa si applica l'effetto: solo suoni, solo microfono (la tua voce), entrambi, nessuno">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="Bd" Background="{StaticResource Panel2Brush}" CornerRadius="6" Padding="8,5">
-                                    <ContentPresenter />
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource LineBrush}" />
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
                         <Button.ContextMenu>
                             <ContextMenu ItemsSource="{Binding EffectTargetOptions}">
                                 <ContextMenu.ItemContainerStyle>
@@ -492,10 +458,7 @@
                                 </ContextMenu.ItemContainerStyle>
                             </ContextMenu>
                         </Button.ContextMenu>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding EffectTargetLabel}" FontSize="12" VerticalAlignment="Center" />
-                            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70D;" FontSize="9" VerticalAlignment="Center" Margin="6,1,0,0" />
-                        </StackPanel>
+                        <TextBlock Text="{Binding EffectTargetLabel}" VerticalAlignment="Center" />
                     </Button>
                     <!-- How strong the effect is; turning it changes the sounds already playing too. -->
                     <ctl:Knob Width="30" Height="30" Margin="8,0,0,0" Minimum="0" Maximum="100" DefaultValue="70"
@@ -558,27 +521,52 @@
                             </StackPanel>
                         </Border>
                     </Popup>
-                    <ToggleButton IsChecked="{Binding PlayOnMic}" Margin="8,0,8,0" Cursor="Hand"
-                                  ToolTip="Invia i suoni anche nel microfono (clic per accendere/spegnere). Il modulo si installa dalle impostazioni.">
+                    <!-- Sounds into the microphone on/off: just the icon, the dot tells the module's state, the tooltip says it. -->
+                    <ToggleButton IsChecked="{Binding PlayOnMic}" Margin="8,0,8,0" Cursor="Hand" Width="30" Height="30"
+                                  ToolTipService.InitialShowDelay="200">
+                        <ToggleButton.ToolTip>
+                            <StackPanel>
+                                <TextBlock Text="{Binding MicStatusText}" FontWeight="SemiBold" />
+                                <TextBlock Text="Clic: invia o no i suoni nel microfono. Il modulo si installa dalle impostazioni." />
+                            </StackPanel>
+                        </ToggleButton.ToolTip>
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="ToggleButton">
-                                <Border x:Name="Bd" Background="{StaticResource Panel2Brush}" CornerRadius="6" Padding="10,5">
-                                    <ContentPresenter />
-                                </Border>
+                                <Grid>
+                                    <Border x:Name="Bd" Background="{StaticResource Panel2Brush}" BorderBrush="{StaticResource LineBrush}"
+                                            BorderThickness="1" CornerRadius="6">
+                                        <TextBlock x:Name="Icon" FontFamily="{StaticResource IconFont}" Text="&#xE720;" FontSize="14"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <Ellipse x:Name="Dot" Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                             Margin="0,3,3,0" Fill="{StaticResource TextDimBrush}" />
+                                </Grid>
                                 <ControlTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding IsMicActive}" Value="True">
+                                    <DataTrigger Binding="{Binding MicIndicator}" Value="active">
                                         <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                        <Setter TargetName="Icon" Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                        <Setter TargetName="Dot" Property="Fill" Value="#5BD27A" />
                                     </DataTrigger>
-                                    <Trigger Property="IsChecked" Value="False">
-                                        <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
+                                    <DataTrigger Binding="{Binding MicIndicator}" Value="idle">
+                                        <Setter TargetName="Dot" Property="Fill" Value="{StaticResource AccentBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding MicIndicator}" Value="problem">
+                                        <Setter TargetName="Dot" Property="Fill" Value="{StaticResource DangerBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding MicIndicator}" Value="missing">
+                                        <Setter TargetName="Icon" Property="Opacity" Value="0.5" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding MicIndicator}" Value="off">
+                                        <Setter TargetName="Icon" Property="Text" Value="&#xEC54;" />
+                                        <Setter TargetName="Icon" Property="Opacity" Value="0.5" />
+                                        <Setter TargetName="Dot" Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource TextDimBrush}" />
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
                         </ToggleButton.Template>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE720;" VerticalAlignment="Center" Margin="0,0,6,0" />
-                            <TextBlock Text="{Binding MicStatusText}" VerticalAlignment="Center" FontSize="12" />
-                        </StackPanel>
                     </ToggleButton>
                     <!-- Volume nel microfono, with the spectrum of only what is sent into the microphone. -->
                     <Border Background="{StaticResource Panel2Brush}" CornerRadius="8" Padding="10,0" Height="38"

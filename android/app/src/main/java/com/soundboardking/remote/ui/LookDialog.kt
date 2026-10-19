@@ -110,7 +110,7 @@ private fun LookPreview(look: FavoritesLook) {
                         shape = RoundedCornerShape(look.tileCorner),
                         color = if (i == 0) GoldSoft else Background,
                         modifier = Modifier.width(minOf(tileWidth, fit)).aspectRatio(look.aspect),
-                    ) { TileContent(i + 1, title, look) }
+                    ) { TileContent(i + 1, title, look, if (i == 1) "Musica" else "Voice") }
                 }
         }
     }
@@ -121,14 +121,35 @@ internal val FavoritesLook.tileGap get() = if (compact) 3.dp else 6.dp
 internal val FavoritesLook.gridMargin get() = if (compact) 4.dp else 8.dp
 internal val FavoritesLook.tileCorner get() = if (compact) 6.dp else 10.dp
 
-/** Slot number in the corner and the title in the middle of a favourite tile. */
+/** "bruh_sound-effect" → "bruh sound effect": with spaces a long name can wrap inside the tile. */
+internal fun tileTitle(title: String) = title.replace('_', ' ').replace('-', ' ').replace(Regex(" {2,}"), " ").trim()
+
+/** Slot number in the corner, the category small at the top and the title in the middle of a favourite tile. */
 @Composable
-internal fun TileContent(number: Int, title: String, look: FavoritesLook) {
+internal fun TileContent(number: Int, title: String, look: FavoritesLook, category: String = "") {
     val pad = if (look.compact) 2.dp else 6.dp
+    val small = if (look.compact) 7.sp else 10.sp
     Box(Modifier.padding(pad)) {
-        Text("$number", fontSize = if (look.compact) 7.sp else 10.sp, lineHeight = 8.sp, color = TextDim, modifier = Modifier.align(Alignment.TopStart))
+        // Top line: the slot number, then the category; centred on roomy tiles, right after the number on tiny ones.
+        Row(Modifier.align(Alignment.TopStart).fillMaxWidth(), verticalAlignment = Alignment.Top) {
+            Text("$number", fontSize = small, lineHeight = 8.sp, color = TextDim)
+            if (category.isNotEmpty()) {
+                Text(
+                    category,
+                    fontSize = small,
+                    lineHeight = 8.sp,
+                    color = TextDim,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
+                    softWrap = false,
+                    textAlign = if (look.compact) TextAlign.Start else TextAlign.Center,
+                    // On roomy tiles as much space on the right as the number takes on the left, so it stays centred.
+                    modifier = Modifier.weight(1f).padding(start = 3.dp, end = if (look.compact) 0.dp else 14.dp),
+                )
+            }
+        }
         Text(
-            title,
+            tileTitle(title),
             fontSize = look.fontSp.sp,
             lineHeight = (look.fontSp + 2).sp,
             textAlign = TextAlign.Center,

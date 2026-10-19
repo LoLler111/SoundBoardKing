@@ -184,3 +184,20 @@ enum class EffectTarget(val wire: String, val label: String) {
         fun fromWire(wire: String?): EffectTarget = entries.firstOrNull { it.wire == wire } ?: Sounds
     }
 }
+
+/**
+ * For every sound, the name of the category it is in; with several, the most specific (deepest)
+ * one, the first in the tree among equals. Same rule as the PC.
+ */
+fun categoryOfSounds(roots: List<CategoryDto>): Map<String, String> {
+    val found = HashMap<String, Pair<String, Int>>()
+    fun visit(category: CategoryDto, depth: Int) {
+        for (id in category.soundIds) {
+            val current = found[id]
+            if (current == null || depth > current.second) found[id] = category.name to depth
+        }
+        category.children.forEach { visit(it, depth + 1) }
+    }
+    roots.forEach { visit(it, 0) }
+    return found.mapValues { it.value.first }
+}

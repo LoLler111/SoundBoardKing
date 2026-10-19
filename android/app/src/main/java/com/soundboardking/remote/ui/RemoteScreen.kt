@@ -1,5 +1,7 @@
 package com.soundboardking.remote.ui
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import com.soundboardking.remote.BuildConfig
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
@@ -93,6 +95,7 @@ import com.soundboardking.remote.data.SoundEffect
 import com.soundboardking.remote.data.EffectTarget
 import com.soundboardking.remote.data.SoundDto
 import com.soundboardking.remote.data.StateDto
+import com.soundboardking.remote.data.categoryOfSounds
 import com.soundboardking.remote.ui.theme.Danger
 import com.soundboardking.remote.ui.theme.Gold
 import com.soundboardking.remote.ui.theme.GoldSoft
@@ -281,6 +284,7 @@ private fun FavoritesTab(
     val pagerState = rememberPagerState { hotbar.pages }
     val scope = rememberCoroutineScope()
     val slots = remember(library) { hotbar.slots.associateBy { it.page to it.slot } }
+    val categories = remember(library) { categoryOfSounds(library.categories) }
 
     Column(Modifier.fillMaxSize()) {
         if (onExitFullScreen == null) {
@@ -327,7 +331,7 @@ private fun FavoritesTab(
                 val rows = (maxOf(lastUsed + 1, MinVisibleSlots) + look.columns - 1) / look.columns
                 items(minOf(rows * look.columns, hotbar.slotsPerPage)) { slot ->
                     val sound = slots[page to slot]?.let { soundsById[it.soundId] }
-                    SlotTile(slot + 1, sound, playing = sound != null && sound.id in playingIds, look, onPlay)
+                    SlotTile(slot + 1, sound, sound?.let { categories[it.id] }.orEmpty(), playing = sound != null && sound.id in playingIds, look, onPlay)
                 }
             }
         }
@@ -339,7 +343,7 @@ private const val MinVisibleSlots = 20
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SlotTile(number: Int, sound: SoundDto?, playing: Boolean, look: FavoritesLook, onPlay: OnPlay) {
+private fun SlotTile(number: Int, sound: SoundDto?, category: String, playing: Boolean, look: FavoritesLook, onPlay: OnPlay) {
     val haptic = LocalHapticFeedback.current
     var menu by remember { mutableStateOf(false) }
     Box {
@@ -361,7 +365,7 @@ private fun SlotTile(number: Int, sound: SoundDto?, playing: Boolean, look: Favo
                     sound?.let { onPlay(it.id, PlayTarget.Default) }
                 },
         ) {
-            TileContent(number, sound?.title.orEmpty(), look)
+            TileContent(number, sound?.title.orEmpty(), look, category)
         }
         if (sound != null) SoundMenu(sound, menu, onDismiss = { menu = false }, onPlay)
     }
@@ -638,11 +642,29 @@ private fun MicChip(mic: MicDto, onToggle: () -> Unit) {
         mic.state == "notInstalled" -> "Microfono: non installato sul PC"
         else -> "Microfono: da reinstallare sul PC"
     }
-    FilterChip(
-        selected = mic.enabled && mic.state == "active",
-        onClick = onToggle,
-        label = { Text(label) },
-        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = GoldSoft, selectedLabelColor = Gold),
-        modifier = Modifier.padding(start = 12.dp, bottom = 6.dp),
-    )
+    // Just the icon, with a dot for the module's state; the words are for TalkBack and the long-press tooltip.
+    val active = mic.enabled && mic.state == "active"
+    val dot = when {
+        !mic.enabled -> null
+        active -> Color(0xFF5BD27A)
+        mic.state == "idle" -> Gold
+        mic.state == "notInstalled" -> TextDim
+        else -> Color(0xFFF0716A)
+    }
+    Box(
+        Modifier
+            .padding(start = 12.dp, bottom = 6.dp)
+            .size(36.dp)
+            .background(if (active) GoldSoft else Panel2, RoundedCornerShape(8.dp))
+            .clickable(onClickLabel = label, onClick = onToggle)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        MicIcon(
+            Modifier.size(22.dp).alpha(if (active || mic.state == "idle") 1f else 0.55f),
+            off = !mic.enabled,
+            tint = if (active) Gold else MaterialTheme.colorScheme.onSurface,
+        )
+        if (dot != null) Box(Modifier.align(Alignment.TopEnd).padding(4.dp).size(7.dp).background(dot, CircleShape))
+    }
 }

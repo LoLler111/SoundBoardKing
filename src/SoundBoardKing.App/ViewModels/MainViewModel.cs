@@ -65,6 +65,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool isMicActive;
 
+    /// <summary>The colour of the dot on the mic button: "active", "idle", "off", "problem" or "missing".</summary>
+    [ObservableProperty]
+    private string micIndicator = "missing";
+
     public MainViewModel(
         ProfileStorage storage,
         AudioEngine engine,
@@ -481,6 +485,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             MicChanged?.Invoke(this, CurrentMic());
         }
         IsMicActive = PlayOnMic && status.State == MicFxState.Active;
+        MicIndicator = !PlayOnMic ? "off"
+            : status.State switch
+            {
+                MicFxState.Active => "active",
+                MicFxState.Idle => "idle",
+                MicFxState.Incompatible or MicFxState.AccessDenied => "problem",
+                _ => "missing",
+            };
         MicStatusText = !PlayOnMic
             ? "Microfono: spento"
             : status.State switch
@@ -564,10 +576,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private void RefreshHotbar()
     {
+        var categories = _library.CategoryOfSounds();
         foreach (var slot in HotbarSlots)
         {
             var id = _library.Hotbar.Get(HotbarPage, slot.Slot);
             slot.Sound = id is Guid soundId ? _soundsById.GetValueOrDefault(soundId) : null;
+            slot.Category = slot.Sound is { } sound && categories.TryGetValue(sound.Id, out var category) ? category.Name : "";
         }
     }
 
