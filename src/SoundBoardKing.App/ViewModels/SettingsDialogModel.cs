@@ -45,12 +45,24 @@ public sealed partial class SettingsDialogModel : ObservableObject
     [ObservableProperty]
     private string profileLog = "";
 
-    private readonly IProfileActions _profile;
+    [ObservableProperty]
+    private string updateLog = "";
 
-    public SettingsDialogModel(IReadOnlyList<AudioDevice> devices, IProfileActions profile)
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CheckForUpdatesCommand))]
+    private bool isCheckingForUpdates;
+
+    private readonly IProfileActions _profile;
+    private readonly IUpdateActions _updates;
+
+    public SettingsDialogModel(IReadOnlyList<AudioDevice> devices, IProfileActions profile, IUpdateActions updates)
     {
         Devices = devices;
         _profile = profile;
+        _updates = updates;
+        UpdateLog = updates.UpdateReadyVersion is { } ready
+            ? $"Versione {ready} scaricata: si installa alla chiusura, o subito con \"Riavvia e aggiorna\"."
+            : updates.CanUpdate ? "" : "Questa copia non si aggiorna da sola (cartella di sviluppo o pacchetto senza installer).";
         ProfilePath = profile.ProfilePath;
         SelectedMicSlot = MicSlots[0];
         RefreshMicDevices(null);
@@ -95,13 +107,44 @@ public sealed partial class SettingsDialogModel : ObservableObject
         RefreshMicDevices(device.Id);
     }
 
+    // ---- Version and updates ----------------------------------------------------------------
+
+    public string AppVersion => _updates.AppVersion;
+
+    public bool IsUpdateReady => _updates.UpdateReadyVersion is not null;
+
+    /// <summary>Set when the user chose to install the downloaded update now.</summary>
+    public bool UpdateRestartRequested { get; private set; }
+
+    private bool CanCheckForUpdates() => !IsCheckingForUpdates;
+
+    [RelayCommand(CanExecute = nameof(CanCheckForUpdates))]
+    private async Task CheckForUpdatesAsync()
+    {
+        IsCheckingForUpdates = true;
+        UpdateLog = "Controllo su GitHub…";
+        try
+        {
+            UpdateLog = await _updates.CheckForUpdatesAsync();
+        }
+        finally
+        {
+            IsCheckingForUpdates = false;
+        }
+        OnPropertyChanged(nameof(IsUpdateReady));
+    }
+
+    public void RequestUpdateRestart() => UpdateRestartRequested = true;
+
     // ---- Profile ----------------------------------------------------------------------------
 
     public string ExecutableProfilePath => _profile.ExecutableProfilePath;
 
     public string ProfileLocationText => _profile.ProfileLocationText;
 
-    public bool CanMoveNextToExecutable => !IsProfileNextToExecutable;
+    public bool AllowsAppFolder => _profile.AllowsAppFolder;
+
+    public bool CanMoveNextToExecutable => AllowsAppFolder && !IsProfileNextToExecutable;
 
     public bool IsProfileNextToExecutable =>
         string.Equals(ProfilePath, ExecutableProfilePath, StringComparison.OrdinalIgnoreCase);

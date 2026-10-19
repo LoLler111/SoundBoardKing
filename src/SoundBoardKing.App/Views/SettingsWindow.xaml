@@ -5,6 +5,9 @@
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource PanelBrush}" Foreground="{StaticResource TextBrush}"
         FontFamily="Segoe UI" FontSize="13">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
     <StackPanel Margin="22">
         <TextBlock Text="Uscita audio (cuffie / casse)" FontWeight="SemiBold" />
         <ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" DisplayMemberPath="Name"
@@ -67,6 +70,18 @@
             <Button Content="Mostra nella cartella" Click="ShowProfile_Click" Margin="0,0,0,6" />
         </WrapPanel>
         <TextBlock Text="{Binding ProfileLog}" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource TextDimBrush}" />
+
+        <TextBlock FontWeight="SemiBold" Margin="0,18,0,0">
+            <Run Text="Versione" /> <Run Text="{Binding AppVersion, Mode=OneWay}" />
+        </TextBlock>
+        <DockPanel Margin="0,8,0,0">
+            <Button DockPanel.Dock="Right" Content="Riavvia e aggiorna" Click="RestartToUpdate_Click" Margin="8,0,0,0"
+                    Style="{StaticResource AccentButton}"
+                    Visibility="{Binding IsUpdateReady, Converter={StaticResource BoolToVisibility}}" />
+            <Button DockPanel.Dock="Right" Content="Cerca aggiornamenti" Command="{Binding CheckForUpdatesCommand}" />
+            <TextBlock Text="{Binding UpdateLog}" TextWrapping="Wrap" FontSize="12" VerticalAlignment="Center"
+                       Foreground="{StaticResource TextDimBrush}" Margin="0,0,8,0" />
+        </DockPanel>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
             <Button Content="Annulla" IsCancel="True" Margin="0,0,8,0" MinWidth="90" />

@@ -32,13 +32,19 @@ public partial class MainWindow : Window
         DarkTitleBar.Apply(this);
 
         var micFeed = new ApoMicFeed();
+        var updates = new UpdateService();
+        // Unpacked from the Portable zip, the folder the user sees is the one above the app's own
+        // (replaced at each update); installed with Setup.exe, nothing near the app survives an update.
+        var appFolder = UpdateService.PortableRootDirectory ?? AppContext.BaseDirectory;
         _viewModel = new MainViewModel(
-            new ProfileStorage(AppPaths.Default, AppContext.BaseDirectory),
+            new ProfileStorage(AppPaths.Default, appFolder, allowAppFolder: !updates.IsSetupInstall),
             new AudioEngine(micFeed),
             micFeed,
             new HotkeyService(),
-            new DialogService(this));
+            new DialogService(this),
+            updates);
         DataContext = _viewModel;
+        _viewModel.UpdateRestartRequested += (_, _) => Close();
         _viewModel.RestartRequested += (_, _) =>
         {
             // The new instance waits for this one to exit before taking the single-instance lock.
@@ -70,6 +76,8 @@ public partial class MainWindow : Window
         _remote = new RemoteHost(_viewModel, Dispatcher);
         if (_viewModel.RemoteEnabled)
             await _remote.StartAsync();
+        await _viewModel.OfferMicModuleRefreshAsync();
+        await _viewModel.CheckForUpdatesInBackgroundAsync();
     }
 
     // The phone server shuts down asynchronously, so the first close request waits for it.

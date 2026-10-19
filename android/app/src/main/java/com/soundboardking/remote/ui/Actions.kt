@@ -13,6 +13,18 @@ interface ConnectActions {
     fun showMessage(message: String)
 }
 
+/** The in-app update from the GitHub releases, reachable from both screens. */
+interface UpdateActions {
+    val appVersion: String
+
+    /** Opens the version dialog (and checks again when nothing is known yet). */
+    fun showUpdate()
+    fun dismissUpdate()
+    fun checkForUpdate(manual: Boolean)
+    fun downloadUpdate()
+    fun installUpdate()
+}
+
 /** What the remote screen can ask for. */
 interface RemoteActions {
     fun play(soundId: String, target: PlayTarget)

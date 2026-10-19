@@ -1,5 +1,6 @@
 package com.soundboardking.remote.ui
 
+import com.soundboardking.remote.BuildConfig
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
@@ -101,8 +102,8 @@ import kotlinx.coroutines.launch
 internal enum class Tab(val label: String) { Favorites("Preferiti"), Categories("Categorie"), Search("Cerca") }
 
 @Composable
-fun RemoteScreen(state: UiState, actions: RemoteActions, snackbar: SnackbarHostState) =
-    RemoteScreen(state, actions, snackbar, Tab.Favorites)
+fun RemoteScreen(state: UiState, actions: RemoteActions, snackbar: SnackbarHostState, onUpdates: () -> Unit) =
+    RemoteScreen(state, actions, snackbar, Tab.Favorites, onUpdates = onUpdates)
 
 @Composable
 internal fun RemoteScreen(
@@ -111,6 +112,7 @@ internal fun RemoteScreen(
     snackbar: SnackbarHostState,
     startTab: Tab,
     startFullScreen: Boolean = false,
+    onUpdates: () -> Unit = {},
 ) {
     KeepScreenOn()
     var tab by rememberSaveable { mutableStateOf(startTab) }
@@ -132,6 +134,7 @@ internal fun RemoteScreen(
                     onRefresh = actions::reconnect,
                     onForget = actions::forgetServer,
                     onLook = { lookDialog = true },
+                    onUpdates = onUpdates,
                     onFullScreen = {
                         tab = Tab.Favorites
                         fullScreen = true
@@ -197,7 +200,14 @@ internal fun RemoteScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RemoteTopBar(state: UiState, onRefresh: () -> Unit, onForget: () -> Unit, onLook: () -> Unit, onFullScreen: () -> Unit) {
+private fun RemoteTopBar(
+    state: UiState,
+    onRefresh: () -> Unit,
+    onForget: () -> Unit,
+    onLook: () -> Unit,
+    onUpdates: () -> Unit,
+    onFullScreen: () -> Unit,
+) {
     var menu by remember { mutableStateOf(false) }
     val (statusText, statusColor) = when (state.connection) {
         ConnectionState.Online -> "Connesso" to Online
@@ -234,6 +244,13 @@ private fun RemoteTopBar(state: UiState, onRefresh: () -> Unit, onForget: () -> 
                         onClick = {
                             menu = false
                             onForget()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Versione ${BuildConfig.VERSION_NAME} · aggiornamenti") },
+                        onClick = {
+                            menu = false
+                            onUpdates()
                         },
                     )
                 }

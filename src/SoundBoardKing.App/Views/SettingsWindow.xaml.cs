@@ -93,7 +93,7 @@ public partial class SettingsWindow : Window
             Title = title,
             Filter = ProfileFilter,
             FileName = ProfileStorage.FileName,
-            InitialDirectory = Path.GetDirectoryName(_model.ExecutableProfilePath) ?? "",
+            InitialDirectory = Path.GetDirectoryName(_model.AllowsAppFolder ? _model.ExecutableProfilePath : _model.ProfilePath) ?? "",
         };
         return FileDialogs.Show(dialog, this) ? dialog.FileName : null;
     }
@@ -102,4 +102,11 @@ public partial class SettingsWindow : Window
         MessageDialog.Confirm(this, message);
 
     private void Ok_Click(object sender, RoutedEventArgs e) => DialogResult = true;
+
+    // Keeps the settings changed in the dialog, then the app closes and the updater restarts it.
+    private void RestartToUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        _model.RequestUpdateRestart();
+        DialogResult = true;
+    }
 }

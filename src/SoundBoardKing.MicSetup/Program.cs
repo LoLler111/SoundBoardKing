@@ -1,6 +1,7 @@
 // Installs or removes the SbkMicFx APO on a microphone. Runs elevated (see app.manifest).
 //
 //   SoundBoardKing.MicSetup install --device <id> [--slot auto|lfx|gfx|sfx|mfx|efx] [--dll <path>] [--result <file>]
+//   SoundBoardKing.MicSetup refresh [--dll <path>] [--result <file>]   (new SbkMicFx.dll after an app update)
 //   SoundBoardKing.MicSetup uninstall (--device <id> | --all) [--result <file>]
 //   SoundBoardKing.MicSetup status
 //
@@ -41,6 +42,9 @@ try
             var dll = options.GetValueOrDefault("dll") ?? Path.Combine(AppContext.BaseDirectory, "SbkMicFx.dll");
             installer.Install(device, slot, dll);
             break;
+        case "refresh":
+            installer.Refresh(options.GetValueOrDefault("dll") ?? Path.Combine(AppContext.BaseDirectory, "SbkMicFx.dll"));
+            break;
         case "uninstall":
             installer.Uninstall(options.ContainsKey("all") ? null : Required(options, "device"));
             break;
@@ -49,7 +53,7 @@ try
             Log(devices.Count == 0 ? "Non installato." : "Installato su: " + string.Join(", ", devices));
             break;
         default:
-            Log("Uso: install --device <id> [--slot efx|sfx|mfx] | uninstall (--device <id> | --all) | status");
+            Log("Uso: install --device <id> [--slot efx|sfx|mfx] | refresh | uninstall (--device <id> | --all) | status");
             break;
     }
     exitCode = 0;

@@ -203,4 +203,24 @@ public class ProfileStorageTests
         Assert.Equal(ProfileLocation.ThisPc, storage.Location);
         Assert.False(File.Exists(storage.LinkFilePath));
     }
+
+    [Fact]
+    public void An_installed_app_never_keeps_the_profile_in_its_own_folder()
+    {
+        // Setup.exe installs: the app folder is replaced at every update.
+        using var dir = new TempDirectory();
+        var app = Path.Combine(dir.Path, "current");
+        dir.CreateFile(Path.Combine("current", ProfileStorage.FileName));
+        var storage = new ProfileStorage(new AppPaths(Path.Combine(dir.Path, "appdata")), app, allowAppFolder: false);
+        storage.LoadLocal();
+
+        Assert.Equal(storage.DefaultProfilePath, storage.ProfilePath);
+
+        var sibling = Path.Combine(dir.Path, "Config", ProfileStorage.FileName);
+        storage.MoveTo(sibling, SampleProfile(@"D:.mp3"));
+
+        Assert.Equal(sibling, storage.Local.ProfilePath);
+        Assert.Equal(ProfileLocation.ThisPc, storage.Location);
+        Assert.False(File.Exists(storage.LinkFilePath));
+    }
 }

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -7,6 +9,23 @@ plugins {
     id("io.github.takahirom.roborazzi")
 }
 
+// One version for the Windows app and this APK, from version.txt at the repository root.
+// 1.2.3 -> versionCode 10203, so every release installs over the previous one.
+val appVersion = rootDir.resolve("../version.txt").readText().trim()
+val appVersionCode = appVersion.split('.').map { it.toInt() }.let { (major, minor, patch) -> major * 10000 + minor * 100 + patch }
+
+// Release signing key, never in the repository: the release workflow passes it in SBK_* variables
+// (from the GitHub secrets), a local build reads ~/.soundboardking/signing.properties.
+val signing = Properties().apply {
+    val file = File(System.getProperty("user.home"), ".soundboardking/signing.properties")
+    if (file.exists()) file.inputStream().use(::load)
+    System.getenv("SBK_KEYSTORE")?.let { setProperty("storeFile", it) }
+    System.getenv("SBK_KEYSTORE_PASSWORD")?.let { setProperty("storePassword", it) }
+    System.getenv("SBK_KEY_ALIAS")?.let { setProperty("keyAlias", it) }
+    System.getenv("SBK_KEY_PASSWORD")?.let { setProperty("keyPassword", it) }
+}
+val hasReleaseKey = signing.getProperty("storeFile")?.let { File(it).exists() } == true
+
 android {
     namespace = "com.soundboardking.remote"
     compileSdk = 36
@@ -15,15 +34,30 @@ android {
         applicationId = "com.soundboardking.remote"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersion
+        // Where the in-app update looks for the latest release; -PupdateUrl=... points a test build elsewhere.
+        val updateUrl = providers.gradleProperty("updateUrl")
+            .getOrElse("https://api.github.com/repos/LoLler111/SoundBoardKing/releases/latest")
+        buildConfigField("String", "LATEST_RELEASE_URL", "\"$updateUrl\"")
+    }
+
+    signingConfigs {
+        if (hasReleaseKey) create("release") {
+            storeFile = File(signing.getProperty("storeFile"))
+            storePassword = signing.getProperty("storePassword")
+            keyAlias = signing.getProperty("keyAlias")
+            keyPassword = signing.getProperty("keyPassword")
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Sideloaded test builds: signed with the debug key so the APK installs as-is.
-            signingConfig = signingConfigs.getByName("debug")
+            // The in-app update installs a new APK over the old one only when both carry the same
+            // signature: releases always use the release key. Without it (a PC that never had the
+            // key) the APK is signed with the debug key and cannot update a released one.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 
@@ -34,6 +68,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {

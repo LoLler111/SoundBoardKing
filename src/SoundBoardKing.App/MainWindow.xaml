@@ -410,6 +410,12 @@
         <Border Grid.Row="4" Background="{StaticResource PanelBrush}" Padding="14,4">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Right" Text="{Binding LibrarySummary}" Foreground="{StaticResource TextDimBrush}" FontSize="12" />
+                <Button DockPanel.Dock="Right" Command="{Binding RestartToUpdateCommand}" Margin="0,0,16,0" Padding="8,1"
+                        FontSize="12" Style="{StaticResource AccentButton}"
+                        Visibility="{Binding IsUpdateReady, Converter={StaticResource BoolToVisibility}}"
+                        ToolTip="La nuova versione è già scaricata: si installa da sola quando chiudi SoundBoardKing, oppure subito con questo pulsante.">
+                    <TextBlock Text="{Binding UpdateReadyVersion, StringFormat=Aggiorna alla {0}}" />
+                </Button>
                 <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource TextDimBrush}" FontSize="12"
                            TextTrimming="CharacterEllipsis" Margin="0,0,16,0" />
             </DockPanel>

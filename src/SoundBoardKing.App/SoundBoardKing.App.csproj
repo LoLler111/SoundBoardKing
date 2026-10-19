@@ -10,15 +10,20 @@
     <ApplicationIcon>Assets\SoundBoardKing.ico</ApplicationIcon>
     <!-- Precompiled at publish: the first start no longer waits for the JIT (about 5 s on a cold start). -->
     <PublishReadyToRun>true</PublishReadyToRun>
+    <!-- Program.Main runs Velopack's install/update hooks before WPF starts. -->
+    <StartupObject>SoundBoardKing.App.Program</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
     <Resource Include="Assets\SoundBoardKing.ico" />
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="QRCoder" Version="1.6.0" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,9 +36,7 @@
 
   <!-- The APO, built by build-native.ps1. Without it the app still runs, minus the mic module. -->
   <ItemGroup>
-    <None Include="..\..\artifacts\native\x64\Release\SbkMicFx.dll"
-          Condition="Exists('..\..\artifacts\native\x64\Release\SbkMicFx.dll')"
-          Link="SbkMicFx.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="..\..\artifacts\native\x64\Release\SbkMicFx.dll" Condition="Exists('..\..\artifacts\native\x64\Release\SbkMicFx.dll')" Link="SbkMicFx.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
 </Project>

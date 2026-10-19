@@ -70,9 +70,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         AudioEngine engine,
         ApoMicFeed micFeed,
         HotkeyService hotkeys,
-        IDialogService dialogs)
+        IDialogService dialogs,
+        UpdateService updates)
     {
         _storage = storage;
+        _updates = updates;
         _engine = engine;
         _micFeed = micFeed;
         _hotkeys = hotkeys;
@@ -813,7 +815,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             StatusText = $"Impossibile elencare i dispositivi audio: {ex.Message}";
         }
 
-        var model = new SettingsDialogModel(devices, this)
+        var model = new SettingsDialogModel(devices, this, this)
         {
             SelectedDevice = devices.FirstOrDefault(d => d.Id == (_storage.Local.OutputDeviceId ?? "")) ?? devices[0],
             AllowOverlap = _settings.AllowOverlap,
@@ -851,6 +853,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         RegisterHotkeys();
         ScheduleSave();
+        if (model.UpdateRestartRequested)
+            RestartToUpdate(); // "Riavvia e aggiorna" also confirms the dialog
     }
 
     // ---- Persistence -------------------------------------------------------------------------
@@ -886,5 +890,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             SaveNow();
         _hotkeys.Dispose();
         _engine.Dispose();
+        ApplyDownloadedUpdate();
     }
 }

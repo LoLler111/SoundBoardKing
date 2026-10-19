@@ -5,6 +5,10 @@ import android.os.Build
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.soundboardking.remote.BuildConfig
+import com.soundboardking.remote.data.ApkInstaller
+import com.soundboardking.remote.data.AppRelease
+import com.soundboardking.remote.data.AppUpdater
 import com.soundboardking.remote.data.Discovery
 import com.soundboardking.remote.data.FavoritesLook
 import com.soundboardking.remote.data.LookStore
@@ -57,13 +61,34 @@ data class UiState(
     val look: FavoritesLook = FavoritesLook(),
 )
 
-class AppViewModel(application: Application) : AndroidViewModel(application), ConnectActions, RemoteActions {
+/** The in-app update, kept apart from [UiState] so pairing and reconnecting never reset it. */
+sealed interface UpdateState {
+    data object Idle : UpdateState
+    data object Checking : UpdateState
+    data object UpToDate : UpdateState
+    data class Available(val release: AppRelease) : UpdateState
+    data class Downloading(val release: AppRelease, val progress: Float) : UpdateState
+    data class Ready(val release: AppRelease, val apk: java.io.File) : UpdateState
+    data class Failed(val message: String) : UpdateState
+}
+
+class AppViewModel(application: Application) : AndroidViewModel(application), ConnectActions, RemoteActions, UpdateActions {
     private val store = ServerStore(application)
     private val lookStore = LookStore(application)
     private val api = SoundBoardApi()
+    private val updater = AppUpdater(BuildConfig.LATEST_RELEASE_URL)
 
     private val _state = MutableStateFlow(UiState(server = store.load(), look = lookStore.load()))
     val state: StateFlow<UiState> = _state.asStateFlow()
+
+    private val _update = MutableStateFlow<UpdateState>(UpdateState.Idle)
+    val update: StateFlow<UpdateState> = _update.asStateFlow()
+
+    private val _updateDialog = MutableStateFlow(false)
+    val updateDialog: StateFlow<Boolean> = _updateDialog.asStateFlow()
+
+    private var checkedForUpdate = false
+    private var installAfterPermission = false
 
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val messages: SharedFlow<String> = _messages
@@ -79,6 +104,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
     fun onForeground() {
         foreground = true
         if (_state.value.server != null) connect() else discover()
+        if (!checkedForUpdate) {
+            checkedForUpdate = true
+            checkForUpdate(manual = false)
+        }
+        resumeInstallAfterPermission()
     }
 
     /** Nothing runs in the background: the connection is reopened when the app comes back. */
@@ -177,6 +207,75 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
             }
             _state.update { it.copy(pairingBusy = false, pairingError = describe(failure)) }
         }
+    }
+
+    // ---- App update ------------------------------------------------------------------------
+
+    override val appVersion: String get() = BuildConfig.VERSION_NAME
+
+    override fun showUpdate() {
+        _updateDialog.value = true
+        if (_update.value is UpdateState.Idle || _update.value is UpdateState.Failed || _update.value is UpdateState.UpToDate)
+            checkForUpdate(manual = true)
+    }
+
+    override fun dismissUpdate() {
+        _updateDialog.value = false
+    }
+
+    /** Automatic at the first start of the session (quiet when offline); [manual] from the menu. */
+    override fun checkForUpdate(manual: Boolean) {
+        if (_update.value is UpdateState.Checking || _update.value is UpdateState.Downloading) return
+        viewModelScope.launch {
+            _update.value = UpdateState.Checking
+            _update.value = try {
+                when (val release = updater.findUpdate(appVersion)) {
+                    null -> UpdateState.UpToDate
+                    else -> UpdateState.Available(release).also { _updateDialog.value = true }
+                }
+            } catch (e: IOException) {
+                if (manual) UpdateState.Failed("Controllo non riuscito: ${e.message ?: "nessuna connessione"}") else UpdateState.Idle
+            } catch (e: SerializationException) {
+                UpdateState.Failed("Risposta di GitHub non valida.")
+            }
+        }
+    }
+
+    override fun downloadUpdate() {
+        val release = (_update.value as? UpdateState.Available)?.release ?: return
+        viewModelScope.launch {
+            _update.value = UpdateState.Downloading(release, 0f)
+            _update.value = try {
+                val folder = ApkInstaller.updatesFolder(getApplication())
+                val apk = updater.download(release, folder) { progress ->
+                    _update.value = UpdateState.Downloading(release, progress)
+                }
+                UpdateState.Ready(release, apk)
+            } catch (e: IOException) {
+                UpdateState.Failed("Download non riuscito: ${e.message ?: "nessuna connessione"}")
+            }
+            if (_update.value is UpdateState.Ready) installUpdate()
+        }
+    }
+
+    override fun installUpdate() {
+        val ready = _update.value as? UpdateState.Ready ?: return
+        val context = getApplication<Application>()
+        if (!ApkInstaller.canInstall(context)) {
+            // Allowed once in the system settings; the installer opens when the user comes back.
+            installAfterPermission = true
+            ApkInstaller.openInstallPermission(context)
+            return
+        }
+        if (!ApkInstaller.install(context, ready.apk))
+            _update.value = UpdateState.Failed("Impossibile aprire l'installazione dell'aggiornamento.")
+    }
+
+    private fun resumeInstallAfterPermission() {
+        if (!installAfterPermission) return
+        installAfterPermission = false
+        if (ApkInstaller.canInstall(getApplication())) installUpdate()
+        else showMessage("Per aggiornare, consenti a SoundBoardKing di installare app.")
     }
 
     // ---- Connection ------------------------------------------------------------------------

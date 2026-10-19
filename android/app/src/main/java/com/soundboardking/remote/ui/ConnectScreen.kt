@@ -1,5 +1,6 @@
 package com.soundboardking.remote.ui
 
+import com.soundboardking.remote.BuildConfig
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -56,7 +57,7 @@ import com.soundboardking.remote.ui.theme.TextDim
 
 /** Shown until the phone is paired with a PC. */
 @Composable
-fun ConnectScreen(state: UiState, actions: ConnectActions, snackbar: SnackbarHostState) {
+fun ConnectScreen(state: UiState, actions: ConnectActions, snackbar: SnackbarHostState, onUpdates: () -> Unit = {}) {
     val context = LocalContext.current
     var codeFor by remember { mutableStateOf<DiscoveredPc?>(null) }
     var manual by remember { mutableStateOf(false) }
@@ -124,6 +125,9 @@ fun ConnectScreen(state: UiState, actions: ConnectActions, snackbar: SnackbarHos
 
             TextButton(onClick = { manual = true }, enabled = !state.pairingBusy) {
                 Text("Inserisci indirizzo e codice a mano")
+            }
+            TextButton(onClick = onUpdates) {
+                Text("Versione ${BuildConfig.VERSION_NAME} · aggiornamenti", color = TextDim)
             }
             Spacer(Modifier.height(8.dp))
         }

@@ -114,6 +114,26 @@ internal sealed class MicInstaller(Action<string> log)
         log($"Installazione completata su {deviceId} ({slot}).");
     }
 
+    /// <summary>
+    /// Puts a new <paramref name="sourceDll"/> in place of the installed copy, e.g. after an app update,
+    /// keeping every microphone as it is. The audio service restarts to load it.
+    /// </summary>
+    public void Refresh(string sourceDll)
+    {
+        if (!InstalledDevices().Any())
+        {
+            log("Il modulo non è installato su nessun microfono: niente da aggiornare.");
+            return;
+        }
+
+        var dll = CopyDll(sourceDll);
+        ComRegistration.Register(dll);
+        using (var state = Registry.LocalMachine.CreateSubKey(StateKeyPath))
+            state.SetValue("InstallPath", dll);
+        AudioService.Restart(log);
+        log($"Modulo microfono aggiornato: {dll}");
+    }
+
     public void Uninstall(string? deviceId)
     {
         using var state = Registry.LocalMachine.OpenSubKey(StateKeyPath, writable: true);

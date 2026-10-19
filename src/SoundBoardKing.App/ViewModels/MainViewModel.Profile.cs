@@ -9,6 +9,9 @@ public interface IProfileActions
     string ProfilePath { get; }
     string ExecutableProfilePath { get; }
 
+    /// <summary>False when installed with Setup.exe: the app folder is replaced at every update.</summary>
+    bool AllowsAppFolder { get; }
+
     /// <summary>How the profile is found, in words.</summary>
     string ProfileLocationText { get; }
 
@@ -29,6 +32,7 @@ public sealed partial class MainViewModel : IProfileActions
 
     public string ProfilePath => _storage.ProfilePath;
     public string ExecutableProfilePath => _storage.ExecutableProfilePath;
+    public bool AllowsAppFolder => _storage.AllowsAppFolder;
 
     public string ProfileLocationText => _storage.Location switch
     {

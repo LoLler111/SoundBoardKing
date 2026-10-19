@@ -51,9 +51,14 @@ public sealed class ProfileStorage
     private readonly AppPaths _paths;
     private readonly JsonFileStore<LocalSettings> _localStore;
 
-    public ProfileStorage(AppPaths paths, string executableDirectory)
+    /// <param name="allowAppFolder">
+    /// False when the app folder is replaced at every update (installed with Setup.exe): the profile
+    /// is then never kept next to the executable nor found through a link file there.
+    /// </param>
+    public ProfileStorage(AppPaths paths, string executableDirectory, bool allowAppFolder = true)
     {
         _paths = paths;
+        AllowsAppFolder = allowAppFolder;
         _localStore = new JsonFileStore<LocalSettings>(paths.LocalSettingsFile);
         ExecutableDirectory = Path.GetFullPath(executableDirectory);
         ExecutableProfilePath = Path.Combine(ExecutableDirectory, FileName);
@@ -74,6 +79,7 @@ public sealed class ProfileStorage
         Location == ProfileLocation.LinkedFromApp ? Path.GetRelativePath(ExecutableDirectory, ProfilePath) : null;
 
     public string ExecutableDirectory { get; }
+    public bool AllowsAppFolder { get; }
     public string ExecutableProfilePath { get; }
     public string LinkFilePath { get; }
 
@@ -98,6 +104,7 @@ public sealed class ProfileStorage
     private string Resolve()
     {
         var path = Local.ProfilePath is { Length: > 0 } chosen ? chosen
+            : !AllowsAppFolder ? _paths.DefaultProfileFile
             : File.Exists(ExecutableProfilePath) ? ExecutableProfilePath
             : LinkedProfilePath() ?? _paths.DefaultProfileFile;
         Location = LocationOf(path);
@@ -169,7 +176,11 @@ public sealed class ProfileStorage
     {
         // Next to the executable, or near it through the link file, the profile keeps being found
         // when the folders move together (another PC, a USB drive with a different letter).
-        if (SamePath(path, ExecutableProfilePath))
+        if (!AllowsAppFolder)
+        {
+            Local.ProfilePath = path;
+        }
+        else if (SamePath(path, ExecutableProfilePath))
         {
             Local.ProfilePath = null;
             DeleteLink();
