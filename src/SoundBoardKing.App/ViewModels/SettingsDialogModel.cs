@@ -1,7 +1,9 @@
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SoundBoardKing.App.Services;
 using SoundBoardKing.Audio;
+using SoundBoardKing.Core.Storage;
 
 namespace SoundBoardKing.App.ViewModels;
 
@@ -138,6 +140,48 @@ public sealed partial class SettingsDialogModel : ObservableObject
     }
 
     public void RequestUpdateRestart() => UpdateRestartRequested = true;
+
+    // ---- Sounds folder ----------------------------------------------------------------------
+
+    /// <summary>As written in the settings: relative to the app (e.g. ..\Suoni) or a fixed path; empty for none.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SoundsFolderInfo), nameof(IsSoundsFolderRelative), nameof(CanSoundsFolderBeRelative))]
+    private string soundsFolder = "";
+
+    public string AppFolder => _profile.AppFolder;
+
+    private string? ResolvedSoundsFolder => SoundFolder.Resolve(SoundsFolder, AppFolder);
+
+    public string SoundsFolderInfo => ResolvedSoundsFolder is { } full
+        ? (IsSoundsFolderRelative ? $"Relativo all'app: {full}" : full)
+        : SoundsFolder.Trim().Length == 0 ? "Nessuna cartella: i suoni restano dove sono." : "Percorso non valido.";
+
+    public bool CanSoundsFolderBeRelative =>
+        ResolvedSoundsFolder is { } full && SoundFolder.RelativeToApp(full, AppFolder) is not null;
+
+    /// <summary>Switches the same folder between relative to the app and fixed path.</summary>
+    public bool IsSoundsFolderRelative
+    {
+        get => SoundsFolder.Trim().Length > 0 && !Path.IsPathRooted(SoundsFolder.Trim());
+        set
+        {
+            if (value == IsSoundsFolderRelative || ResolvedSoundsFolder is not { } full)
+                return;
+            SoundsFolder = value ? SoundFolder.RelativeToApp(full, AppFolder) ?? full : full;
+        }
+    }
+
+    /// <summary>
+    /// A folder picked with "Sfoglia…": kept relative when the current one is (or nothing was chosen
+    /// yet and it sits next to the app), otherwise as a fixed path.
+    /// </summary>
+    public void ChooseSoundsFolder(string fullPath)
+    {
+        var relative = SoundFolder.RelativeToApp(fullPath, AppFolder);
+        bool nearApp = relative is not null && !relative.StartsWith(@"..\..", StringComparison.Ordinal);
+        bool keepRelative = SoundsFolder.Trim().Length == 0 ? nearApp : IsSoundsFolderRelative;
+        SoundsFolder = keepRelative && relative is not null ? relative : fullPath;
+    }
 
     // ---- Profile ----------------------------------------------------------------------------
 

@@ -34,6 +34,12 @@ public sealed class AppSettings
 
     public int HotbarPage { get; set; }
 
+    /// <summary>
+    /// The folder with all the sound files, relative to the app's folder (e.g. ..\Suoni, it moves
+    /// with the app) or a fixed path (e.g. \\NAS\Suoni); null when none is used. See <see cref="SoundFolder"/>.
+    /// </summary>
+    public string? SoundsFolder { get; set; }
+
     /// <summary>Lets paired phones control the app over the local network.</summary>
     public bool RemoteEnabled { get; set; } = true;
 

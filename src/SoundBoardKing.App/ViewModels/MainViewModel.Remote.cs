@@ -123,6 +123,11 @@ public sealed partial class MainViewModel
     /// <summary>Saves and tells connected phones that the library changed.</summary>
     private void LibraryEdited()
     {
+        // A sound put in a category, or left without one, moves in or out of "Senza categoria".
+        if (_library.SyncUncategorized())
+            RebuildCategories(select: SelectedCategory?.Model);
+        else
+            RefreshCounts();
         // Every list goes back to its chosen order before the phones hear of the change. Playing a
         // sound does not count, so "most played" moves only at the next edit, not under the mouse.
         _library.ApplySorts();

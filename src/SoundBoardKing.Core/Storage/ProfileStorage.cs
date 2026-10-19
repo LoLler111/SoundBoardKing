@@ -267,6 +267,7 @@ public sealed class ProfileStorage
                 Categories = library.Categories,
                 Hotbar = library.Hotbar,
                 Sort = library.Sort,
+                ExcludedFiles = library.ExcludedFiles,
             },
         };
         new JsonFileStore<Profile>(path).Save(portable);

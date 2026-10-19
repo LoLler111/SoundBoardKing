@@ -4,6 +4,7 @@ using SoundBoardKing.App.Services;
 using SoundBoardKing.Audio;
 using SoundBoardKing.Core.Models;
 using SoundBoardKing.Core.Myinstants;
+using SoundBoardKing.Core.Storage;
 
 namespace SoundBoardKing.App.ViewModels;
 
@@ -22,10 +23,16 @@ public sealed partial class MainViewModel
     public MyinstantsClient Myinstants => SharedMyinstants.Value;
 
     /// <summary>
-    /// Where the sounds added from Myinstants are saved: next to the profile, so they travel with it
-    /// (sounds near the profile are stored with a relative path).
+    /// Where the sounds added from Myinstants are saved: in the sounds folder, or without one next
+    /// to the profile, so they travel with it (sounds near the profile are stored with a relative path).
     /// </summary>
-    public string MyinstantsFolder => Path.Combine(Path.GetDirectoryName(_storage.ProfilePath)!, "Myinstants");
+    public string MyinstantsFolder => Path.Combine(SoundFolderPath ?? ProfileMyinstantsParent, "Myinstants");
+
+    private string ProfileMyinstantsParent => Path.GetDirectoryName(_storage.ProfilePath)!;
+
+    // Downloads made before choosing a sounds folder stay next to the profile and are still recognized.
+    private IEnumerable<string> MyinstantsFolders =>
+        new[] { MyinstantsFolder, Path.Combine(ProfileMyinstantsParent, "Myinstants") }.Distinct(StringComparer.OrdinalIgnoreCase);
 
     public string? OutputDeviceId => _storage.Local.OutputDeviceId;
 
@@ -40,16 +47,16 @@ public sealed partial class MainViewModel
         }
     }
 
-    /// <summary>The category selected in the main window; null for "all sounds".</summary>
-    public Category? SelectedCategoryModel => SelectedCategory?.Model;
+    /// <summary>The category selected in the main window; null for "all sounds" and "Senza categoria".</summary>
+    public Category? SelectedCategoryModel => TargetCategory;
 
-    /// <summary>Every category in tree order, with how deep it sits (0 = top level).</summary>
+    /// <summary>Every category a sound can be put in, in tree order, with how deep it sits (0 = top level).</summary>
     public IReadOnlyList<(Category Category, int Depth)> CategoriesInOrder()
     {
         var list = new List<(Category, int)>();
         void Walk(IEnumerable<Category> categories, int depth)
         {
-            foreach (var category in categories)
+            foreach (var category in categories.Where(c => !c.IsUncategorized))
             {
                 list.Add((category, depth));
                 Walk(category.Children, depth + 1);
@@ -62,19 +69,15 @@ public sealed partial class MainViewModel
     /// <summary>Asks for a name and adds a top-level category; null when cancelled.</summary>
     public Category? AskNewCategory() => CreateCategory(null);
 
-    private bool IsMyinstantsDownload(string path)
-    {
-        var folder = Path.GetFullPath(MyinstantsFolder) + Path.DirectorySeparatorChar;
-        return Path.GetFullPath(path).StartsWith(folder, StringComparison.OrdinalIgnoreCase);
-    }
+    private bool IsMyinstantsDownload(string path) => MyinstantsFolders.Any(folder => SoundFolder.Contains(folder, path));
 
     private string MyinstantsPathOf(MyinstantsSound sound) => Path.Combine(MyinstantsFolder, MyinstantsClient.FileNameOf(sound));
 
     /// <summary>The library sound already made from this Myinstants sound, if any.</summary>
     public SoundItemViewModel? FindMyinstantsSound(MyinstantsSound sound)
     {
-        var path = MyinstantsPathOf(sound);
-        return _soundsById.Values.FirstOrDefault(s => string.Equals(s.Model.Path, path, StringComparison.OrdinalIgnoreCase));
+        var paths = MyinstantsFolders.Select(folder => Path.Combine(folder, MyinstantsClient.FileNameOf(sound))).ToList();
+        return _soundsById.Values.FirstOrDefault(s => paths.Contains(s.Model.Path, StringComparer.OrdinalIgnoreCase));
     }
 
     /// <summary>

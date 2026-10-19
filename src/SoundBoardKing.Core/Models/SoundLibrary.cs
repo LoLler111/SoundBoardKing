@@ -10,7 +10,41 @@ public sealed class SoundLibrary
     /// <summary>How <see cref="Sounds"/>, the "all sounds" list, is kept in order.</summary>
     public SoundSort Sort { get; set; }
 
+    /// <summary>
+    /// Files of the sounds folder removed from the library on purpose, relative to that folder:
+    /// looking for new sounds there skips them instead of adding them back.
+    /// </summary>
+    public List<string> ExcludedFiles { get; set; } = [];
+
+    public const string UncategorizedName = "Senza categoria";
+
     public Sound? FindSound(Guid id) => Sounds.Find(s => s.Id == id);
+
+    /// <summary>
+    /// Puts "Senza categoria" first among the categories (creating it the first time) and makes it
+    /// hold exactly the sounds that are in no other category: the ones still there keep their place,
+    /// new ones go at the end. Returns true when the category tree itself changed.
+    /// </summary>
+    public bool SyncUncategorized()
+    {
+        var target = Categories.FirstOrDefault(c => c.IsUncategorized);
+        bool treeChanged = target is null || Categories[0] != target;
+        if (target is null)
+            target = new Category { Name = UncategorizedName, Icon = "S", IsUncategorized = true };
+        else
+            Categories.Remove(target);
+        Categories.Insert(0, target);
+
+        var categorized = EnumerateCategories()
+            .Where(c => c != target)
+            .SelectMany(c => c.SoundIds)
+            .ToHashSet();
+        var inLibrary = Sounds.Select(s => s.Id).ToHashSet();
+        target.SoundIds.RemoveAll(id => categorized.Contains(id) || !inLibrary.Contains(id));
+        var listed = target.SoundIds.ToHashSet();
+        target.SoundIds.AddRange(Sounds.Select(s => s.Id).Where(id => !categorized.Contains(id) && !listed.Contains(id)));
+        return treeChanged;
+    }
 
     /// <summary>
     /// For every sound, the category it is in; with several, the most specific (deepest) one,

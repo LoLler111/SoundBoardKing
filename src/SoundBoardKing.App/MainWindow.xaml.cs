@@ -44,6 +44,7 @@ public partial class MainWindow : Window
         var appFolder = UpdateService.PortableRootDirectory ?? AppContext.BaseDirectory;
         _storage = new ProfileStorage(AppPaths.Default, appFolder, allowAppFolder: !updates.IsSetupInstall);
         RestorePlacement();
+        RestoreHotbarLayout();
         _viewModel = new MainViewModel(
             _storage,
             new AudioEngine(micFeed),
@@ -66,6 +67,7 @@ public partial class MainWindow : Window
         ContentRendered += OnContentRendered;
         Closed += (_, _) => _viewModel.Dispose();
         _viewModel.RenameRequested += (_, sound) => StartRename(sound);
+        _viewModel.HotbarImported += OnHotbarImported;
         PreviewMouseDown += ClosePadOnClickElsewhere;
         Deactivated += ClosePad;
         LocationChanged += ClosePad;
@@ -96,6 +98,7 @@ public partial class MainWindow : Window
         _remote = new RemoteHost(_viewModel, Dispatcher);
         if (_viewModel.RemoteEnabled)
             await _remote.StartAsync();
+        await _viewModel.ScanSoundFolderAsync(atStartup: true);
         await _viewModel.OfferMicModuleRefreshAsync();
         await _viewModel.CheckForUpdatesInBackgroundAsync();
     }
@@ -147,6 +150,8 @@ public partial class MainWindow : Window
             Height = bounds.Height,
             Maximized = WindowState == WindowState.Maximized,
         };
+        _storage.Local.HotbarRows = _hotbarRows;
+        _storage.Local.HotbarHeight = HotbarScroll.Height;
     }
 
     // The phone server shuts down asynchronously, so the first close request waits for it.
@@ -491,6 +496,8 @@ public partial class MainWindow : Window
             _viewModel.CurrentSort = SoundSort.Name;
         else if (e.Column == DurationColumn)
             _viewModel.CurrentSort = _viewModel.CurrentSort == SoundSort.Shortest ? SoundSort.Longest : SoundSort.Shortest;
+        else if (e.Column == AddedOnColumn)
+            _viewModel.CurrentSort = SoundSort.Newest;
     }
 
     // ---- Reorder by dragging rows ------------------------------------------------------------
@@ -619,6 +626,120 @@ public partial class MainWindow : Window
             HotbarScroll.ScrollToVerticalOffset(HotbarScroll.VerticalOffset - step);
         else if (y > HotbarScroll.ActualHeight - edge)
             HotbarScroll.ScrollToVerticalOffset(HotbarScroll.VerticalOffset + step);
+    }
+
+    // ---- Favourites layout -------------------------------------------------------------------
+
+    // The columns grow with the rows, so the buttons shrink both ways and keep their shape:
+    // 1 row of 4 up to 5 rows of 20, the whole page of 100 slots in view like SoundPad's 5 x 20 hotbar.
+    private const int ColumnsPerRow = 4, MaxHotbarRows = 5;
+    private const double MinHotbarHeight = 40, MinLibraryHeight = 160;
+
+    private UniformGrid? _hotbarGrid;
+    private int _hotbarRows = 2;
+
+    private void RestoreHotbarLayout()
+    {
+        _hotbarRows = Math.Clamp(_storage.Local.HotbarRows, 1, MaxHotbarRows);
+        HotbarScroll.Height = Math.Max(_storage.Local.HotbarHeight, MinHotbarHeight);
+        ApplyHotbarLayout();
+    }
+
+    private void SetHotbarRows(int rows)
+    {
+        rows = Math.Clamp(rows, 1, MaxHotbarRows);
+        if (rows == _hotbarRows)
+            return;
+        _hotbarRows = rows;
+        ApplyHotbarLayout();
+    }
+
+    // Each row takes an equal share of the area; titles get as big and as many lines as the button allows.
+    private void ApplyHotbarLayout()
+    {
+        int columns = ColumnsPerRow * _hotbarRows;
+        int totalRows = (Hotbar.SlotsPerPage + columns - 1) / columns;
+        double cell = HotbarScroll.Height / _hotbarRows;
+        if (_hotbarGrid is not null)
+            _hotbarGrid.Columns = columns;
+        HotbarItems.Height = cell * totalRows;
+
+        HotbarRowsText.Text = _hotbarRows.ToString();
+        FewerRowsButton.IsEnabled = _hotbarRows > 1;
+        MoreRowsButton.IsEnabled = _hotbarRows < MaxHotbarRows;
+
+        const double margin = 6; // the button's Margin, both sides
+        double scrollBar = SystemParameters.VerticalScrollBarWidth;
+        double width = HotbarScroll.ActualWidth > 0 ? (HotbarScroll.ActualWidth - scrollBar) / columns - margin : 110;
+        double height = cell - margin;
+        // Too small for number and category: only the title, with less padding around it.
+        bool compact = height < 44 || width < 70;
+        var padding = compact ? new Thickness(3, 1, 3, 1) : new Thickness(6, 4, 6, 4);
+        var titleMargin = compact ? new Thickness(1, 0, 1, 0) : new Thickness(4, 10, 4, 0);
+
+        double size = Math.Clamp(Math.Round(Math.Min(height / 4.8, width / 8)), 9, 14);
+        double line = Math.Round(size * 1.3);
+        double room = height - padding.Top - padding.Bottom - titleMargin.Top - 2; // 2: the button's border
+        int lines = Math.Max(1, (int)(room / line));
+
+        var resources = HotbarItems.Resources;
+        resources["SlotPadding"] = padding;
+        resources["SlotHeaderVisibility"] = compact ? Visibility.Collapsed : Visibility.Visible;
+        resources["SlotTitleSize"] = size;
+        resources["SlotTitleLine"] = line;
+        resources["SlotTitleMaxHeight"] = lines * line;
+        resources["SlotTitleMargin"] = titleMargin;
+    }
+
+    private void HotbarGrid_Loaded(object sender, RoutedEventArgs e)
+    {
+        _hotbarGrid = (UniformGrid)sender;
+        ApplyHotbarLayout();
+    }
+
+    // The width decides how much room each button's title has.
+    private void HotbarScroll_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (e.WidthChanged)
+            ApplyHotbarLayout();
+    }
+
+    // After a SoundPad import the favourites are laid out as wide as they were there, when a row count gives that width.
+    private void OnHotbarImported(object? sender, int columns)
+    {
+        if (columns > 0 && columns % ColumnsPerRow == 0)
+            SetHotbarRows(columns / ColumnsPerRow);
+    }
+
+    private void FewerRows_Click(object sender, RoutedEventArgs e) => SetHotbarRows(_hotbarRows - 1);
+
+    private void MoreRows_Click(object sender, RoutedEventArgs e) => SetHotbarRows(_hotbarRows + 1);
+
+    // Ctrl + wheel zooms the favourites like a browser page: down = more rows, smaller buttons.
+    private void HotbarScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Control)
+            return;
+        SetHotbarRows(_hotbarRows + (e.Delta < 0 ? 1 : -1));
+        e.Handled = true;
+    }
+
+    // Dragging the top edge up makes the favourites taller, as long as the sound list keeps some room.
+    private void HotbarResize_DragDelta(object sender, DragDeltaEventArgs e)
+    {
+        double max = HotbarScroll.Height + Math.Max(0, LibraryArea.ActualHeight - MinLibraryHeight);
+        HotbarScroll.Height = Math.Clamp(HotbarScroll.Height - e.VerticalChange, MinHotbarHeight, max);
+        ApplyHotbarLayout();
+    }
+
+    // A smaller window (or a saved height from a bigger screen) takes room from the favourites, not from the list.
+    private void LibraryArea_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        double missing = MinLibraryHeight - LibraryArea.ActualHeight;
+        if (missing <= 0 || HotbarScroll.Height <= MinHotbarHeight)
+            return;
+        HotbarScroll.Height = Math.Max(HotbarScroll.Height - missing, MinHotbarHeight);
+        ApplyHotbarLayout();
     }
 
     private void HotbarSlot_DragOver(object sender, DragEventArgs e)

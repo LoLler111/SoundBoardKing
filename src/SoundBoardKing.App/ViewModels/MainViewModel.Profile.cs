@@ -15,6 +15,9 @@ public interface IProfileActions
     /// <summary>How the profile is found, in words.</summary>
     string ProfileLocationText { get; }
 
+    /// <summary>The folder a relative sounds-folder path starts from.</summary>
+    string AppFolder { get; }
+
     /// <summary>Returns null on success, otherwise the reason it failed.</summary>
     string? MoveProfile(string path);
 

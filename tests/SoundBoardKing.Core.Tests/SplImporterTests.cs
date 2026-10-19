@@ -16,22 +16,22 @@ public class SplImporterTests
             <Category type="1" icon="stock_icon_cat_list" hidden="true"/>
             <Category name="Voice" icon="gen_V">
               <Category name="Teorema" icon="gen_T">
-                <Sound id="3" />
+                <Sound id="2" />
               </Category>
-              <Sound id="1" />
+              <Sound id="0" />
               <Sound id="99" />
             </Category>
             <Category name="Musica" icon="gen_M">
-              <Sound id="2" />
               <Sound id="1" />
+              <Sound id="0" />
             </Category>
           </Categories>
           <Hotbar>
             <HotbarPage>
-              <HotbarItem id="0" soundId="2"/>
-              <HotbarItem id="19" soundId="1"/>
-              <HotbarItem id="4005" soundId="3"/>
-              <HotbarItem id="7000" soundId="1"/>
+              <HotbarItem id="0" soundId="1"/>
+              <HotbarItem id="19" soundId="0"/>
+              <HotbarItem id="4005" soundId="2"/>
+              <HotbarItem id="7000" soundId="0"/>
             </HotbarPage>
           </Hotbar>
         </Soundlist>
@@ -94,10 +94,12 @@ public class SplImporterTests
         Assert.Equal([sounds[2].Id], categories[0].Children[0].SoundIds);
         Assert.Equal([sounds[1].Id, sounds[0].Id], categories[1].SoundIds);
 
+        // Ids are row * 1000 + column on one page; rows are 20 wide, as wide as the widest (column 19).
         var hotbar = result.Library.Hotbar;
+        Assert.Equal(20, result.HotbarColumns);
         Assert.Equal(sounds[1].Id, hotbar.Get(0, 0));
         Assert.Equal(sounds[0].Id, hotbar.Get(0, 19));
-        Assert.Equal(sounds[2].Id, hotbar.Get(4, 5));
+        Assert.Equal(sounds[2].Id, hotbar.Get(0, 4 * 20 + 5));
         Assert.Equal(3, hotbar.Slots.Count);
 
         // Dangling category reference and out-of-range slot are reported, not fatal.
@@ -132,10 +134,21 @@ public class SplImporterTests
 
         var result = SplImporter.Import(realList);
 
-        Assert.Equal(985, result.Library.Sounds.Count);
-        Assert.Equal(100, result.Library.Hotbar.Slots.Count); // SoundPad: 5 pages of 20, all filled
-        Assert.Equal(5, result.Library.Categories.Count);
-        // 10 sounds live on a NAS share and 1 in another user's Downloads folder; the D:\ paths relink by name.
-        Assert.Equal(11, result.MissingFiles);
+        // The list is the one SoundPad keeps saving, so only what does not change with it is checked.
+        var library = result.Library;
+        Assert.InRange(library.Sounds.Count, 900, 2000);
+        Assert.Equal(5, library.Categories.Count);
+        Assert.DoesNotContain(result.Warnings, w => w.Contains("inesistente") || w.Contains("non esiste"));
+
+        // SoundPad: the first page is 5 rows by 20, all filled, so here the first page's 100 slots.
+        Assert.Equal(20, result.HotbarColumns);
+        Assert.Equal(100, library.Hotbar.Slots.Keys.Count(key => key < 1000));
+        string FileOf(Guid? id) => Path.GetFileName(library.Sounds.Single(s => s.Id == id).Path);
+        // As SoundPad shows them: ids count from 0, not from 1.
+        Assert.StartsWith("HF_ohFotterFa", FileOf(library.Hotbar.Get(0, 0)));
+        Assert.StartsWith("censor-beep-06", FileOf(library.Hotbar.Get(0, 19)));
+        Assert.StartsWith("HF_MoMeStai", FileOf(library.Hotbar.Get(0, 80)));
+        var earrape = library.Categories.Single(c => c.Name == "Earrape");
+        Assert.StartsWith("wii-sports-earrape", FileOf(earrape.SoundIds[0]));
     }
 }

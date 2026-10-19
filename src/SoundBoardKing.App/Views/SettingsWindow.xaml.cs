@@ -16,6 +16,7 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         DarkTitleBar.Apply(this);
+        MaxHeight = SystemParameters.WorkArea.Height - 40;
         _model = model;
         DataContext = model;
     }
@@ -36,6 +37,16 @@ public partial class SettingsWindow : Window
     {
         var dialog = new HotkeyCaptureWindow(title, current) { Owner = this };
         return dialog.ShowDialog() == true ? dialog.Result : null;
+    }
+
+    private void BrowseSoundsFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var current = SoundFolder.Resolve(_model.SoundsFolder, _model.AppFolder);
+        var dialog = new OpenFolderDialog { Title = "Cartella dei suoni" };
+        if (current is not null && Directory.Exists(current))
+            dialog.InitialDirectory = current;
+        if (dialog.ShowDialog(this) == true)
+            _model.ChooseSoundsFolder(dialog.FolderName);
     }
 
     private void MoveNextToExe_Click(object sender, RoutedEventArgs e)

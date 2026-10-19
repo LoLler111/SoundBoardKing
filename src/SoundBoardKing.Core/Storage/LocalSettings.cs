@@ -19,6 +19,12 @@ public sealed class LocalSettings
 
     /// <summary>Where the main window was when it closed (screens differ between PCs); null until then.</summary>
     public WindowPlacement? Window { get; set; }
+
+    /// <summary>Favourite rows in view: more rows make smaller buttons, narrower too.</summary>
+    public int HotbarRows { get; set; } = 2;
+
+    /// <summary>Height of the favourites buttons area, in device-independent pixels.</summary>
+    public double HotbarHeight { get; set; } = 128;
 }
 
 /// <summary>Position and size in device-independent pixels; <see cref="Maximized"/> keeps the normal size too.</summary>

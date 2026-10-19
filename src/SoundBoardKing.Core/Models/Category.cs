@@ -12,4 +12,10 @@ public sealed class Category
 
     /// <summary>How <see cref="SoundIds"/> is kept in order.</summary>
     public SoundSort Sort { get; set; }
+
+    /// <summary>
+    /// "Senza categoria": kept by the app (see <see cref="SoundLibrary.SyncUncategorized"/>) with
+    /// every sound that is in no other category; it cannot be renamed, deleted or filled by hand.
+    /// </summary>
+    public bool IsUncategorized { get; set; }
 }

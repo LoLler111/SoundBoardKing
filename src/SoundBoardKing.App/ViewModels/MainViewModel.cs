@@ -510,6 +510,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     // ---- Hotbar ------------------------------------------------------------------------------
 
+    /// <summary>Favourites came from a SoundPad list whose hotbar rows were this wide: the view lays them out the same.</summary>
+    public event EventHandler<int>? HotbarImported;
+
     partial void OnHotbarPageChanged(int value)
     {
         RefreshHotbar();
@@ -625,6 +628,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _engine.StopAll();
         _library = result.Library;
         _storage.Local.LastImportFolder = Path.GetDirectoryName(path);
+        HotbarPage = 0;
+        HotbarImported?.Invoke(this, result.HotbarColumns);
         RebuildAll();
         RegisterHotkeys();
         SaveNow();
@@ -649,14 +654,19 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             await AddPathsAsync(files);
     }
 
-    /// <summary>Adds audio files (folders are scanned recursively) to the library and the selected category.</summary>
+    /// <summary>
+    /// Adds audio files (folders are scanned recursively) to the library and the selected category,
+    /// first copying them into the sounds folder when there is one.
+    /// </summary>
     public async Task AddPathsAsync(IEnumerable<string> paths)
     {
         var known = _library.Sounds.Select(s => s.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var files = await Task.Run(() => ExpandAudioFiles(paths)
-            .Where(f => !known.Contains(f))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList());
+        var folder = SoundFolderPath;
+        if (folder is not null)
+            StatusText = "Copia nella cartella dei suoni…";
+        var (copied, copyError) = await Task.Run(() => CopyIntoSoundFolder(ExpandAudioFiles(paths), folder));
+        var files = copied.Where(f => !known.Contains(f)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        IncludeInSoundFolder(files);
         if (files.Count == 0)
         {
             StatusText = "Nessun nuovo file audio da aggiungere.";
@@ -664,13 +674,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
 
         StatusText = $"Aggiunta di {files.Count} suoni…";
-        var sounds = await Task.Run(() => files.Select(file => new Sound
-        {
-            Title = TitleCleaner.Clean(Path.GetFileNameWithoutExtension(file)),
-            Path = file,
-            DurationMs = (long)(AudioFileProbe.TryGetDuration(file)?.TotalMilliseconds ?? 0),
-        }).ToList());
-        AddToLibrary(sounds, SelectedCategory?.Model);
+        var sounds = await Task.Run(() => files.Select(NewSoundFrom).ToList());
+        AddToLibrary(sounds, TargetCategory);
+        if (copyError is not null)
+            StatusText += $" Non ho potuto copiarli tutti nella cartella dei suoni ({copyError}): quelli restano dove sono.";
     }
 
     /// <summary>Puts new sounds in the library and, when given, in <paramref name="target"/>.</summary>
@@ -692,19 +699,22 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         MeasureLoudness();
     }
 
-    private static IEnumerable<string> ExpandAudioFiles(IEnumerable<string> paths)
+    // Each file with where it goes in the sounds folder: a dropped folder keeps its name and subfolders.
+    private static IEnumerable<(string File, string RelativeTarget)> ExpandAudioFiles(IEnumerable<string> paths)
     {
         var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true };
         foreach (var path in paths)
         {
             if (Directory.Exists(path))
             {
-                foreach (var file in Directory.EnumerateFiles(path, "*", options).Where(AudioFileProbe.IsSupported))
-                    yield return file;
+                var root = Path.GetFullPath(path);
+                var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(root)); // empty for a whole drive
+                foreach (var file in Directory.EnumerateFiles(root, "*", options).Where(AudioFileProbe.IsSupported))
+                    yield return (file, Path.Combine(name, Path.GetRelativePath(root, file)));
             }
             else if (File.Exists(path) && AudioFileProbe.IsSupported(path))
             {
-                yield return Path.GetFullPath(path);
+                yield return (Path.GetFullPath(path), Path.GetFileName(path));
             }
         }
     }
@@ -722,10 +732,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var files = downloaded == 0 ? "\nI file audio sul disco non vengono cancellati."
             : downloaded == sounds.Count ? "\nI file scaricati da Myinstants vengono cancellati."
             : "\nI file audio sul disco non vengono cancellati, tranne quelli scaricati da Myinstants.";
+        if (SoundFolderPath is { } folder && sounds.Any(s => SoundFolder.Contains(folder, s.Model.Path) && !IsMyinstantsDownload(s.Model.Path)))
+            files += "\nQuelli nella cartella dei suoni non verranno riaggiunti cercando nuovi suoni.";
         if (!_dialogs.Confirm(question + files))
             return;
 
         var ids = sounds.Select(s => s.Id).ToHashSet();
+        ExcludeFromSoundFolder(sounds.Select(s => s.Model.Path));
         _library.RemoveSounds(ids);
         foreach (var id in ids)
             _soundsById.Remove(id);
@@ -911,7 +924,16 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private void NewCategory() => CreateCategory(null);
 
     [RelayCommand]
-    private void NewSubcategory() => CreateCategory(SelectedCategory?.Model);
+    private void NewSubcategory() => CreateCategory(TargetCategory);
+
+    // "Senza categoria" is kept by the app: it says so instead of being edited by hand.
+    private bool RefuseUncategorized(Category category, string what)
+    {
+        if (!category.IsUncategorized)
+            return false;
+        StatusText = $"\"{category.Name}\" {what}: contiene da sola i suoni che non sono in nessun'altra categoria.";
+        return true;
+    }
 
     private Category? CreateCategory(Category? parent)
     {
@@ -931,7 +953,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void RenameCategory()
     {
-        if (SelectedCategory is not { Model: { } category } node)
+        if (SelectedCategory is not { Model: { } category } node || RefuseUncategorized(category, "non si rinomina"))
             return;
         var name = _dialogs.AskText("Rinomina categoria", "Nome della categoria:", category.Name)?.Trim();
         if (string.IsNullOrEmpty(name) || name == category.Name)
@@ -945,7 +967,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void DeleteCategory()
     {
-        if (SelectedCategory?.Model is not { } category)
+        if (SelectedCategory?.Model is not { } category || RefuseUncategorized(category, "non si elimina"))
             return;
         if (!_dialogs.Confirm($"Eliminare la categoria \"{category.Name}\" e le sue sottocategorie?\nI suoni restano nella libreria."))
             return;
@@ -956,7 +978,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public void AddSoundsToCategory(CategoryNodeViewModel node, IReadOnlyList<SoundItemViewModel> sounds)
     {
-        if (node.Model is not { } category)
+        if (node.Model is not { } category || RefuseUncategorized(category, "non si riempie a mano"))
             return;
         int added = 0;
         foreach (var sound in sounds.Where(s => !category.SoundIds.Contains(s.Id)))
@@ -982,6 +1004,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             StatusText = "Seleziona prima una categoria.";
             return;
         }
+        if (RefuseUncategorized(category, "si svuota da sola mettendo i suoni in un'altra categoria"))
+            return;
         var ids = GetSelection(selection).Select(s => s.Id).ToHashSet();
         if (category.SoundIds.RemoveAll(ids.Contains) == 0)
             return;
@@ -992,6 +1016,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private void RebuildAll()
     {
+        _library.SyncUncategorized();
         _library.ApplySorts();
         OnPropertyChanged(nameof(HasArtists));
         _soundsById.Clear();
@@ -1163,6 +1188,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             LevelSounds = _settings.LevelSounds,
             StopHotkey = _settings.StopHotkey,
             PauseHotkey = _settings.PauseHotkey,
+            SoundsFolder = _settings.SoundsFolder ?? "",
         };
         bool accepted = _dialogs.EditSettings(model);
         UpdateMicStatus(); // the module may have been installed or removed from the dialog
@@ -1195,8 +1221,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _settings.StopHotkey = stop;
         _settings.PauseHotkey = pause;
 
+        var soundsFolder = model.SoundsFolder.Trim();
+        bool newSoundsFolder = !string.Equals(soundsFolder, _settings.SoundsFolder ?? "", StringComparison.OrdinalIgnoreCase);
+        _settings.SoundsFolder = soundsFolder.Length == 0 ? null : soundsFolder;
+
         RegisterHotkeys();
         ScheduleSave();
+        if (newSoundsFolder)
+            _ = ScanSoundFolderAsync(atStartup: false);
         if (model.UpdateRestartRequested)
             RestartToUpdate(); // "Riavvia e aggiorna" also confirms the dialog
     }

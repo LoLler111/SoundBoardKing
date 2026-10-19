@@ -8,7 +8,14 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
     </Window.Resources>
-    <StackPanel Margin="22">
+    <!-- Taller than some screens: the settings scroll, OK and Annulla always stay in view. -->
+    <DockPanel>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="22,14,22,22">
+        <Button Content="Annulla" IsCancel="True" Margin="0,0,8,0" MinWidth="90" />
+        <Button Content="OK" IsDefault="True" Style="{StaticResource AccentButton}" MinWidth="90" Click="Ok_Click" />
+    </StackPanel>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="22,22,22,0">
         <TextBlock Text="Uscita audio (cuffie / casse)" FontWeight="SemiBold" />
         <ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" DisplayMemberPath="Name"
                   Margin="0,6,0,18" />
@@ -55,6 +62,18 @@
             <Button Grid.Row="1" Grid.Column="2" Content="Cambia…" Click="ChangePause_Click" />
         </Grid>
 
+        <TextBlock Text="Cartella dei suoni" FontWeight="SemiBold" Margin="0,18,0,0" />
+        <TextBlock Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap" Margin="0,4,0,8"
+                   Text="La cartella con tutti i file audio, accanto all'app (es. ..\Suoni) o altrove, anche su un NAS (es. \\NAS\Suoni). All'avvio, e con il pulsante accanto a CATEGORIE, i file nuovi entrano nella libreria in &quot;Senza categoria&quot;; i suoni aggiunti da fuori e quelli di Myinstants vengono copiati qui." />
+        <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Sfoglia…" Click="BrowseSoundsFolder_Click" Margin="8,0,0,0" />
+            <TextBox Text="{Binding SoundsFolder, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center" />
+        </DockPanel>
+        <CheckBox Content="Relativo alla cartella dell'app (si sposta insieme all'app)" IsChecked="{Binding IsSoundsFolderRelative}"
+                  IsEnabled="{Binding CanSoundsFolderBeRelative}" Margin="0,8,0,0" ToolTip="{Binding AppFolder}" />
+        <TextBlock Text="{Binding SoundsFolderInfo}" TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0"
+                   Foreground="{StaticResource TextDimBrush}" />
+
         <TextBlock Text="Profilo (libreria e impostazioni)" FontWeight="SemiBold" Margin="0,18,0,0" />
         <TextBlock Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap" Margin="0,4,0,8"
                    Text="Un unico file con tutta la libreria, i preferiti e le impostazioni (tranne i dispositivi audio), aggiornato a ogni modifica. Copialo per portarti tutto su un altro PC; se lo tieni accanto all'eseguibile o in una cartella a fianco (es. App, Config e Suoni affiancate), viene ritrovato anche spostando tutto insieme, con i suoni vicini salvati in modo relativo." />
@@ -85,10 +104,7 @@
             <TextBlock Text="{Binding UpdateLog}" TextWrapping="Wrap" FontSize="12" VerticalAlignment="Center"
                        Foreground="{StaticResource TextDimBrush}" Margin="0,0,8,0" />
         </DockPanel>
-
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
-            <Button Content="Annulla" IsCancel="True" Margin="0,0,8,0" MinWidth="90" />
-            <Button Content="OK" IsDefault="True" Style="{StaticResource AccentButton}" MinWidth="90" Click="Ok_Click" />
-        </StackPanel>
     </StackPanel>
+    </ScrollViewer>
+    </DockPanel>
 </Window>

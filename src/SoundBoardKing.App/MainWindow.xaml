@@ -83,7 +83,7 @@
         </Border>
 
         <!-- Categories | sounds -->
-        <Grid Grid.Row="1">
+        <Grid x:Name="LibraryArea" Grid.Row="1" SizeChanged="LibraryArea_SizeChanged">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="260" MinWidth="180" />
                 <ColumnDefinition Width="4" />
@@ -95,6 +95,9 @@
                     <DockPanel DockPanel.Dock="Top" Margin="14,10,8,6">
                         <Button DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Content="&#xE710;"
                                 Command="{Binding NewCategoryCommand}" ToolTip="Nuova categoria" />
+                        <Button DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Content="&#xE72C;" Margin="0,0,2,0"
+                                Command="{Binding SearchNewSoundsCommand}"
+                                ToolTip="Cerca nuovi suoni nella cartella dei suoni (si sceglie nelle impostazioni)" />
                         <TextBlock Text="CATEGORIE" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
                                    Foreground="{StaticResource TextDimBrush}" />
                     </DockPanel>
@@ -220,6 +223,7 @@
                     </DataGridTextColumn>
                     <DataGridTextColumn x:Name="ArtistColumn" Header="Artista" Binding="{Binding Artist}" Width="170" IsReadOnly="True" CanUserSort="False" />
                     <DataGridTextColumn x:Name="DurationColumn" Header="Durata" Binding="{Binding Duration}" Width="80" IsReadOnly="True" />
+                    <DataGridTextColumn x:Name="AddedOnColumn" Header="Aggiunto il" Binding="{Binding AddedOn}" Width="100" IsReadOnly="True" />
                     <DataGridTextColumn Header="Tasto rapido" Binding="{Binding Hotkey}" Width="130" IsReadOnly="True" CanUserSort="False" />
                 </DataGrid.Columns>
                 <DataGrid.ContextMenu>
@@ -264,22 +268,35 @@
                         <Button Style="{StaticResource SmallIconButton}" Content="&#xE76C;" Command="{Binding NextHotbarPageCommand}"
                                 ToolTip="Pagina successiva" />
                     </StackPanel>
-                    <TextBlock Text="Trascina un suono su uno slot per assegnarlo" HorizontalAlignment="Right" VerticalAlignment="Center"
-                               Foreground="{StaticResource TextDimBrush}" FontSize="11" />
+                    <!-- How many rows are in view: more rows, smaller buttons (also Ctrl + rotella sui preferiti). -->
+                    <StackPanel Orientation="Horizontal" Margin="18,0,0,0"
+                                ToolTip="Quante file di preferiti vedi: più file, bottoni più piccoli (anche Ctrl + rotella sui preferiti)">
+                        <TextBlock Text="File" FontSize="11" VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" Margin="0,0,6,0" />
+                        <Button x:Name="FewerRowsButton" Style="{StaticResource SmallIconButton}" Content="&#xE738;" Click="FewerRows_Click"
+                                ToolTip="Meno file, bottoni più grandi" />
+                        <TextBlock x:Name="HotbarRowsText" Width="18" TextAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" />
+                        <Button x:Name="MoreRowsButton" Style="{StaticResource SmallIconButton}" Content="&#xE710;" Click="MoreRows_Click"
+                                ToolTip="Più file, bottoni più piccoli" />
+                    </StackPanel>
+                    <TextBlock Text="Trascina un suono su uno slot per assegnarlo · trascina il bordo in alto per cambiare l'altezza"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               Foreground="{StaticResource TextDimBrush}" FontSize="11" Margin="12,0,0,0" />
                 </DockPanel>
 
-                <!-- Two rows in view, the rest by scrolling (also while dragging a sound near the edges). -->
-                <ScrollViewer x:Name="HotbarScroll" MaxHeight="128" VerticalScrollBarVisibility="Auto"
-                              PreviewDragOver="HotbarScroll_PreviewDragOver">
-                <ItemsControl ItemsSource="{Binding HotbarSlots}">
+                <!-- The chosen rows fill the chosen height, the rest by scrolling (also while dragging a sound near the edges).
+                     Sizes and text are set by ApplyHotbarLayout through the Slot* resources. -->
+                <ScrollViewer x:Name="HotbarScroll" Height="128" VerticalScrollBarVisibility="Auto"
+                              PreviewDragOver="HotbarScroll_PreviewDragOver" PreviewMouseWheel="HotbarScroll_PreviewMouseWheel"
+                              SizeChanged="HotbarScroll_SizeChanged">
+                <ItemsControl x:Name="HotbarItems" ItemsSource="{Binding HotbarSlots}" VerticalAlignment="Top">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <UniformGrid Columns="10" />
+                            <UniformGrid Columns="10" Loaded="HotbarGrid_Loaded" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:HotbarSlotViewModel}">
-                            <Button x:Name="SlotButton" Style="{StaticResource HotbarButton}" Margin="3" Height="58"
+                            <Button x:Name="SlotButton" Style="{StaticResource HotbarButton}" Margin="3" Padding="{DynamicResource SlotPadding}"
                                     Command="{Binding DataContext.PlayHotbarSlotCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                     CommandParameter="{Binding}"
                                     ToolTip="{Binding Sound.Title}"
@@ -294,15 +311,17 @@
                                     </ContextMenu>
                                 </Button.ContextMenu>
                                 <Grid>
+                                    <!-- Number and category only where the button has room for them. -->
                                     <TextBlock Text="{Binding Number}" FontSize="10" Foreground="{StaticResource TextDimBrush}"
-                                               HorizontalAlignment="Left" VerticalAlignment="Top" />
+                                               HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="{DynamicResource SlotHeaderVisibility}" />
                                     <!-- The category, small at the top; kept clear of the slot number. -->
                                     <TextBlock Text="{Binding Category}" FontSize="9" Foreground="{StaticResource TextDimBrush}"
                                                HorizontalAlignment="Center" VerticalAlignment="Top" Margin="16,0,16,0"
-                                               TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding Sound.TileTitle}" FontSize="12" TextAlignment="Center"
-                                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="34"
-                                               VerticalAlignment="Center" Margin="4,10,4,0" />
+                                               TextTrimming="CharacterEllipsis" Visibility="{DynamicResource SlotHeaderVisibility}" />
+                                    <TextBlock Text="{Binding Sound.TileTitle}" FontSize="{DynamicResource SlotTitleSize}" TextAlignment="Center"
+                                               LineStackingStrategy="BlockLineHeight" LineHeight="{DynamicResource SlotTitleLine}"
+                                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="{DynamicResource SlotTitleMaxHeight}"
+                                               VerticalAlignment="Center" Margin="{DynamicResource SlotTitleMargin}" />
                                 </Grid>
                             </Button>
                             <DataTemplate.Triggers>
@@ -320,6 +339,27 @@
                 </ScrollViewer>
             </DockPanel>
         </Border>
+        <!-- The top edge of the favourites: dragged up or down it changes the height of the buttons area. -->
+        <!-- Mostly over the bar's own top padding, so a press just above the line is not a drag in the sound list. -->
+        <Thumb Grid.Row="2" VerticalAlignment="Top" Height="10" Margin="0,-3,0,0" Cursor="SizeNS"
+               DragDelta="HotbarResize_DragDelta" ToolTip="Trascina per cambiare l'altezza dei preferiti">
+            <Thumb.Template>
+                <ControlTemplate TargetType="Thumb">
+                    <Grid Background="Transparent">
+                        <Border x:Name="Line" Height="3" VerticalAlignment="Top" Margin="0,2,0,0" CornerRadius="1.5"
+                                Background="{StaticResource AccentBrush}" Opacity="0" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Line" Property="Opacity" Value="0.6" />
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="Line" Property="Opacity" Value="1" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Thumb.Template>
+        </Thumb>
 
         <!-- Now playing -->
         <Border Grid.Row="3" Background="{StaticResource BgBrush}" Padding="12,8">

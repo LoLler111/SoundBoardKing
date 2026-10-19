@@ -4,7 +4,8 @@ using SoundBoardKing.Core.Models;
 
 namespace SoundBoardKing.Core.Import;
 
-public sealed record SplImportResult(SoundLibrary Library, int MissingFiles, IReadOnlyList<string> Warnings);
+/// <param name="HotbarColumns">How wide the SoundPad hotbar's rows are (0 without favourites).</param>
+public sealed record SplImportResult(SoundLibrary Library, int MissingFiles, IReadOnlyList<string> Warnings, int HotbarColumns);
 
 /// <summary>Reads a SoundPad sound list (.spl): sounds, nested categories and the hotbar.</summary>
 public static class SplImporter
@@ -23,7 +24,7 @@ public static class SplImporter
         var idsByIndex = new Dictionary<int, Guid>();
         int missing = 0;
 
-        // SoundPad identifies a sound by its 1-based position in the list.
+        // SoundPad identifies a sound by its 0-based position in the list, in categories and hotbar alike.
         var soundElements = root.Elements("Sound").ToList();
         int index = 0, reported = -1;
         foreach (var element in soundElements)
@@ -47,7 +48,7 @@ public static class SplImporter
                 AddedOn = ParseDate((string?)element.Attribute("addedOn")) ?? DateOnly.FromDateTime(DateTime.Today),
             };
             library.Sounds.Add(sound);
-            idsByIndex[index] = sound.Id;
+            idsByIndex[index - 1] = sound.Id;
         }
 
         foreach (var element in root.Element("Categories")?.Elements("Category") ?? [])
@@ -58,35 +59,41 @@ public static class SplImporter
             library.Categories.Add(ReadCategory(element, idsByIndex, warnings));
         }
 
+        // One HotbarPage element per page, and in it slot ids are row * 1000 + column (a 5 x 20 hotbar
+        // goes 0-19, 1000-1019, ... 4000-4019). The rows go one after the other, each as wide as the
+        // widest one in the list: the hotbar's own width is a SoundPad setting, not in the file.
+        var items = new List<(int Page, int Id, int SoundIndex)>();
         int pageIndex = 0;
         foreach (var page in root.Element("Hotbar")?.Elements("HotbarPage") ?? [])
         {
             foreach (var item in page.Elements("HotbarItem"))
             {
-                if (!TryParseInt((string?)item.Attribute("id"), out int id) ||
-                    !TryParseInt((string?)item.Attribute("soundId"), out int soundIndex))
-                    continue;
-
-                // Slot ids are page * 1000 + slot; lists with one HotbarPage element per page use plain slot ids.
-                int pageNumber = id >= 1000 ? id / 1000 : pageIndex;
-                int slot = id % 1000;
-                if (!Hotbar.IsValid(pageNumber, slot))
-                {
-                    warnings.Add($"Slot dei preferiti {id} fuori intervallo, ignorato.");
-                    continue;
-                }
-                if (!idsByIndex.TryGetValue(soundIndex, out var soundId))
-                {
-                    warnings.Add($"Lo slot dei preferiti {id} punta al suono {soundIndex}, che non esiste.");
-                    continue;
-                }
-                library.Hotbar.Set(pageNumber, slot, soundId);
+                if (TryParseInt((string?)item.Attribute("id"), out int id) &&
+                    TryParseInt((string?)item.Attribute("soundId"), out int soundIndex) && id >= 0)
+                    items.Add((pageIndex, id, soundIndex));
             }
             pageIndex++;
         }
 
+        int columns = items.Count == 0 ? 0 : items.Max(i => i.Id % 1000) + 1;
+        foreach (var (page, id, soundIndex) in items)
+        {
+            int slot = id / 1000 * columns + id % 1000;
+            if (!Hotbar.IsValid(page, slot))
+            {
+                warnings.Add($"Slot dei preferiti {id} fuori intervallo, ignorato.");
+                continue;
+            }
+            if (!idsByIndex.TryGetValue(soundIndex, out var soundId))
+            {
+                warnings.Add($"Lo slot dei preferiti {id} punta al suono {soundIndex}, che non esiste.");
+                continue;
+            }
+            library.Hotbar.Set(page, slot, soundId);
+        }
+
         progress?.Report(100);
-        return new SplImportResult(library, missing, warnings);
+        return new SplImportResult(library, missing, warnings, columns);
     }
 
     private static Category ReadCategory(XElement element, Dictionary<int, Guid> idsByIndex, List<string> warnings)

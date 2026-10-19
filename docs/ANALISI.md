@@ -32,16 +32,16 @@ Effetto: l'utente seleziona sempre il **microfono reale** in Discord, OBS, gioch
   </Categories>
   <Hotbar>
     <HotbarPage>
-      <HotbarItem id="0" soundId="78"/>      <!-- id = pagina*1000 + slot -->
+      <HotbarItem id="0" soundId="78"/>      <!-- id = fila*1000 + colonna -->
       <HotbarItem id="4019" soundId="675"/>
     </HotbarPage>
   </Hotbar>
 </Soundlist>
 ```
-- `Sound` di primo livello: la libreria. L'**id** di un suono è la sua **posizione (base 1)** nell'elenco.
+- `Sound` di primo livello: la libreria. L'**id** di un suono è la sua **posizione (base 0)** nell'elenco, sia nelle categorie sia nei preferiti (`soundId`).
 - `Category` annidabili; contengono riferimenti `<Sound id="N"/>`.
 - `url` relativo alla cartella del file `.spl` (in `Suoni\Suoni.spl` invece i percorsi sono assoluti, `F:\Altro\Soundpad\...`, non più validi).
-- **Hotbar = i "preferiti"**: 5 pagine × 20 slot (id `0–19`, `1000–1019`, … `4000–4019`).
+- **Hotbar = i "preferiti"**: un `HotbarPage` per pagina; dentro, id = fila×1000 + colonna. La lista attuale è una pagina sola di 5 file × 20 (id `0–19`, `1000–1019`, … `4000–4019`). Quante file e colonne mostra SoundPad è una sua impostazione, non è nel file: l’import mette le file una dopo l’altra, larghe quanto la più lunga, e sul PC sceglie le file dei preferiti che danno la stessa larghezza (20 colonne = 5 file).
 - Lista attuale: 985 suoni (~1,1 GB; mp3, m4a, mp4, aac, wav, opus, 3gp, mpeg), 24 categorie, 100 slot hotbar tutti occupati.
 
 ### API remota di SoundPad

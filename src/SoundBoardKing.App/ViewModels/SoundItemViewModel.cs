@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using SoundBoardKing.Core.Models;
@@ -26,6 +27,9 @@ public sealed partial class SoundItemViewModel : ObservableObject
     public Guid Id => Model.Id;
     public string Artist => Model.Artist;
     public string Duration => Model.DurationMs > 0 ? TimeFormat.Format(TimeSpan.FromMilliseconds(Model.DurationMs)) : "";
+
+    /// <summary>The day the sound came into the library (from SoundPad's list when imported), e.g. 12/10/2026.</summary>
+    public string AddedOn => Model.AddedOn.ToString("d", CultureInfo.CurrentCulture);
 
     public string Title
     {
