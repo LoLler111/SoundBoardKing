@@ -27,7 +27,7 @@ public sealed class RemoteHost : IAsyncDisposable
         viewModel.MicChanged += (_, m) =>
             Broadcast(new { type = "mic", m.State, m.Enabled });
         viewModel.EffectChanged += (_, _) =>
-            Broadcast(new { type = "effect", effect = EffectNames.ToWire(viewModel.SoundEffect), amount = viewModel.EffectAmountPercent });
+            Broadcast(new { type = "effect", effect = EffectNames.ToWire(viewModel.SoundEffect), amount = viewModel.EffectAmountPercent, speed = Math.Round(viewModel.PlaybackSpeed, 3) });
     }
 
     public DeviceRegistry Devices { get; }

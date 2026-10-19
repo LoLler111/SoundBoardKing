@@ -29,4 +29,7 @@ internal sealed class RemoteController(MainViewModel viewModel, Dispatcher dispa
     public Task SetEffectAsync(SoundEffect effect) => dispatcher.InvokeAsync(() => viewModel.SoundEffect = effect).Task;
 
     public Task SetEffectAmountAsync(int percent) => dispatcher.InvokeAsync(() => viewModel.EffectAmount = percent).Task;
+
+    public Task SetPlaybackSpeedAsync(double speed) =>
+        dispatcher.InvokeAsync(() => viewModel.PadSpeed = Math.Log2(speed) * 100).Task;
 }

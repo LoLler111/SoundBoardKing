@@ -124,5 +124,12 @@ class SoundBoardApi(
             put("type", "setEffect")
             put("amount", percent)
         }.toString()
+
+        /** What the pad sends: strength and speed together. */
+        fun padCommand(percent: Int, speed: Double) = buildJsonObject {
+            put("type", "setEffect")
+            put("amount", percent)
+            put("speed", speed)
+        }.toString()
     }
 }

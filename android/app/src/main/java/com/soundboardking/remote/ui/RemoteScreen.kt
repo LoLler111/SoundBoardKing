@@ -5,6 +5,8 @@ import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -498,7 +500,7 @@ private fun NowPlayingBar(
                 IconButton(onClick = actions::stop) { StopIcon() }
             }
             if (showMic) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
                     MicChip(state.mic, onToggle = { actions.setMic(!state.mic.enabled) })
                     EffectChip(state.effect, onPick = actions::setEffect)
                     Knob(
@@ -513,6 +515,17 @@ private fun NowPlayingBar(
                         fontSize = 12.sp,
                         modifier = Modifier.padding(start = 6.dp, bottom = 6.dp),
                     )
+                    var pad by remember { mutableStateOf(false) }
+                    FilterChip(
+                        selected = state.playbackSpeed != 1.0,
+                        onClick = { pad = true },
+                        label = { Text("Pad ×${"%.2f".format(state.playbackSpeed)}") },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = GoldSoft, selectedLabelColor = Gold),
+                        modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
+                    )
+                    if (pad) {
+                        PadDialog(state.effect, state.effectAmount, state.playbackSpeed, onChange = actions::setPad, onDismiss = { pad = false })
+                    }
                 }
             }
         }

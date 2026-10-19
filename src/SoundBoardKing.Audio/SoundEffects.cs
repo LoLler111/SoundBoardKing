@@ -17,6 +17,73 @@ public sealed class EffectControl
         get => Volatile.Read(ref _amount);
         set => Volatile.Write(ref _amount, Math.Clamp(value, 0f, 1f));
     }
+
+    private float _speed = 1f;
+
+    public const float MinSpeed = 0.5f;
+    public const float MaxSpeed = 2f;
+
+    /// <summary>Playback speed like a record: 2 is twice as fast and an octave higher.</summary>
+    public float Speed
+    {
+        get => Volatile.Read(ref _speed);
+        set => Volatile.Write(ref _speed, Math.Clamp(value, MinSpeed, MaxSpeed));
+    }
+}
+
+/// <summary>
+/// Reads the source faster or slower than real time, following <see cref="EffectControl.Speed"/>
+/// while it plays; linear interpolation between frames, so pitch moves with the speed.
+/// </summary>
+internal sealed class VarispeedProvider(ISampleProvider source, EffectControl control) : ISampleProvider
+{
+    private readonly int _channels = source.WaveFormat.Channels;
+    private float[] _frames = new float[4096 * source.WaveFormat.Channels];
+    private int _count;       // valid frames in _frames
+    private double _position; // read position in frames, from the start of _frames
+    private bool _sourceEnded;
+
+    public WaveFormat WaveFormat => source.WaveFormat;
+
+    public int Read(float[] buffer, int offset, int count)
+    {
+        int wanted = count / _channels;
+        float speed = control.Speed;
+        int written = 0;
+        while (written < wanted)
+        {
+            int index = (int)_position;
+            if (index + 1 >= _count && !Refill())
+                break;
+            index = (int)_position;
+            float t = (float)(_position - index);
+            int a = index * _channels, b = a + _channels;
+            for (int c = 0; c < _channels; c++)
+                buffer[offset + written * _channels + c] = _frames[a + c] + (_frames[b + c] - _frames[a + c]) * t;
+            written++;
+            _position += speed;
+        }
+        return written * _channels;
+    }
+
+    // Keeps the frames still needed, reads more behind them; false once nothing is left to interpolate.
+    private bool Refill()
+    {
+        // Drop the frames already passed; at high speed the position may be past the end, so the
+        // skipped frames come out of the next read instead.
+        int start = Math.Min((int)_position, _count);
+        Array.Copy(_frames, start * _channels, _frames, 0, (_count - start) * _channels);
+        _count -= start;
+        _position -= start;
+        while (!_sourceEnded && (_count * _channels < _frames.Length / 2 || (int)_position + 1 >= _count))
+        {
+            int read = source.Read(_frames, _count * _channels, _frames.Length - _count * _channels);
+            if (read == 0)
+                _sourceEnded = true;
+            _count += read / _channels;
+        }
+        return (int)_position + 1 < _count;
+    }
 }
 
 /// <summary>Builds the effect chain a sound plays through.</summary>

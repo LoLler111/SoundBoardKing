@@ -5,6 +5,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
@@ -96,6 +97,8 @@ data class StateDto(
     val effect: String = "none",
     /** Effect strength 0-100. */
     val effectAmount: Int = 70,
+    /** Playback speed of every sound, like a record, 0.5-2. */
+    val playbackSpeed: Double = 1.0,
 )
 
 @Serializable
@@ -119,7 +122,7 @@ sealed interface ServerEvent {
     data class Playback(val playback: PlaybackDto) : ServerEvent
     data class LibraryChanged(val libraryVersion: Long) : ServerEvent
     data class Mic(val mic: MicDto) : ServerEvent
-    data class Effect(val effect: String, val amount: Int) : ServerEvent
+    data class Effect(val effect: String, val amount: Int, val speed: Double = 1.0) : ServerEvent
     data class Error(val message: String) : ServerEvent
 
     companion object {
@@ -133,7 +136,7 @@ sealed interface ServerEvent {
                 // The other fields of these events sit next to "type", in the DTO's shape.
                 "playback" -> Playback(ProtocolJson.decodeFromJsonElement(PlaybackDto.serializer(), json))
                 "mic" -> Mic(ProtocolJson.decodeFromJsonElement(MicDto.serializer(), json))
-                "effect" -> Effect(json["effect"]?.jsonPrimitive?.contentOrNull ?: "none", json["amount"]?.jsonPrimitive?.intOrNull ?: 70)
+                "effect" -> Effect(json["effect"]?.jsonPrimitive?.contentOrNull ?: "none", json["amount"]?.jsonPrimitive?.intOrNull ?: 70, json["speed"]?.jsonPrimitive?.doubleOrNull ?: 1.0)
                 "error" -> Error(json["message"]?.jsonPrimitive?.contentOrNull ?: "Errore sconosciuto")
                 else -> null
             }

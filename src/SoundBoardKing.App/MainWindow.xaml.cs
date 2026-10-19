@@ -102,6 +102,9 @@ public partial class MainWindow : Window
         menu.IsOpen = true;
     }
 
+    // Clicking outside closes the pad: un-press its button too.
+    private void PadPopup_Closed(object? sender, EventArgs e) => PadToggle.IsChecked = false;
+
     private void PhoneButton_Click(object sender, RoutedEventArgs e)
     {
         if (_remote is not null)

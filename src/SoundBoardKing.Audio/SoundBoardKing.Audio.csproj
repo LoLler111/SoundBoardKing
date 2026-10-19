@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SoundBoardKing.Audio.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SoundBoardKing.Core\SoundBoardKing.Core.csproj" />
   </ItemGroup>
 

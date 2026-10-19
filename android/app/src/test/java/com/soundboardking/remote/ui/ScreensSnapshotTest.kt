@@ -38,6 +38,7 @@ class ScreensSnapshotTest {
         override fun setMic(enabled: Boolean) {}
         override fun setEffect(effect: SoundEffect) {}
         override fun setEffectAmount(percent: Int) {}
+        override fun setPad(percent: Int, speed: Double) {}
         override fun reconnect() {}
         override fun forgetServer() {}
         override fun setLook(look: FavoritesLook) {}
@@ -124,6 +125,11 @@ class ScreensSnapshotTest {
     @Test
     fun fullScreen() = captureRoboImage("src/test/snapshots/fullscreen.png") {
         SoundBoardTheme { RemoteScreen(connected, actions, SnackbarHostState(), Tab.Favorites, startFullScreen = true) }
+    }
+
+    @Test
+    fun padDialog() = captureRoboImage("src/test/snapshots/pad-dialog.png") {
+        SoundBoardTheme { PadDialog(SoundEffect.Echo, 35, 1.41, onChange = { _, _ -> }, onDismiss = {}) }
     }
 
     @Test

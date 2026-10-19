@@ -74,3 +74,39 @@ public class SoundEffectsTests
         Assert.Contains(wet.Skip(dry.Length), s => Math.Abs(s) > 0.01f);
     }
 }
+
+public class VarispeedTests
+{
+    private static ISampleProvider Tone(double seconds) =>
+        new SignalGenerator(48000, 2) { Frequency = 440, Gain = 0.5 }.Take(TimeSpan.FromSeconds(seconds));
+
+    private static int RenderedFrames(ISampleProvider provider)
+    {
+        var buffer = new float[1000];
+        int total = 0, read;
+        while ((read = provider.Read(buffer, 0, buffer.Length)) > 0)
+            total += read;
+        return total / 2;
+    }
+
+    [Theory]
+    [InlineData(1f, 48000)]
+    [InlineData(2f, 24000)]
+    [InlineData(0.5f, 96000)]
+    public void Speed_changes_how_long_the_sound_lasts(float speed, int expectedFrames)
+    {
+        var control = new EffectControl { Speed = speed };
+        int frames = RenderedFrames(new VarispeedProvider(Tone(1), control));
+        Assert.InRange(frames, expectedFrames - 4, expectedFrames + 4);
+    }
+
+    [Fact]
+    public void Normal_speed_keeps_the_samples()
+    {
+        var expected = new float[2000];
+        Tone(1).Read(expected, 0, expected.Length);
+        var actual = new float[2000];
+        new VarispeedProvider(Tone(1), new EffectControl()).Read(actual, 0, actual.Length);
+        Assert.Equal(expected, actual);
+    }
+}

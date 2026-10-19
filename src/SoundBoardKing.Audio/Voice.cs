@@ -22,7 +22,8 @@ internal sealed class Voice : ISampleProvider, IDisposable
         });
         try
         {
-            _chain = SoundEffects.Apply(SampleChains.ToFormat(_reader.ToSampleProvider(), mixFormat), effect, control);
+            control ??= new EffectControl();
+            _chain = SoundEffects.Apply(SampleChains.ToFormat(new VarispeedProvider(_reader.ToSampleProvider(), control), mixFormat), effect, control);
         }
         catch
         {

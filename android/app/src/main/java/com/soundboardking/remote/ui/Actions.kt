@@ -36,6 +36,7 @@ interface RemoteActions {
     fun setMic(enabled: Boolean)
     fun setEffect(effect: SoundEffect)
     fun setEffectAmount(percent: Int)
+    fun setPad(percent: Int, speed: Double)
     fun reconnect()
     fun forgetServer()
     fun setLook(look: FavoritesLook)

@@ -195,6 +195,37 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public int EffectAmountPercent => (int)Math.Round(_settings.EffectAmount * 100);
 
+    /// <summary>
+    /// Pad height, -100 (half speed) .. 0 (normal) .. 100 (double speed), for every sound, the
+    /// ones playing too. Not saved: the next start always plays at normal speed.
+    /// </summary>
+    public double PadSpeed
+    {
+        get => Math.Log2(_engine.EffectControl.Speed) * 100;
+        set
+        {
+            float speed = (float)Math.Pow(2, Math.Clamp(value, -100, 100) / 100);
+            if (Math.Abs(speed - _engine.EffectControl.Speed) < 0.0005f)
+                return;
+            _engine.EffectControl.Speed = speed;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SpeedText));
+            EffectChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public float PlaybackSpeed => _engine.EffectControl.Speed;
+
+    public string SpeedText => $"×{_engine.EffectControl.Speed:0.00}";
+
+    /// <summary>Back to normal speed and the default effect strength.</summary>
+    [RelayCommand]
+    private void ResetPad()
+    {
+        EffectAmount = EffectControl.DefaultAmount * 100;
+        PadSpeed = 0;
+    }
+
     [RelayCommand]
     private void SetSoundEffect(EffectOptionViewModel? option)
     {

@@ -315,22 +315,27 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
                         await SendErrorAsync(client, "enabled mancante.");
                     break;
                 case "setEffect":
-                    // "effect", "amount" (0-100) or both: the knob on the phone sends only the amount.
+                    // Any of "effect", "amount" (0-100) and "speed" (0.5-2): the knob and the pad send only what they change.
                     bool hasEffect = root.TryGetProperty("effect", out var effectElement);
                     bool hasAmount = root.TryGetProperty("amount", out var amountElement);
+                    bool hasSpeed = root.TryGetProperty("speed", out var speedElement);
                     SoundEffect effect = default;
                     int amount = 0;
-                    if ((!hasEffect && !hasAmount) ||
+                    double speed = 1;
+                    if ((!hasEffect && !hasAmount && !hasSpeed) ||
+                        (hasSpeed && (speedElement.ValueKind != JsonValueKind.Number || !speedElement.TryGetDouble(out speed) || speed is < 0.5 or > 2)) ||
                         (hasEffect && (effectElement.ValueKind != JsonValueKind.String || !EffectNames.TryParse(effectElement.GetString(), out effect))) ||
-                        (hasAmount && (!amountElement.TryGetInt32(out amount) || amount is < 0 or > 100)))
+                        (hasAmount && (amountElement.ValueKind != JsonValueKind.Number || !amountElement.TryGetInt32(out amount) || amount is < 0 or > 100)))
                     {
-                        await SendErrorAsync(client, "effect o amount (0-100) mancanti o non validi.");
+                        await SendErrorAsync(client, "effect, amount (0-100) o speed (0.5-2) mancanti o non validi.");
                         break;
                     }
                     if (hasEffect)
                         await controller.SetEffectAsync(effect);
                     if (hasAmount)
                         await controller.SetEffectAmountAsync(amount);
+                    if (hasSpeed)
+                        await controller.SetPlaybackSpeedAsync(speed);
                     break;
                 default:
                     await SendErrorAsync(client, $"Comando sconosciuto: {type}");

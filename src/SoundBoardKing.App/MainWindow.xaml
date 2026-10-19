@@ -407,6 +407,60 @@
                               ToolTip="{Binding EffectAmountPercent}" ToolTipService.InitialShowDelay="0" />
                     <TextBlock Text="{Binding EffectAmountPercent, StringFormat={}{0}%}" Width="34" Margin="4,0,0,0" VerticalAlignment="Center"
                                FontSize="12" Foreground="{StaticResource TextDimBrush}" />
+                    <!-- Effect pad: across = strength, up and down = speed of the sounds, like a record. -->
+                    <ToggleButton x:Name="PadToggle" Margin="4,0,0,0" Cursor="Hand"
+                                  ToolTip="Pad degli effetti: orizzontale = intensità, verticale = velocità">
+                        <ToggleButton.Template>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Border x:Name="Bd" Background="{StaticResource Panel2Brush}" CornerRadius="6" Padding="8,5">
+                                    <ContentPresenter />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource LineBrush}" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </ToggleButton.Template>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE80A;" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding SpeedText}" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0" />
+                        </StackPanel>
+                    </ToggleButton>
+                    <Popup IsOpen="{Binding IsChecked, ElementName=PadToggle}" PlacementTarget="{Binding ElementName=PadToggle}"
+                           Placement="Top" VerticalOffset="-8" StaysOpen="False" AllowsTransparency="True"
+                           Closed="PadPopup_Closed">
+                        <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
+                                CornerRadius="10" Padding="12">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,8">
+                                    <Button DockPanel.Dock="Right" Content="Reset" Command="{Binding ResetPadCommand}" Padding="10,3"
+                                            ToolTip="Velocità normale e intensità predefinita" />
+                                    <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource TextDimBrush}">
+                                        <Run Text="{Binding SoundEffectLabel, Mode=OneWay}" />
+                                        <Run Text="·" />
+                                        <Run Text="{Binding EffectAmountPercent, Mode=OneWay, StringFormat={}{0}%}" />
+                                        <Run Text="·" />
+                                        <Run Text="{Binding SpeedText, Mode=OneWay}" />
+                                    </TextBlock>
+                                </DockPanel>
+                                <Grid>
+                                    <ctl:XYPad Width="280" Height="180" X="{Binding EffectAmount}" Y="{Binding PadSpeed}"
+                                               Background="{StaticResource Panel2Brush}" Line="{StaticResource LineBrush}"
+                                               Fill="{StaticResource AccentBrush}" />
+                                    <TextBlock Text="intensità →" FontSize="10" Foreground="{StaticResource TextDimBrush}"
+                                               HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,4" IsHitTestVisible="False" />
+                                    <TextBlock Text="↑ più veloce" FontSize="10" Foreground="{StaticResource TextDimBrush}"
+                                               HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,4,0,0" IsHitTestVisible="False" />
+                                    <TextBlock Text="↓ più lento" FontSize="10" Foreground="{StaticResource TextDimBrush}"
+                                               HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8,0,0,4" IsHitTestVisible="False" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
                     <ToggleButton IsChecked="{Binding PlayOnMic}" Margin="8,0,8,0" Cursor="Hand"
                                   ToolTip="Invia i suoni anche nel microfono (clic per accendere/spegnere). Il modulo si installa dalle impostazioni.">
                         <ToggleButton.Template>
