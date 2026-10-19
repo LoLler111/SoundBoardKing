@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.ComponentModel;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -40,8 +41,10 @@ public partial class MainWindow : Window
         // Unpacked from the Portable zip, the folder the user sees is the one above the app's own
         // (replaced at each update); installed with Setup.exe, nothing near the app survives an update.
         var appFolder = UpdateService.PortableRootDirectory ?? AppContext.BaseDirectory;
+        _storage = new ProfileStorage(AppPaths.Default, appFolder, allowAppFolder: !updates.IsSetupInstall);
+        RestorePlacement();
         _viewModel = new MainViewModel(
-            new ProfileStorage(AppPaths.Default, appFolder, allowAppFolder: !updates.IsSetupInstall),
+            _storage,
             new AudioEngine(micFeed),
             micFeed,
             new HotkeyService(),
@@ -90,9 +93,59 @@ public partial class MainWindow : Window
         await _viewModel.CheckForUpdatesInBackgroundAsync();
     }
 
+    // ---- Window position ---------------------------------------------------------------------
+
+    private readonly ProfileStorage _storage;
+
+    // Back where it was last time (a FancyZones zone too), as long as that spot is still on a screen.
+    private void RestorePlacement()
+    {
+        try
+        {
+            _storage.LoadLocal(); // loaded again with the profile, which also reports a broken file
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+        if (_storage.Local.Window is not { Width: >= 200, Height: >= 150 } saved)
+            return;
+        var screen = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+            SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+        var bounds = new Rect(saved.Left, saved.Top, saved.Width, saved.Height);
+        // At least the title bar must be reachable, or the window would open where nobody can see it.
+        var titleBar = new Rect(bounds.Left + 40, bounds.Top, Math.Max(bounds.Width - 80, 1), 30);
+        if (!screen.IntersectsWith(titleBar))
+            return;
+
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Left = bounds.Left;
+        Top = bounds.Top;
+        Width = bounds.Width;
+        Height = bounds.Height;
+        if (saved.Maximized)
+            WindowState = WindowState.Maximized;
+    }
+
+    private void SavePlacement()
+    {
+        var bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, ActualWidth, ActualHeight) : RestoreBounds;
+        if (bounds.IsEmpty)
+            return;
+        _storage.Local.Window = new WindowPlacement
+        {
+            Left = bounds.Left,
+            Top = bounds.Top,
+            Width = bounds.Width,
+            Height = bounds.Height,
+            Maximized = WindowState == WindowState.Maximized,
+        };
+    }
+
     // The phone server shuts down asynchronously, so the first close request waits for it.
     protected override async void OnClosing(CancelEventArgs e)
     {
+        SavePlacement(); // written with the other settings when the window has closed
         if (_remote is { } remote)
         {
             e.Cancel = true;

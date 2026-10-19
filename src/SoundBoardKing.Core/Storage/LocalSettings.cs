@@ -13,4 +13,17 @@ public sealed class LocalSettings
     /// profile is there, otherwise in the app data folder.
     /// </summary>
     public string? ProfilePath { get; set; }
+
+    /// <summary>Where the main window was when it closed (screens differ between PCs); null until then.</summary>
+    public WindowPlacement? Window { get; set; }
+}
+
+/// <summary>Position and size in device-independent pixels; <see cref="Maximized"/> keeps the normal size too.</summary>
+public sealed class WindowPlacement
+{
+    public double Left { get; set; }
+    public double Top { get; set; }
+    public double Width { get; set; }
+    public double Height { get; set; }
+    public bool Maximized { get; set; }
 }
