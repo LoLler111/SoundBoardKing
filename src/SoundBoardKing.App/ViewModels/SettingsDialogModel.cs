@@ -21,6 +21,9 @@ public sealed partial class SettingsDialogModel : ObservableObject
     private bool allowOverlap;
 
     [ObservableProperty]
+    private bool levelSounds;
+
+    [ObservableProperty]
     private string? stopHotkey;
 
     [ObservableProperty]

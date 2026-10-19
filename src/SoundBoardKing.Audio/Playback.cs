@@ -7,7 +7,8 @@ public sealed record PlayRequest(
     float Volume = 1f,
     bool Speakers = true,
     bool Mic = false,
-    bool AllowOverlap = false);
+    bool AllowOverlap = false,
+    float LevelGain = 1f);
 
 /// <summary>A sound being played, on the speakers, the microphone, or both.</summary>
 public sealed class Playback

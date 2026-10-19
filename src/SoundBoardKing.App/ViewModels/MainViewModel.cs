@@ -306,6 +306,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         _engine.SpeakerVolume = _settings.SpeakerVolume;
         _engine.MicVolume = _settings.MicVolume;
+        _engine.LevelingEnabled = _settings.LevelSounds;
         _engine.SetOutputDevice(_storage.Local.OutputDeviceId);
         HotbarPage = Math.Clamp(_settings.HotbarPage, 0, Hotbar.PageCount - 1);
         OnPropertyChanged(nameof(SpeakerVolume));
@@ -332,6 +333,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (_library.Sounds.Count == 0 && StatusText.Length == 0)
             StatusText = "Libreria vuota: importa la lista di SoundPad o trascina qui dei file audio.";
+        MeasureLoudness();
     }
 
     // ---- Playback ----------------------------------------------------------------------------
@@ -378,7 +380,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                     PlayTarget.Mic => true,
                     _ => _settings.PlayOnMic && _engine.IsMicAvailable,
                 },
-                AllowOverlap: _settings.AllowOverlap));
+                AllowOverlap: _settings.AllowOverlap,
+                LevelGain: LevelGainOf(sound.Model)));
             if (target != PlayTarget.Speakers) // previews do not count as uses
             {
                 sound.Model.PlayCount++;
@@ -635,6 +638,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             message += $"\n\nAvvisi:\n{string.Join("\n", result.Warnings.Take(8))}";
         StatusText = $"Importati {_library.Sounds.Count} suoni da {Path.GetFileName(path)}.";
         _dialogs.ShowInfo(message);
+        MeasureLoudness();
     }
 
     [RelayCommand]
@@ -681,6 +685,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         StatusText = target is null
             ? $"Aggiunti {sounds.Count} suoni."
             : $"Aggiunti {sounds.Count} suoni alla categoria \"{target.Name}\".";
+        MeasureLoudness();
     }
 
     private static IEnumerable<string> ExpandAudioFiles(IEnumerable<string> paths)
@@ -1116,6 +1121,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         {
             SelectedDevice = devices.FirstOrDefault(d => d.Id == (_storage.Local.OutputDeviceId ?? "")) ?? devices[0],
             AllowOverlap = _settings.AllowOverlap,
+            LevelSounds = _settings.LevelSounds,
             StopHotkey = _settings.StopHotkey,
             PauseHotkey = _settings.PauseHotkey,
         };
@@ -1136,6 +1142,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _engine.SetOutputDevice(deviceId);
         }
         _settings.AllowOverlap = model.AllowOverlap;
+        _settings.LevelSounds = model.LevelSounds;
+        _engine.LevelingEnabled = model.LevelSounds;
 
         var stop = model.StopHotkey;
         var pause = string.Equals(model.PauseHotkey, stop, StringComparison.OrdinalIgnoreCase) ? null : model.PauseHotkey;
@@ -1181,6 +1189,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        _loudnessCancel.Cancel();
         _progressTimer.Stop();
         _micTimer.Stop();
         if (_initialized)

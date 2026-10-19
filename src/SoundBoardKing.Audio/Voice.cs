@@ -10,12 +10,19 @@ internal sealed class Voice : ISampleProvider, IDisposable
     private readonly ISampleProvider _chain;
     private volatile bool _stopped;
     private volatile bool _paused;
+    private readonly float _levelGain;
+    private readonly LevelingSwitch? _leveling;
+    private float _appliedGain;
     private int _ended;
 
-    public Voice(string path, WaveFormat mixFormat, float volume, Playback owner, EffectControl? control = null)
+    public Voice(string path, WaveFormat mixFormat, float volume, Playback owner, EffectControl? control = null,
+        float levelGain = 1f, LevelingSwitch? leveling = null)
     {
         Owner = owner;
         Volume = volume;
+        _levelGain = levelGain;
+        _leveling = leveling;
+        _appliedGain = TargetGain();
         _reader = new MediaFoundationReader(path, new MediaFoundationReader.MediaFoundationReaderSettings
         {
             RequestFloatOutput = true,
@@ -61,14 +68,25 @@ internal sealed class Voice : ISampleProvider, IDisposable
         }
 
         int read = _chain.Read(buffer, offset, count);
-        float volume = Volume;
-        if (volume != 1f)
+        float from = _appliedGain;
+        float to = TargetGain();
+        if (from != to && read > 0)
+        {
+            // Leveling switched while playing: glide to the new gain instead of jumping.
+            float step = (to - from) / read;
+            for (int i = 0; i < read; i++)
+                buffer[offset + i] *= from + step * i;
+            _appliedGain = to;
+        }
+        else if (to != 1f)
         {
             for (int i = offset; i < offset + read; i++)
-                buffer[i] *= volume;
+                buffer[i] *= to;
         }
         return read;
     }
+
+    private float TargetGain() => Volume * (_leveling?.Enabled == true ? _levelGain : 1f);
 
     public void Dispose() => _reader.Dispose();
 }

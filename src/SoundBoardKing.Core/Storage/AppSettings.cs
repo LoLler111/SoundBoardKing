@@ -26,6 +26,9 @@ public sealed class AppSettings
     /// <summary>When false, starting a sound stops the one already playing.</summary>
     public bool AllowOverlap { get; set; }
 
+    /// <summary>Brings every sound to the same loudness and keeps overlapping sounds from clipping.</summary>
+    public bool LevelSounds { get; set; } = true;
+
     public string? StopHotkey { get; set; }
     public string? PauseHotkey { get; set; }
 

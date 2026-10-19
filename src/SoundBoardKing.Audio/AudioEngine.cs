@@ -27,6 +27,7 @@ public sealed class AudioEngine : IDisposable
     private VolumeSampleProvider? _speakerMaster;
     private MixingSampleProvider? _micMixer;
     private VolumeSampleProvider? _micMaster;
+    private readonly LevelingSwitch _leveling = new();
     private SpectrumTap? _speakerTap;
     private SpectrumTap? _micTap;
     private string? _deviceId;
@@ -75,6 +76,16 @@ public sealed class AudioEngine : IDisposable
             if (_micMaster is not null)
                 _micMaster.Volume = _micVolume;
         }
+    }
+
+    /// <summary>
+    /// Brings every sound to the same loudness (with its <see cref="PlayRequest.LevelGain"/>) and keeps
+    /// the mixes from clipping when sounds overlap; also applies to the sounds already playing.
+    /// </summary>
+    public bool LevelingEnabled
+    {
+        get => _leveling.Enabled;
+        set => _leveling.Enabled = value;
     }
 
     public static IReadOnlyList<AudioDevice> GetOutputDevices() => GetDevices(DataFlow.Render);
@@ -131,10 +142,10 @@ public sealed class AudioEngine : IDisposable
             if (request.Speakers)
             {
                 EnsureOutput();
-                speaker = new Voice(path, _speakerMixer!.WaveFormat, request.Volume, playback, EffectControl);
+                speaker = new Voice(path, _speakerMixer!.WaveFormat, request.Volume, playback, EffectControl, request.LevelGain, _leveling);
             }
             if (request.Mic && EnsureMic())
-                mic = new Voice(path, _micMixer!.WaveFormat, request.Volume, playback, EffectControl);
+                mic = new Voice(path, _micMixer!.WaveFormat, request.Volume, playback, EffectControl, request.LevelGain, _leveling);
         }
         catch
         {
@@ -207,7 +218,7 @@ public sealed class AudioEngine : IDisposable
         };
         _speakerMixer.MixerInputEnded += OnMixerInputEnded;
         _speakerMaster = new VolumeSampleProvider(_speakerMixer) { Volume = _speakerVolume };
-        _speakerTap = new SpectrumTap(_speakerMaster);
+        _speakerTap = new SpectrumTap(new Limiter(_speakerMaster, _leveling));
         ISampleProvider final = mixFormat.Channels == 2
             ? _speakerTap
             : new ChannelMapSampleProvider(_speakerTap, mixFormat.Channels);
@@ -247,7 +258,7 @@ public sealed class AudioEngine : IDisposable
         };
         _micMixer.MixerInputEnded += OnMixerInputEnded;
         _micMaster = new VolumeSampleProvider(_micMixer) { Volume = _micVolume };
-        _micTap = new SpectrumTap(_micMaster);
+        _micTap = new SpectrumTap(new Limiter(_micMaster, _leveling));
         _micFeed.Attach(_micTap);
         return true;
     }

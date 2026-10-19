@@ -11,6 +11,12 @@ public sealed class Sound
     /// <summary>Per-sound gain, 0..1, applied on top of the output volume.</summary>
     public float Volume { get; set; } = 1f;
 
+    /// <summary>Integrated loudness of the file in LUFS, for leveling; null until it is measured.</summary>
+    public float? Loudness { get; set; }
+
+    /// <summary>Highest sample of the file in dBFS, measured with <see cref="Loudness"/>.</summary>
+    public float? Peak { get; set; }
+
     /// <summary>Global hotkey in "Ctrl+Alt+1" form, or null.</summary>
     public string? Hotkey { get; set; }
 

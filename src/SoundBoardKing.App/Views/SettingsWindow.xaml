@@ -27,7 +27,10 @@
                  MinHeight="44" MaxHeight="140" VerticalScrollBarVisibility="Auto" FontSize="12"
                  Foreground="{StaticResource TextDimBrush}" />
 
-        <CheckBox Content="Permetti più suoni contemporaneamente" IsChecked="{Binding AllowOverlap}" Margin="0,0,0,18" />
+        <CheckBox Content="Permetti più suoni contemporaneamente" IsChecked="{Binding AllowOverlap}" Margin="0,0,0,10" />
+        <CheckBox Content="Livella il volume dei suoni" IsChecked="{Binding LevelSounds}" />
+        <TextBlock Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap" Margin="22,2,0,18" FontSize="12"
+                   Text="Porta tutti i suoni alla stessa intensità percepita (i file vengono analizzati una volta, in sottofondo) e impedisce che più suoni insieme distorcano, in cuffia e nel microfono." />
 
         <TextBlock Text="Tasti rapidi globali" FontWeight="SemiBold" Margin="0,0,0,8" />
         <Grid>
