@@ -188,6 +188,10 @@ public sealed class RemoteServerTests : IAsyncLifetime
         // The connection survives errors.
         await SendAsync(socket, new { type = "stop" });
         Assert.Equal(WebSocketState.Open, socket.State);
+        // Messages are handled in order: once the last one ("stop") is, so are all the others. A slow
+        // machine (the release build on GitHub) may not be there yet when the send returns.
+        for (int i = 0; i < 250 && _controller.Stops == 0; i++)
+            await Task.Delay(20);
 
         Assert.Equal([PlayTarget.Default, PlayTarget.Speakers], _controller.Targets);
         Assert.Equal(1, _controller.Pauses);
