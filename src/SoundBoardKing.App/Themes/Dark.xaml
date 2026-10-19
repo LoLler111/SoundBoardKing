@@ -147,7 +147,10 @@
                         <Border.Effect>
                             <DropShadowEffect BlurRadius="14" ShadowDepth="3" Opacity="0.45" Color="Black" />
                         </Border.Effect>
-                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                        <!-- Long menus (many categories) scroll instead of running off the screen. -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
+                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                        </ScrollViewer>
                     </Border>
                 </ControlTemplate>
             </Setter.Value>

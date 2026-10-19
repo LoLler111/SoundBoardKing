@@ -1,0 +1,115 @@
+<Window x:Class="SoundBoardKing.App.Views.MyinstantsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cerca su Myinstants" Width="560" Height="660" MinWidth="420" MinHeight="380" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource PanelBrush}" Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI" FontSize="13">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
+
+    <DockPanel Margin="18">
+        <!-- Search -->
+        <DockPanel DockPanel.Dock="Top">
+            <Button DockPanel.Dock="Right" Content="Cerca" Command="{Binding SearchCommand}" Style="{StaticResource AccentButton}"
+                    MinWidth="80" Margin="8,0,0,0" />
+            <Grid>
+                <TextBox x:Name="QueryBox" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Enter" Command="{Binding SearchCommand}" />
+                    </TextBox.InputBindings>
+                </TextBox>
+                <TextBlock Text="Cerca un suono, o incolla un link di Myinstants" Margin="11,0,0,0" VerticalAlignment="Center"
+                           Foreground="{StaticResource TextDimBrush}" IsHitTestVisible="False">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=QueryBox}" Value="">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+        </DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="Ascolta con ▶, poi premi Aggiungi e scegli in che categoria salvarlo." FontSize="12" Foreground="{StaticResource TextDimBrush}"
+                   TextWrapping="Wrap" Margin="2,8,0,10" />
+
+        <!-- Preview volume and status -->
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <TextBlock DockPanel.Dock="Left" FontFamily="{StaticResource IconFont}" Text="&#xE7F6;" FontSize="15"
+                       VerticalAlignment="Center" Margin="0,0,8,0" ToolTip="Volume dell'anteprima" />
+            <TextBlock DockPanel.Dock="Left" Text="Anteprima" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <TextBlock DockPanel.Dock="Right" Text="{Binding PreviewVolume, StringFormat={}{0:0}%}" Width="40" TextAlignment="Right"
+                       VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" />
+            <Slider Minimum="0" Maximum="100" Value="{Binding PreviewVolume}" VerticalAlignment="Center"
+                    ToolTip="Solo per l'anteprima, in cuffia. I suoni sono comunque livellati e limitati, quindi niente sorprese da earrape." />
+        </DockPanel>
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <Button DockPanel.Dock="Right" Content="Altri risultati" Command="{Binding LoadMoreCommand}"
+                    Visibility="{Binding HasMore, Converter={StaticResource BoolToVisibility}}" />
+            <TextBlock Text="{Binding StatusText}" FontSize="12" Foreground="{StaticResource TextDimBrush}"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="2,0,8,0" />
+        </DockPanel>
+
+        <!-- Results -->
+        <Border Background="{StaticResource BgBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="6">
+            <Grid>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Results}" Margin="0,4">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border x:Name="Row" Padding="6,3" Background="Transparent">
+                                    <DockPanel>
+                                        <Button x:Name="PreviewButton" DockPanel.Dock="Left" Style="{StaticResource SmallIconButton}" Content="&#xE768;"
+                                                Command="{Binding DataContext.PreviewCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" ToolTip="Ascolta in cuffia" />
+                                        <Button x:Name="AddButton" DockPanel.Dock="Right" Padding="10,3"
+                                                Click="AddButton_Click"
+                                                ToolTip="Scarica e aggiungi alla libreria, nella categoria che scegli">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock x:Name="AddIcon" FontFamily="{StaticResource IconFont}" Text="&#xE710;" FontSize="11"
+                                                           VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                <TextBlock x:Name="AddText" Text="Aggiungi" />
+                                                <TextBlock x:Name="AddChevron" FontFamily="{StaticResource IconFont}" Text="&#xE70D;" FontSize="9"
+                                                           VerticalAlignment="Center" Margin="6,1,0,0" />
+                                            </StackPanel>
+                                        </Button>
+                                        <TextBlock Text="{Binding Title}" VerticalAlignment="Center" Margin="8,0,8,0"
+                                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}" />
+                                    </DockPanel>
+                                </Border>
+                                <DataTemplate.Triggers>
+                                    <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Row" Property="Background" Value="{StaticResource Panel2Brush}" />
+                                    </Trigger>
+                                    <DataTrigger Binding="{Binding IsPreviewing}" Value="True">
+                                        <Setter TargetName="PreviewButton" Property="Content" Value="&#xE71A;" />
+                                        <Setter TargetName="PreviewButton" Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                        <Setter TargetName="PreviewButton" Property="ToolTip" Value="Ferma l'anteprima" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                        <Setter TargetName="AddButton" Property="IsEnabled" Value="False" />
+                                        <Setter TargetName="PreviewButton" Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsAdded}" Value="True">
+                                        <Setter TargetName="AddButton" Property="IsEnabled" Value="False" />
+                                        <Setter TargetName="AddIcon" Property="Text" Value="&#xE73E;" />
+                                        <Setter TargetName="AddText" Property="Text" Value="Aggiunto" />
+                                        <Setter TargetName="AddChevron" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="AddButton" Property="ToolTip" Value="Già nella libreria" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+                <ProgressBar IsIndeterminate="True" Height="3" VerticalAlignment="Top"
+                             Visibility="{Binding IsSearching, Converter={StaticResource BoolToVisibility}}" />
+            </Grid>
+        </Border>
+    </DockPanel>
+</Window>

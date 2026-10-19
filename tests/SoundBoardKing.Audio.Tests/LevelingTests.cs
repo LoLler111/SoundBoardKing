@@ -128,3 +128,40 @@ public class LevelingTests
         Assert.Contains(output, s => Math.Abs(s) > Limiter.Ceiling + 0.05f);
     }
 }
+
+public class PreviewPlayerTests
+{
+    private static byte[] Wav(double gain)
+    {
+        var tone = new SignalGenerator(44100, 2) { Frequency = 1000, Gain = gain }.Take(TimeSpan.FromSeconds(2));
+        using var memory = new MemoryStream();
+        using (var writer = new WaveFileWriter(new NAudio.Utils.IgnoreDisposeStream(memory), tone.WaveFormat))
+        {
+            var buffer = new float[4410];
+            int read;
+            while ((read = tone.Read(buffer, 0, buffer.Length)) > 0)
+                writer.WriteSamples(buffer, 0, read);
+        }
+        return memory.ToArray();
+    }
+
+    [Fact]
+    public void Measures_a_sound_held_in_memory()
+    {
+        var info = PreviewPlayer.TryMeasure(Wav(0.1));
+        Assert.NotNull(info);
+        Assert.InRange(info.Value.Lufs, -20.3f, -19.7f);
+    }
+
+    [Fact]
+    public void A_full_scale_upload_is_turned_down_to_the_target()
+    {
+        var info = PreviewPlayer.TryMeasure(Wav(1.0))!.Value;
+        float gainDb = 20 * MathF.Log10(Loudness.GainFor(info.Lufs, info.PeakDb));
+        Assert.InRange(info.Lufs + gainDb, Loudness.TargetLufs - 0.3f, Loudness.TargetLufs + 0.3f);
+    }
+
+    [Fact]
+    public void Data_that_is_not_audio_gives_no_measure() =>
+        Assert.Null(PreviewPlayer.TryMeasure("<html>not found</html>"u8.ToArray()));
+}

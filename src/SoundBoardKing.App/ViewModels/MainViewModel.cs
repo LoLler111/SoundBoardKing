@@ -670,8 +670,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             Path = file,
             DurationMs = (long)(AudioFileProbe.TryGetDuration(file)?.TotalMilliseconds ?? 0),
         }).ToList());
+        AddToLibrary(sounds, SelectedCategory?.Model);
+    }
 
-        var target = SelectedCategory?.Model;
+    /// <summary>Puts new sounds in the library and, when given, in <paramref name="target"/>.</summary>
+    private void AddToLibrary(IReadOnlyList<Sound> sounds, Category? target)
+    {
         foreach (var sound in sounds)
         {
             _library.Sounds.Add(sound);
@@ -714,13 +718,18 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var question = sounds.Count == 1
             ? $"Rimuovere \"{sounds[0].Title}\" dalla libreria?"
             : $"Rimuovere {sounds.Count} suoni dalla libreria?";
-        if (!_dialogs.Confirm(question + "\nI file audio sul disco non vengono cancellati."))
+        int downloaded = sounds.Count(s => IsMyinstantsDownload(s.Model.Path));
+        var files = downloaded == 0 ? "\nI file audio sul disco non vengono cancellati."
+            : downloaded == sounds.Count ? "\nI file scaricati da Myinstants vengono cancellati."
+            : "\nI file audio sul disco non vengono cancellati, tranne quelli scaricati da Myinstants.";
+        if (!_dialogs.Confirm(question + files))
             return;
 
         var ids = sounds.Select(s => s.Id).ToHashSet();
         _library.RemoveSounds(ids);
         foreach (var id in ids)
             _soundsById.Remove(id);
+        DeleteUnusedDownloads(sounds.Select(s => s.Model.Path));
 
         RefreshCounts();
         RefreshVisible();
@@ -891,6 +900,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     partial void OnSelectedCategoryChanged(CategoryNodeViewModel? value)
     {
+        OnPropertyChanged(nameof(IsAllSounds));
         SortChanged();
         RefreshVisible();
     }
@@ -903,18 +913,19 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void NewSubcategory() => CreateCategory(SelectedCategory?.Model);
 
-    private void CreateCategory(Category? parent)
+    private Category? CreateCategory(Category? parent)
     {
         var name = _dialogs.AskText(
             parent is null ? "Nuova categoria" : $"Nuova sottocategoria di \"{parent.Name}\"",
             "Nome della categoria:")?.Trim();
         if (string.IsNullOrEmpty(name))
-            return;
+            return null;
 
         var category = new Category { Name = name, Icon = name[..1].ToUpperInvariant() };
         (parent?.Children ?? _library.Categories).Add(category);
         RebuildCategories(select: category);
         LibraryEdited();
+        return category;
     }
 
     [RelayCommand]
@@ -927,6 +938,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
         category.Name = name;
         node.NotifyNameChanged();
+        RefreshSoundCategories();
         LibraryEdited();
     }
 
@@ -1027,6 +1039,33 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         foreach (var node in CategoryRoots.SelectMany(n => n.SelfAndDescendants()))
             node.Count = node.Model?.SoundIds.Count ?? _library.Sounds.Count;
         OnPropertyChanged(nameof(LibrarySummary));
+        RefreshSoundCategories();
+    }
+
+    /// <summary>True on "Tutti i suoni": the list then also shows each sound's categories.</summary>
+    public bool IsAllSounds => SelectedCategory?.Model is null;
+
+    // Subcategories with their path ("Meme › Italiani"), so two with the same name stay apart.
+    private void RefreshSoundCategories()
+    {
+        var names = new Dictionary<Guid, List<string>>();
+        void Visit(Category category, string path)
+        {
+            foreach (var id in category.SoundIds)
+            {
+                if (!names.TryGetValue(id, out var list))
+                    names[id] = list = [];
+                if (!list.Contains(path))
+                    list.Add(path);
+            }
+            foreach (var child in category.Children)
+                Visit(child, $"{path} › {child.Name}");
+        }
+        foreach (var category in _library.Categories)
+            Visit(category, category.Name);
+
+        foreach (var sound in _soundsById.Values)
+            sound.Categories = names.TryGetValue(sound.Id, out var list) ? string.Join(", ", list) : "";
     }
 
     private void RefreshVisible()
@@ -1197,6 +1236,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _micFeed.SetVoiceEffect(0, 0); // the voice goes back to normal at once, not after the timeout
         _hotkeys.Dispose();
         _engine.Dispose();
+        DeletePendingDownloads(); // nothing plays them any more
         ApplyDownloadedUpdate();
     }
 }

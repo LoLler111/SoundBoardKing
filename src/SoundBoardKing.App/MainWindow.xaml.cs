@@ -18,6 +18,7 @@ using SoundBoardKing.App.ViewModels;
 using SoundBoardKing.Audio;
 using SoundBoardKing.Audio.MicFx;
 using SoundBoardKing.Core.Models;
+using SoundBoardKing.Core.Myinstants;
 using SoundBoardKing.Core.Storage;
 
 namespace SoundBoardKing.App;
@@ -73,6 +74,8 @@ public partial class MainWindow : Window
         {
             if (e.PropertyName == nameof(MainViewModel.HasArtists))
                 ArtistColumn.Visibility = _viewModel.HasArtists ? Visibility.Visible : Visibility.Collapsed;
+            else if (e.PropertyName == nameof(MainViewModel.IsAllSounds))
+                CategoryColumn.Visibility = _viewModel.IsAllSounds ? Visibility.Visible : Visibility.Collapsed;
         };
     }
 
@@ -302,6 +305,22 @@ public partial class MainWindow : Window
             new PhoneWindow(_remote) { Owner = this }.ShowDialog();
     }
 
+    private MyinstantsWindow? _myinstants;
+
+    private void MyinstantsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_myinstants is null)
+        {
+            _myinstants = new MyinstantsWindow(new MyinstantsViewModel(_viewModel)) { Owner = this };
+            _myinstants.Closed += (_, _) => _myinstants = null;
+            _myinstants.Show();
+        }
+        else
+        {
+            _myinstants.Activate();
+        }
+    }
+
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
@@ -310,7 +329,30 @@ public partial class MainWindow : Window
             SearchBox.SelectAll();
             e.Handled = true;
         }
+        // Ctrl+V of a Myinstants link outside a text box adds that sound.
+        else if (e.Key == Key.V && Keyboard.Modifiers == ModifierKeys.Control &&
+                 Keyboard.FocusedElement is not TextBox && MyinstantsLinkOnClipboard() is { } link)
+        {
+            e.Handled = true;
+            _ = _viewModel.AddMyinstantsLinkAsync(link);
+        }
     }
+
+    private static string? MyinstantsLinkOnClipboard()
+    {
+        try
+        {
+            return Clipboard.ContainsText() && Clipboard.GetText() is var text && MyinstantsClient.IsSoundLink(text) ? text : null;
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            return null; // another app holds the clipboard
+        }
+    }
+
+    private static string? MyinstantsLinkIn(IDataObject data) =>
+        !data.GetDataPresent(DataFormats.FileDrop) && data.GetData(DataFormats.UnicodeText) is string text &&
+        MyinstantsClient.IsSoundLink(text) ? text : null;
 
     // ---- Sound list --------------------------------------------------------------------------
 
@@ -553,7 +595,9 @@ public partial class MainWindow : Window
 
     private void Window_DragOver(object sender, DragEventArgs e)
     {
-        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) || MyinstantsLinkIn(e.Data) is not null
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
         e.Handled = true;
     }
 
@@ -561,6 +605,9 @@ public partial class MainWindow : Window
     {
         if (e.Data.GetData(DataFormats.FileDrop) is string[] paths)
             await _viewModel.AddPathsAsync(paths);
+        // A link dragged from the browser.
+        else if (MyinstantsLinkIn(e.Data) is { } link)
+            await _viewModel.AddMyinstantsLinkAsync(link);
     }
 
     // WPF does not scroll by itself during drag and drop: nudge the favourites when the pointer is near an edge.

@@ -12,6 +12,10 @@ public sealed partial class SoundItemViewModel : ObservableObject
     [ObservableProperty]
     private bool isPlaying;
 
+    /// <summary>The categories the sound is in, e.g. "Meme › Italiani, Preferiti"; shown in "Tutti i suoni".</summary>
+    [ObservableProperty]
+    private string categories = "";
+
     public SoundItemViewModel(Sound model)
     {
         Model = model;

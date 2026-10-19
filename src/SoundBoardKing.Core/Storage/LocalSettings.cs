@@ -14,6 +14,9 @@ public sealed class LocalSettings
     /// </summary>
     public string? ProfilePath { get; set; }
 
+    /// <summary>Volume of the Myinstants preview, 0..1: low to start with, since some uploads are ear-rape.</summary>
+    public float PreviewVolume { get; set; } = 0.4f;
+
     /// <summary>Where the main window was when it closed (screens differ between PCs); null until then.</summary>
     public WindowPlacement? Window { get; set; }
 }

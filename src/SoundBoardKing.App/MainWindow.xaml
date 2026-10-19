@@ -47,6 +47,13 @@
                         <TextBlock Text="Aggiungi suoni" />
                     </StackPanel>
                 </Button>
+                <Button DockPanel.Dock="Left" Margin="8,0,0,0" Click="MyinstantsButton_Click"
+                        ToolTip="Cerca, ascolta e aggiungi i suoni di myinstants.com (puoi anche incollare o trascinare qui un link)">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE774;" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="Myinstants" />
+                    </StackPanel>
+                </Button>
 
                 <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE713;"
                         Command="{Binding OpenSettingsCommand}" ToolTip="Impostazioni" Margin="4,0,0,0" />
@@ -201,6 +208,15 @@
                                 <Setter Property="MaxLength" Value="200" />
                             </Style>
                         </DataGridTextColumn.EditingElementStyle>
+                    </DataGridTextColumn>
+                    <!-- Only on "Tutti i suoni": inside a category it would say the same thing on every row. -->
+                    <DataGridTextColumn x:Name="CategoryColumn" Header="Categoria" Binding="{Binding Categories}" Width="190" IsReadOnly="True" CanUserSort="False">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                <Setter Property="ToolTip" Value="{Binding Categories}" />
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
                     <DataGridTextColumn x:Name="ArtistColumn" Header="Artista" Binding="{Binding Artist}" Width="170" IsReadOnly="True" CanUserSort="False" />
                     <DataGridTextColumn x:Name="DurationColumn" Header="Durata" Binding="{Binding Duration}" Width="80" IsReadOnly="True" />
