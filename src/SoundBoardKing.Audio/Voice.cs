@@ -12,7 +12,7 @@ internal sealed class Voice : ISampleProvider, IDisposable
     private volatile bool _paused;
     private int _ended;
 
-    public Voice(string path, WaveFormat mixFormat, float volume, Playback owner, SoundEffect effect = SoundEffect.None, EffectControl? control = null)
+    public Voice(string path, WaveFormat mixFormat, float volume, Playback owner, EffectControl? control = null)
     {
         Owner = owner;
         Volume = volume;
@@ -23,7 +23,7 @@ internal sealed class Voice : ISampleProvider, IDisposable
         try
         {
             control ??= new EffectControl();
-            _chain = SoundEffects.Apply(SampleChains.ToFormat(new VarispeedProvider(_reader.ToSampleProvider(), control), mixFormat), effect, control);
+            _chain = new LiveEffect(SampleChains.ToFormat(new VarispeedProvider(_reader.ToSampleProvider(), control), mixFormat), control);
         }
         catch
         {

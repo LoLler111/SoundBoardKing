@@ -432,7 +432,7 @@
                     </Border>
                     <!-- Voice effect for the sounds: a click opens the list. -->
                     <Button x:Name="EffectButton" Margin="12,0,0,0" Cursor="Hand" Click="EffectButton_Click"
-                            ToolTip="Effetto sulla voce dei suoni che fai partire (nelle cuffie e nel microfono)">
+                            ToolTip="Effetto sulla voce dei suoni, anche di quelli già in riproduzione (nelle cuffie e nel microfono)">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="Bd" Background="{StaticResource Panel2Brush}" CornerRadius="6" Padding="10,5">

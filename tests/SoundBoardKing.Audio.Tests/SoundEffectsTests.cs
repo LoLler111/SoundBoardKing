@@ -65,6 +65,29 @@ public class SoundEffectsTests
     }
 
     [Fact]
+    public void The_effect_type_changes_while_the_sound_plays()
+    {
+        var control = new EffectControl { Amount = 1 };
+        var live = new LiveEffect(Tone(), control);
+        var dry = Render(Tone());
+
+        var first = new float[4800];
+        live.Read(first, 0, first.Length);
+        Assert.Equal(dry.Take(first.Length), first); // no effect yet
+
+        control.Effect = SoundEffect.Robot;
+        var second = new float[4800];
+        live.Read(second, 0, second.Length);
+        Assert.NotEqual(dry.Skip(4800).Take(4800), second);
+
+        // "Voice only": the sounds play clean again, with the robot still chosen.
+        control.SoundsEnabled = false;
+        var third = new float[4800];
+        live.Read(third, 0, third.Length);
+        Assert.Equal(dry.Skip(9600).Take(4800), third);
+    }
+
+    [Fact]
     public void Echo_keeps_sounding_after_the_sound_ends()
     {
         var dry = Render(Tone());

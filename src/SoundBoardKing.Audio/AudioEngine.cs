@@ -131,10 +131,10 @@ public sealed class AudioEngine : IDisposable
             if (request.Speakers)
             {
                 EnsureOutput();
-                speaker = new Voice(path, _speakerMixer!.WaveFormat, request.Volume, playback, request.Effect, EffectControl);
+                speaker = new Voice(path, _speakerMixer!.WaveFormat, request.Volume, playback, EffectControl);
             }
             if (request.Mic && EnsureMic())
-                mic = new Voice(path, _micMixer!.WaveFormat, request.Volume, playback, request.Effect, EffectControl);
+                mic = new Voice(path, _micMixer!.WaveFormat, request.Volume, playback, EffectControl);
         }
         catch
         {

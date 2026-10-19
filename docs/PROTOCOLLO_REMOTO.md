@@ -60,7 +60,7 @@ Errori: 401 se il token manca o non è valido.
   con una versione precedente.
   `state` è `paused` solo quando tutti i suoni sono in pausa.
 - `mic.state`: `notInstalled` | `idle` | `active` | `incompatible` | `accessDenied`.
-- `effect`: effetto sulla voce dei suoni che partono da ora: `none` | `chipmunk` | `deep` | `robot` | `radio` | `echo`.
+- `effect`: effetto sulla voce dei suoni, cambia al volo anche quelli già in riproduzione: `none` | `chipmunk` | `deep` | `robot` | `radio` | `echo`.
   I PC senza effetti non lo mandano: va inteso come `none`.
 - `effectAmount`: intensità dell'effetto da 0 a 100 (70 se manca); cambia al volo anche i suoni già partiti.
 - `playbackSpeed`: velocità di tutti i suoni, come un disco (più veloce = più acuto), da 0.5 a 2; cambia al volo anche quelli in corso. Non viene salvata: a ogni avvio torna 1.

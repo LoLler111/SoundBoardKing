@@ -152,7 +152,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public IReadOnlyList<EffectOptionViewModel> EffectOptions { get; } =
         Enum.GetValues<SoundEffect>().Select(e => new EffectOptionViewModel(e)).ToList();
 
-    /// <summary>Voice effect for the sounds started from now on (the ones already playing keep theirs).</summary>
+    /// <summary>Voice effect of the sounds, the ones already playing too.</summary>
     public SoundEffect SoundEffect
     {
         get => _settings.SoundEffect;
@@ -161,6 +161,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             if (value == _settings.SoundEffect)
                 return;
             _settings.SoundEffect = value;
+            _engine.EffectControl.Effect = value;
             foreach (var option in EffectOptions)
                 option.IsSelected = option.Effect == value;
             OnPropertyChanged();
@@ -311,6 +312,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(SoundEffect));
         OnPropertyChanged(nameof(SoundEffectLabel));
         _engine.EffectControl.Amount = _settings.EffectAmount;
+        _engine.EffectControl.Effect = _settings.SoundEffect;
         OnPropertyChanged(nameof(EffectAmount));
         OnPropertyChanged(nameof(EffectAmountPercent));
         OnPropertyChanged(nameof(HasEffect));
@@ -372,8 +374,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                     PlayTarget.Mic => true,
                     _ => _settings.PlayOnMic && _engine.IsMicAvailable,
                 },
-                AllowOverlap: _settings.AllowOverlap,
-                Effect: EffectOnSounds ? _settings.SoundEffect : SoundEffect.None));
+                AllowOverlap: _settings.AllowOverlap));
             if (target != PlayTarget.Speakers) // previews do not count as uses
             {
                 sound.Model.PlayCount++;

@@ -27,6 +27,18 @@ public sealed class EffectControl
         set => _soundsEnabled = value;
     }
 
+    private volatile int _effect;
+
+    /// <summary>The effect every sound plays through; changing it switches the sounds already playing too.</summary>
+    public SoundEffect Effect
+    {
+        get => (SoundEffect)_effect;
+        set => _effect = (int)value;
+    }
+
+    /// <summary>The effect the sounds actually use: none while the effect is set to the voice only (or off).</summary>
+    public SoundEffect ActiveEffect => _soundsEnabled ? Effect : SoundEffect.None;
+
     /// <summary>The amount the sound effects use: 0 while they are switched off.</summary>
     public float Wet => _soundsEnabled ? Amount : 0f;
 
@@ -114,6 +126,34 @@ public static class SoundEffects
             SoundEffect.Echo => new EchoEffect(source, control),
             _ => source,
         };
+    }
+}
+
+/// <summary>
+/// Follows <see cref="EffectControl.ActiveEffect"/> while the sound plays: on a change the next buffer
+/// goes through a fresh instance of the new effect, so no echo or filter state leaks from the old one.
+/// </summary>
+internal sealed class LiveEffect(ISampleProvider source, EffectControl control) : ISampleProvider
+{
+    private SoundEffect _current = SoundEffect.None;
+    private ISampleProvider _chain = source;
+    private bool _sourceEnded;
+
+    public WaveFormat WaveFormat => source.WaveFormat;
+
+    public int Read(float[] buffer, int offset, int count)
+    {
+        var wanted = control.ActiveEffect;
+        // Once the sound has ended only the effect's own tail (echo) is left: switching then would cut it.
+        if (wanted != _current && !_sourceEnded)
+        {
+            _current = wanted;
+            _chain = SoundEffects.Apply(source, wanted, control);
+        }
+        int read = _chain.Read(buffer, offset, count);
+        if (read < count)
+            _sourceEnded = true;
+        return read;
     }
 }
 
