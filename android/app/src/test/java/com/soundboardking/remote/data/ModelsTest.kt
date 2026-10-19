@@ -48,6 +48,14 @@ class ModelsTest {
     }
 
     @Test
+    fun readsTheVoiceEffect() {
+        assertEquals(ServerEvent.Effect("echo"), ServerEvent.parse("""{"type":"effect","effect":"echo"}"""))
+        assertEquals(SoundEffect.Echo, SoundEffect.fromWire("echo"))
+        // Older PCs send no effect, and an unknown name falls back to none.
+        assertEquals(SoundEffect.None, SoundEffect.fromWire("somethingNew"))
+    }
+
+    @Test
     fun ignoresUnknownOrBrokenMessages() {
         assertNull(ServerEvent.parse("""{"type":"somethingNew"}"""))
         assertNull(ServerEvent.parse("not json"))

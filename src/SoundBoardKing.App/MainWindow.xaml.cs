@@ -94,6 +94,14 @@ public partial class MainWindow : Window
         base.OnClosing(e);
     }
 
+    private void EffectButton_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = EffectButton.ContextMenu;
+        menu.PlacementTarget = EffectButton;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
+        menu.IsOpen = true;
+    }
+
     private void PhoneButton_Click(object sender, RoutedEventArgs e)
     {
         if (_remote is not null)

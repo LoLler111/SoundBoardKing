@@ -1,4 +1,5 @@
 using NAudio.Wave;
+using SoundBoardKing.Core.Models;
 
 namespace SoundBoardKing.Audio;
 
@@ -11,7 +12,7 @@ internal sealed class Voice : ISampleProvider, IDisposable
     private volatile bool _paused;
     private int _ended;
 
-    public Voice(string path, WaveFormat mixFormat, float volume, Playback owner)
+    public Voice(string path, WaveFormat mixFormat, float volume, Playback owner, SoundEffect effect = SoundEffect.None)
     {
         Owner = owner;
         Volume = volume;
@@ -21,7 +22,7 @@ internal sealed class Voice : ISampleProvider, IDisposable
         });
         try
         {
-            _chain = SampleChains.ToFormat(_reader.ToSampleProvider(), mixFormat);
+            _chain = SoundEffects.Apply(SampleChains.ToFormat(_reader.ToSampleProvider(), mixFormat), effect);
         }
         catch
         {

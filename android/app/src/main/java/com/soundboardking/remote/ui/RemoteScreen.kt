@@ -86,6 +86,7 @@ import com.soundboardking.remote.data.FavoritesLook
 import com.soundboardking.remote.data.MicDto
 import com.soundboardking.remote.data.PlayTarget
 import com.soundboardking.remote.data.PlaybackDto
+import com.soundboardking.remote.data.SoundEffect
 import com.soundboardking.remote.data.SoundDto
 import com.soundboardking.remote.data.StateDto
 import com.soundboardking.remote.ui.theme.Danger
@@ -496,7 +497,12 @@ private fun NowPlayingBar(
                 }
                 IconButton(onClick = actions::stop) { StopIcon() }
             }
-            if (showMic) MicChip(state.mic, onToggle = { actions.setMic(!state.mic.enabled) })
+            if (showMic) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MicChip(state.mic, onToggle = { actions.setMic(!state.mic.enabled) })
+                    EffectChip(state.effect, onPick = actions::setEffect)
+                }
+            }
         }
     }
 }
@@ -538,6 +544,31 @@ private fun PlayingRow(
         if (onStop != null) {
             IconButton(onClick = onStop, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Filled.Close, contentDescription = "Ferma questo suono", tint = TextDim, modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
+/** The voice effect the PC plays the sounds through; a tap opens the list. */
+@Composable
+private fun EffectChip(effect: SoundEffect, onPick: (SoundEffect) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box(Modifier.padding(start = 8.dp, bottom = 6.dp)) {
+        FilterChip(
+            selected = effect != SoundEffect.None,
+            onClick = { open = true },
+            label = { Text(if (effect == SoundEffect.None) "Effetto: nessuno" else "Effetto: ${effect.label}") },
+            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = GoldSoft, selectedLabelColor = Gold),
+        )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            SoundEffect.entries.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label, color = if (option == effect) Gold else Color.Unspecified) },
+                    onClick = {
+                        open = false
+                        onPick(option)
+                    },
+                )
             }
         }
     }

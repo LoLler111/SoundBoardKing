@@ -12,6 +12,7 @@ import com.soundboardking.remote.data.AppUpdater
 import com.soundboardking.remote.data.Discovery
 import com.soundboardking.remote.data.FavoritesLook
 import com.soundboardking.remote.data.LookStore
+import com.soundboardking.remote.data.SoundEffect
 import com.soundboardking.remote.data.DiscoveredPc
 import com.soundboardking.remote.data.MicDto
 import com.soundboardking.remote.data.PROTOCOL_VERSION
@@ -54,6 +55,7 @@ data class UiState(
     /** SystemClock.elapsedRealtime() when [playback] arrived; the position is extrapolated from it. */
     val playbackReceivedAt: Long = 0,
     val mic: MicDto = MicDto(),
+    val effect: SoundEffect = SoundEffect.None,
     val discovered: List<DiscoveredPc> = emptyList(),
     val discovering: Boolean = false,
     val pairingBusy: Boolean = false,
@@ -358,6 +360,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
                 playback = library.playback,
                 playbackReceivedAt = SystemClock.elapsedRealtime(),
                 mic = library.mic,
+                effect = SoundEffect.fromWire(library.effect),
             )
         }
     }
@@ -402,6 +405,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
                 it.copy(playback = event.playback, playbackReceivedAt = SystemClock.elapsedRealtime())
             }
             is ServerEvent.Mic -> _state.update { it.copy(mic = event.mic) }
+            is ServerEvent.Effect -> _state.update { it.copy(effect = SoundEffect.fromWire(event.effect)) }
             is ServerEvent.Error -> showMessage(event.message)
         }
     }
@@ -432,6 +436,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
     override fun togglePause() = send(SoundBoardApi.simpleCommand("togglePause"))
 
     override fun setMic(enabled: Boolean) = send(SoundBoardApi.micCommand(enabled))
+
+    override fun setEffect(effect: SoundEffect) = send(SoundBoardApi.effectCommand(effect))
 
     private fun send(command: String) {
         if (socket?.send(command) != true) showMessage("Non connesso al PC.")

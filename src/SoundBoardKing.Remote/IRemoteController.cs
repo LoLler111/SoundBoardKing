@@ -21,4 +21,7 @@ public interface IRemoteController
     Task<bool> TogglePauseOneAsync(Guid playbackId);
     Task TogglePauseAsync();
     Task SetMicEnabledAsync(bool enabled);
+
+    /// <summary>Changes the voice effect the sounds play through.</summary>
+    Task SetEffectAsync(SoundEffect effect);
 }

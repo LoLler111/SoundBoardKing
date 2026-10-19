@@ -1,3 +1,5 @@
+using SoundBoardKing.Core.Models;
+
 namespace SoundBoardKing.Core.Storage;
 
 /// <summary>
@@ -11,6 +13,9 @@ public sealed class AppSettings
 
     /// <summary>Also send sounds into the microphone when the mic module is available (phase 2).</summary>
     public bool PlayOnMic { get; set; } = true;
+
+    /// <summary>Voice effect every sound plays through, in the headphones and in the microphone.</summary>
+    public SoundEffect SoundEffect { get; set; }
 
     /// <summary>When false, starting a sound stops the one already playing.</summary>
     public bool AllowOverlap { get; set; }

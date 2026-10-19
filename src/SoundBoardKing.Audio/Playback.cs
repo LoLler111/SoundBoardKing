@@ -1,3 +1,5 @@
+using SoundBoardKing.Core.Models;
+
 namespace SoundBoardKing.Audio;
 
 public sealed record PlayRequest(
@@ -5,7 +7,8 @@ public sealed record PlayRequest(
     float Volume = 1f,
     bool Speakers = true,
     bool Mic = false,
-    bool AllowOverlap = false);
+    bool AllowOverlap = false,
+    SoundEffect Effect = SoundEffect.None);
 
 /// <summary>A sound being played, on the speakers, the microphone, or both.</summary>
 public sealed class Playback

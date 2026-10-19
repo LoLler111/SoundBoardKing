@@ -91,6 +91,8 @@ data class StateDto(
     val hotbar: HotbarDto = HotbarDto(),
     val playback: PlaybackDto = PlaybackDto(),
     val mic: MicDto = MicDto(),
+    /** Wire name of the voice effect; PCs without effects never send it. */
+    val effect: String = "none",
 )
 
 @Serializable
@@ -114,6 +116,7 @@ sealed interface ServerEvent {
     data class Playback(val playback: PlaybackDto) : ServerEvent
     data class LibraryChanged(val libraryVersion: Long) : ServerEvent
     data class Mic(val mic: MicDto) : ServerEvent
+    data class Effect(val effect: String) : ServerEvent
     data class Error(val message: String) : ServerEvent
 
     companion object {
@@ -127,6 +130,7 @@ sealed interface ServerEvent {
                 // The other fields of these events sit next to "type", in the DTO's shape.
                 "playback" -> Playback(ProtocolJson.decodeFromJsonElement(PlaybackDto.serializer(), json))
                 "mic" -> Mic(ProtocolJson.decodeFromJsonElement(MicDto.serializer(), json))
+                "effect" -> Effect(json["effect"]?.jsonPrimitive?.contentOrNull ?: "none")
                 "error" -> Error(json["message"]?.jsonPrimitive?.contentOrNull ?: "Errore sconosciuto")
                 else -> null
             }
@@ -143,4 +147,19 @@ enum class PlayTarget(val wire: String?) {
 
     /** Only in the microphone, even when it is switched off. */
     Mic("mic"),
+}
+
+/** Voice effects the PC can play the sounds through; [wire] is the protocol name. */
+enum class SoundEffect(val wire: String, val label: String) {
+    None("none", "Nessun effetto"),
+    Chipmunk("chipmunk", "Scoiattolo"),
+    Deep("deep", "Voce profonda"),
+    Robot("robot", "Robot"),
+    Radio("radio", "Radio"),
+    Echo("echo", "Eco"),
+    ;
+
+    companion object {
+        fun fromWire(wire: String?): SoundEffect = entries.firstOrNull { it.wire == wire } ?: None
+    }
 }

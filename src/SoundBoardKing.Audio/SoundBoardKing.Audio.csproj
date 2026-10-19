@@ -10,4 +10,8 @@
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\SoundBoardKing.Core\SoundBoardKing.Core.csproj" />
+  </ItemGroup>
+
 </Project>

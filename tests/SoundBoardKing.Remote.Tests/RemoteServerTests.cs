@@ -142,6 +142,11 @@ public sealed class RemoteServerTests : IAsyncLifetime
             (await _http.SendAsync(Authorized(HttpMethod.Post, $"/api/pause/{FakeController.Second}", token))).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,
             (await _http.SendAsync(Authorized(HttpMethod.Post, $"/api/pause/{Guid.NewGuid()}", token))).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await _http.SendAsync(Authorized(HttpMethod.Post, "/api/effect/robot", token))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await _http.SendAsync(Authorized(HttpMethod.Post, "/api/effect/banana", token))).StatusCode);
+        Assert.Equal([SoundEffect.Robot], _controller.Effects);
         Assert.Equal(1, _controller.Stops);
     }
 
@@ -162,6 +167,7 @@ public sealed class RemoteServerTests : IAsyncLifetime
         await SendAsync(socket, new { type = "play", soundId = Airhorn, target = "speakers" });
         await SendAsync(socket, new { type = "togglePause" });
         await SendAsync(socket, new { type = "setMic", enabled = false });
+        await SendAsync(socket, new { type = "setEffect", effect = "echo" });
         await SendAsync(socket, new { type = "play", soundId = Guid.NewGuid() });
         using (var error = await ReceiveAsync(socket))
             Assert.Equal("Suono non trovato.", error.RootElement.GetProperty("message").GetString());
@@ -180,6 +186,7 @@ public sealed class RemoteServerTests : IAsyncLifetime
         Assert.Equal([FakeController.Second], _controller.StoppedOnes);
         Assert.Equal([FakeController.First], _controller.PausedOnes);
         Assert.False(_controller.MicEnabled);
+        Assert.Equal([SoundEffect.Echo], _controller.Effects);
 
         _server.Broadcast(new { type = "libraryChanged", libraryVersion = 43 });
         using (var changed = await ReceiveAsync(socket))
@@ -307,6 +314,14 @@ public sealed class RemoteServerTests : IAsyncLifetime
         public Task SetMicEnabledAsync(bool enabled)
         {
             MicEnabled = enabled;
+            return Task.CompletedTask;
+        }
+
+        public List<SoundEffect> Effects { get; } = [];
+
+        public Task SetEffectAsync(SoundEffect effect)
+        {
+            Effects.Add(effect);
             return Task.CompletedTask;
         }
     }

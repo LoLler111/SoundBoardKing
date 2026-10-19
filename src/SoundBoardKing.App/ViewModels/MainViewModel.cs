@@ -148,6 +148,37 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>The choices of the effect menu, with the current one ticked.</summary>
+    public IReadOnlyList<EffectOptionViewModel> EffectOptions { get; } =
+        Enum.GetValues<SoundEffect>().Select(e => new EffectOptionViewModel(e)).ToList();
+
+    /// <summary>Voice effect for the sounds started from now on (the ones already playing keep theirs).</summary>
+    public SoundEffect SoundEffect
+    {
+        get => _settings.SoundEffect;
+        set
+        {
+            if (value == _settings.SoundEffect)
+                return;
+            _settings.SoundEffect = value;
+            foreach (var option in EffectOptions)
+                option.IsSelected = option.Effect == value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SoundEffectLabel));
+            EffectChanged?.Invoke(this, value);
+            ScheduleSave();
+        }
+    }
+
+    public string SoundEffectLabel => EffectOptionViewModel.LabelOf(SoundEffect);
+
+    [RelayCommand]
+    private void SetSoundEffect(EffectOptionViewModel? option)
+    {
+        if (option is not null)
+            SoundEffect = option.Effect;
+    }
+
     /// <summary>Whether sounds are also sent into the microphone (when the module is active).</summary>
     public bool PlayOnMic
     {
@@ -174,6 +205,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(SpeakerVolume));
         OnPropertyChanged(nameof(MicVolume));
         OnPropertyChanged(nameof(PlayOnMic));
+        foreach (var option in EffectOptions)
+            option.IsSelected = option.Effect == _settings.SoundEffect;
+        OnPropertyChanged(nameof(SoundEffect));
+        OnPropertyChanged(nameof(SoundEffectLabel));
         UpdateMicStatus();
         _micTimer.Start();
 
@@ -229,7 +264,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                     PlayTarget.Mic => true,
                     _ => _settings.PlayOnMic && _engine.IsMicAvailable,
                 },
-                AllowOverlap: _settings.AllowOverlap));
+                AllowOverlap: _settings.AllowOverlap,
+                Effect: _settings.SoundEffect));
             return null;
         }
         catch (Exception ex) when (ex is COMException or IOException or UnauthorizedAccessException or InvalidOperationException)

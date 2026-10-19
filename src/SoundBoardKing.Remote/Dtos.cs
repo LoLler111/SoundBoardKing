@@ -34,7 +34,8 @@ public sealed record StateDto(
     IReadOnlyList<CategoryDto> Categories,
     HotbarDto Hotbar,
     PlaybackDto Playback,
-    MicDto Mic);
+    MicDto Mic,
+    string Effect = "none");
 
 /// <summary>Outcome of a play request: the sound may not exist, or exist but fail to play (missing file, no audio device).</summary>
 public sealed record PlayResult(bool Found, string? Error)

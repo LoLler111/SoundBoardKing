@@ -14,6 +14,7 @@ import com.soundboardking.remote.data.PlaybackDto
 import com.soundboardking.remote.data.PlayingDto
 import com.soundboardking.remote.data.SavedServer
 import com.soundboardking.remote.data.SoundDto
+import com.soundboardking.remote.data.SoundEffect
 import com.soundboardking.remote.data.StateDto
 import com.soundboardking.remote.ui.theme.SoundBoardTheme
 import org.junit.Test
@@ -35,6 +36,7 @@ class ScreensSnapshotTest {
         override fun togglePauseOne(playbackId: String) {}
         override fun togglePause() {}
         override fun setMic(enabled: Boolean) {}
+        override fun setEffect(effect: SoundEffect) {}
         override fun reconnect() {}
         override fun forgetServer() {}
         override fun setLook(look: FavoritesLook) {}
@@ -78,6 +80,7 @@ class ScreensSnapshotTest {
             listOf(PlayingDto("p1", "s1", 1_200, 6_200, paused = true), PlayingDto("p2", "s3", 400, 12_400)),
         ),
         mic = MicDto("active", true),
+        effect = SoundEffect.Robot,
     )
 
     @Test

@@ -3,6 +3,7 @@ package com.soundboardking.remote.ui
 import com.soundboardking.remote.data.DiscoveredPc
 import com.soundboardking.remote.data.FavoritesLook
 import com.soundboardking.remote.data.PlayTarget
+import com.soundboardking.remote.data.SoundEffect
 
 /** What the pairing screen can ask for. Implemented by [AppViewModel]; screens stay free of it. */
 interface ConnectActions {
@@ -33,6 +34,7 @@ interface RemoteActions {
     fun togglePauseOne(playbackId: String)
     fun togglePause()
     fun setMic(enabled: Boolean)
+    fun setEffect(effect: SoundEffect)
     fun reconnect()
     fun forgetServer()
     fun setLook(look: FavoritesLook)

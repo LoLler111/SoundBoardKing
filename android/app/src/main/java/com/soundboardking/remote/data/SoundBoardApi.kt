@@ -114,5 +114,10 @@ class SoundBoardApi(
             put("type", "setMic")
             put("enabled", enabled)
         }.toString()
+
+        fun effectCommand(effect: SoundEffect) = buildJsonObject {
+            put("type", "setEffect")
+            put("effect", effect.wire)
+        }.toString()
     }
 }

@@ -177,6 +177,16 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
             return await controller.TogglePauseOneAsync(playbackId) ? Results.NoContent() : Results.NotFound();
         });
 
+        app.MapPost("/api/effect/{name}", async (HttpContext context, string name) =>
+        {
+            if (Authenticate(context) is null)
+                return Results.Unauthorized();
+            if (!EffectNames.TryParse(name, out var effect))
+                return Results.BadRequest(new { error = $"Effetto sconosciuto: {name}" });
+            await controller.SetEffectAsync(effect);
+            return Results.NoContent();
+        });
+
         app.Map("/ws", HandleWebSocketAsync);
     }
 
@@ -293,6 +303,13 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
                         await controller.SetMicEnabledAsync(enabled.GetBoolean());
                     else
                         await SendErrorAsync(client, "enabled mancante.");
+                    break;
+                case "setEffect":
+                    if (root.TryGetProperty("effect", out var effectElement) && effectElement.ValueKind == JsonValueKind.String &&
+                        EffectNames.TryParse(effectElement.GetString(), out var effect))
+                        await controller.SetEffectAsync(effect);
+                    else
+                        await SendErrorAsync(client, "effect mancante o non valido.");
                     break;
                 default:
                     await SendErrorAsync(client, $"Comando sconosciuto: {type}");
