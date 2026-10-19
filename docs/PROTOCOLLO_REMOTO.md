@@ -36,6 +36,7 @@ Ogni PC con SoundBoardKing risponde, direttamente al mittente:
 | POST | `/api/pause` | sì | 204 (mette in pausa o riprende tutti i suoni) |
 | POST | `/api/pause/{playbackId}` | sì | 204 (mette in pausa o riprende solo quel suono); 404 se è già finito |
 | POST | `/api/effect/{nome}` | sì | 204 (cambia l'effetto sulla voce dei suoni); 400 se il nome non esiste |
+| POST | `/api/effect-amount/{0-100}` | sì | 204 (intensità dell'effetto, vale subito anche per i suoni in corso); 400 fuori da 0-100 |
 
 Errori: 401 se il token manca o non è valido.
 
@@ -49,7 +50,7 @@ Errori: 401 se il token manca o non è valido.
   "playback": { "state": "playing", "soundId": "guid", "positionMs": 1200, "durationMs": 3000,
                 "playing": [ { "id": "guid", "soundId": "guid", "positionMs": 1200, "durationMs": 3000, "paused": false } ] },
   "mic": { "state": "active", "enabled": true },
-  "effect": "none"
+  "effect": "none", "effectAmount": 70
 }
 ```
 - `playback.state`: `stopped` | `playing` | `paused`.
@@ -60,6 +61,7 @@ Errori: 401 se il token manca o non è valido.
 - `mic.state`: `notInstalled` | `idle` | `active` | `incompatible` | `accessDenied`.
 - `effect`: effetto sulla voce dei suoni che partono da ora: `none` | `chipmunk` | `deep` | `robot` | `radio` | `echo`.
   I PC senza effetti non lo mandano: va inteso come `none`.
+- `effectAmount`: intensità dell'effetto da 0 a 100 (70 se manca); cambia al volo anche i suoni già partiti.
 
 ## WebSocket `/ws?token=…`
 Messaggi JSON con un campo `type`.
@@ -73,6 +75,7 @@ Dal telefono al PC:
 { "type": "togglePause" }
 { "type": "togglePauseOne", "playbackId": "guid" }
 { "type": "setEffect", "effect": "robot" }
+{ "type": "setEffect", "amount": 40 }
 { "type": "setMic", "enabled": false }
 ```
 
@@ -85,7 +88,7 @@ Dal PC al telefono:
 { "type": "playback", "state": "playing", "soundId": "guid", "positionMs": 0, "durationMs": 3000, "playing": [ … ] }
 { "type": "libraryChanged", "libraryVersion": 8 }
 { "type": "mic", "state": "idle", "enabled": true }
-{ "type": "effect", "effect": "robot" }
+{ "type": "effect", "effect": "robot", "amount": 40 }
 { "type": "error", "message": "…" }
 ```
 Se un `play` non va a buon fine (suono inesistente, file mancante, nessun dispositivo audio),

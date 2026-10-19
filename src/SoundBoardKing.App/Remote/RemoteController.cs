@@ -27,4 +27,6 @@ internal sealed class RemoteController(MainViewModel viewModel, Dispatcher dispa
     public Task SetMicEnabledAsync(bool enabled) => dispatcher.InvokeAsync(() => viewModel.PlayOnMic = enabled).Task;
 
     public Task SetEffectAsync(SoundEffect effect) => dispatcher.InvokeAsync(() => viewModel.SoundEffect = effect).Task;
+
+    public Task SetEffectAmountAsync(int percent) => dispatcher.InvokeAsync(() => viewModel.EffectAmount = percent).Task;
 }

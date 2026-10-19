@@ -3,6 +3,8 @@ package com.soundboardking.remote.ui
 import android.app.Activity
 import android.content.ContextWrapper
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -18,6 +20,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -26,6 +29,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
@@ -168,5 +177,65 @@ fun FullScreenIcon(exit: Boolean, modifier: Modifier = Modifier) {
             drawLine(color, c, Offset(c.x + sx * dir * arm, c.y), stroke, StrokeCap.Round)
             drawLine(color, c, Offset(c.x, c.y + sy * dir * arm), stroke, StrokeCap.Round)
         }
+    }
+}
+
+/**
+ * Round knob for 0-100: drag up or down to turn it (a drag of about 120 dp goes end to end),
+ * double tap to go back to [default]. The arc covers 270 degrees like the one on the PC.
+ */
+@Composable
+fun Knob(
+    value: Int,
+    enabled: Boolean,
+    onChange: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    default: Int = 70,
+) {
+    val density = LocalDensity.current
+    val dragRange = with(density) { 120.dp.toPx() }
+    val track = TextDim.copy(alpha = 0.35f)
+    val pointer = LocalContentColor.current
+    var dragStart by remember { mutableStateOf(0f) }
+    var dragged by remember { mutableStateOf(0f) }
+    val current by rememberUpdatedState(value)
+    Canvas(
+        modifier
+            .size(36.dp)
+            .alpha(if (enabled) 1f else 0.4f)
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                detectVerticalDragGestures(
+                    onDragStart = {
+                        dragStart = current.toFloat()
+                        dragged = 0f
+                    },
+                ) { change, amount ->
+                    change.consume()
+                    dragged -= amount
+                    val next = (dragStart + dragged / dragRange * 100).roundToInt().coerceIn(0, 100)
+                    if (next != current) onChange(next)
+                }
+            }
+            .pointerInput(enabled) {
+                if (enabled) detectTapGestures(onDoubleTap = { onChange(default) })
+            },
+    ) {
+        val stroke = size.minDimension * 0.12f
+        val inset = stroke / 2
+        val arcSize = Size(size.minDimension - stroke, size.minDimension - stroke)
+        val topLeft = Offset(inset, inset)
+        drawArc(track, 135f, 270f, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+        if (value > 0)
+            drawArc(Gold, 135f, 270f * value / 100f, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+        val angle = Math.toRadians(135.0 + 270.0 * value / 100.0)
+        val radius = arcSize.width / 2 * 0.55f
+        drawLine(
+            pointer,
+            center,
+            Offset(center.x + (cos(angle) * radius).toFloat(), center.y + (sin(angle) * radius).toFloat()),
+            strokeWidth = size.minDimension * 0.07f,
+            cap = StrokeCap.Round,
+        )
     }
 }

@@ -40,6 +40,9 @@ public sealed class AudioEngine : IDisposable
     public event EventHandler<Exception>? OutputFailed;
 
     public bool IsMicAvailable => _micFeed.IsAvailable;
+
+    /// <summary>Strength of the voice effect, shared by every playing sound: changes are heard at once.</summary>
+    public EffectControl EffectControl { get; } = new();
     /// <summary>True when something is playing and every sound is paused.</summary>
     public bool IsPaused
     {
@@ -128,10 +131,10 @@ public sealed class AudioEngine : IDisposable
             if (request.Speakers)
             {
                 EnsureOutput();
-                speaker = new Voice(path, _speakerMixer!.WaveFormat, request.Volume, playback, request.Effect);
+                speaker = new Voice(path, _speakerMixer!.WaveFormat, request.Volume, playback, request.Effect, EffectControl);
             }
             if (request.Mic && EnsureMic())
-                mic = new Voice(path, _micMixer!.WaveFormat, request.Volume, playback, request.Effect);
+                mic = new Voice(path, _micMixer!.WaveFormat, request.Volume, playback, request.Effect, EffectControl);
         }
         catch
         {

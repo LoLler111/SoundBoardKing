@@ -187,6 +187,16 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
             return Results.NoContent();
         });
 
+        app.MapPost("/api/effect-amount/{percent:int}", async (HttpContext context, int percent) =>
+        {
+            if (Authenticate(context) is null)
+                return Results.Unauthorized();
+            if (percent is < 0 or > 100)
+                return Results.BadRequest(new { error = "L'intensità va da 0 a 100." });
+            await controller.SetEffectAmountAsync(percent);
+            return Results.NoContent();
+        });
+
         app.Map("/ws", HandleWebSocketAsync);
     }
 
@@ -305,11 +315,22 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
                         await SendErrorAsync(client, "enabled mancante.");
                     break;
                 case "setEffect":
-                    if (root.TryGetProperty("effect", out var effectElement) && effectElement.ValueKind == JsonValueKind.String &&
-                        EffectNames.TryParse(effectElement.GetString(), out var effect))
+                    // "effect", "amount" (0-100) or both: the knob on the phone sends only the amount.
+                    bool hasEffect = root.TryGetProperty("effect", out var effectElement);
+                    bool hasAmount = root.TryGetProperty("amount", out var amountElement);
+                    SoundEffect effect = default;
+                    int amount = 0;
+                    if ((!hasEffect && !hasAmount) ||
+                        (hasEffect && (effectElement.ValueKind != JsonValueKind.String || !EffectNames.TryParse(effectElement.GetString(), out effect))) ||
+                        (hasAmount && (!amountElement.TryGetInt32(out amount) || amount is < 0 or > 100)))
+                    {
+                        await SendErrorAsync(client, "effect o amount (0-100) mancanti o non validi.");
+                        break;
+                    }
+                    if (hasEffect)
                         await controller.SetEffectAsync(effect);
-                    else
-                        await SendErrorAsync(client, "effect mancante o non valido.");
+                    if (hasAmount)
+                        await controller.SetEffectAmountAsync(amount);
                     break;
                 default:
                     await SendErrorAsync(client, $"Comando sconosciuto: {type}");

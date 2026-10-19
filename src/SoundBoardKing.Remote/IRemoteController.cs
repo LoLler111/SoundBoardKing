@@ -24,4 +24,7 @@ public interface IRemoteController
 
     /// <summary>Changes the voice effect the sounds play through.</summary>
     Task SetEffectAsync(SoundEffect effect);
+
+    /// <summary>Changes how strong the effect is, 0-100.</summary>
+    Task SetEffectAmountAsync(int percent);
 }

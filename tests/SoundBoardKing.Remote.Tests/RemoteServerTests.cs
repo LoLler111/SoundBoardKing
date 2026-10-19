@@ -147,6 +147,11 @@ public sealed class RemoteServerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest,
             (await _http.SendAsync(Authorized(HttpMethod.Post, "/api/effect/banana", token))).StatusCode);
         Assert.Equal([SoundEffect.Robot], _controller.Effects);
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await _http.SendAsync(Authorized(HttpMethod.Post, "/api/effect-amount/45", token))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await _http.SendAsync(Authorized(HttpMethod.Post, "/api/effect-amount/150", token))).StatusCode);
+        Assert.Equal([45], _controller.Amounts);
         Assert.Equal(1, _controller.Stops);
     }
 
@@ -168,6 +173,7 @@ public sealed class RemoteServerTests : IAsyncLifetime
         await SendAsync(socket, new { type = "togglePause" });
         await SendAsync(socket, new { type = "setMic", enabled = false });
         await SendAsync(socket, new { type = "setEffect", effect = "echo" });
+        await SendAsync(socket, new { type = "setEffect", amount = 30 });
         await SendAsync(socket, new { type = "play", soundId = Guid.NewGuid() });
         using (var error = await ReceiveAsync(socket))
             Assert.Equal("Suono non trovato.", error.RootElement.GetProperty("message").GetString());
@@ -187,6 +193,7 @@ public sealed class RemoteServerTests : IAsyncLifetime
         Assert.Equal([FakeController.First], _controller.PausedOnes);
         Assert.False(_controller.MicEnabled);
         Assert.Equal([SoundEffect.Echo], _controller.Effects);
+        Assert.Equal([30], _controller.Amounts);
 
         _server.Broadcast(new { type = "libraryChanged", libraryVersion = 43 });
         using (var changed = await ReceiveAsync(socket))
@@ -322,6 +329,14 @@ public sealed class RemoteServerTests : IAsyncLifetime
         public Task SetEffectAsync(SoundEffect effect)
         {
             Effects.Add(effect);
+            return Task.CompletedTask;
+        }
+
+        public List<int> Amounts { get; } = [];
+
+        public Task SetEffectAmountAsync(int percent)
+        {
+            Amounts.Add(percent);
             return Task.CompletedTask;
         }
     }

@@ -19,8 +19,8 @@ public sealed partial class MainViewModel
     public event EventHandler<PlaybackDto>? PlaybackChanged;
     public event EventHandler<MicDto>? MicChanged;
 
-    /// <summary>The voice effect changed (here or from a phone).</summary>
-    public event EventHandler<SoundEffect>? EffectChanged;
+    /// <summary>The voice effect or its amount changed (here or from a phone).</summary>
+    public event EventHandler? EffectChanged;
 
     public long LibraryVersion => Interlocked.Read(ref _libraryVersion);
 
@@ -63,7 +63,8 @@ public sealed partial class MainViewModel
             .ToList()),
         CurrentPlayback(),
         CurrentMic(),
-        EffectNames.ToWire(SoundEffect));
+        EffectNames.ToWire(SoundEffect),
+        EffectAmountPercent);
 
     public PlayResult PlaySoundById(Guid soundId, PlayTarget target = PlayTarget.Default)
     {

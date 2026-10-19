@@ -48,6 +48,23 @@ public class SoundEffectsTests
     }
 
     [Fact]
+    public void The_amount_changes_the_effect_while_it_plays()
+    {
+        var control = new EffectControl { Amount = 0 };
+        var robot = SoundEffects.Apply(Tone(), SoundEffect.Robot, control);
+        var dry = Render(Tone());
+
+        var first = new float[4800];
+        robot.Read(first, 0, first.Length);
+        Assert.Equal(dry.Take(first.Length), first);
+
+        control.Amount = 1;
+        var second = new float[4800];
+        robot.Read(second, 0, second.Length);
+        Assert.NotEqual(dry.Skip(first.Length).Take(second.Length), second);
+    }
+
+    [Fact]
     public void Echo_keeps_sounding_after_the_sound_ends()
     {
         var dry = Render(Tone());

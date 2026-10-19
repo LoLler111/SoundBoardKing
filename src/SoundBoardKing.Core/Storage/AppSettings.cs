@@ -17,6 +17,9 @@ public sealed class AppSettings
     /// <summary>Voice effect every sound plays through, in the headphones and in the microphone.</summary>
     public SoundEffect SoundEffect { get; set; }
 
+    /// <summary>How strong the effect is, 0..1.</summary>
+    public float EffectAmount { get; set; } = 0.7f;
+
     /// <summary>When false, starting a sound stops the one already playing.</summary>
     public bool AllowOverlap { get; set; }
 

@@ -165,12 +165,35 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 option.IsSelected = option.Effect == value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(SoundEffectLabel));
-            EffectChanged?.Invoke(this, value);
+            OnPropertyChanged(nameof(HasEffect));
+            EffectChanged?.Invoke(this, EventArgs.Empty);
             ScheduleSave();
         }
     }
 
     public string SoundEffectLabel => EffectOptionViewModel.LabelOf(SoundEffect);
+
+    public bool HasEffect => SoundEffect != SoundEffect.None;
+
+    /// <summary>Effect strength 0-100 for the knob; also changes the sounds already playing.</summary>
+    public double EffectAmount
+    {
+        get => _settings.EffectAmount * 100;
+        set
+        {
+            float amount = (float)Math.Clamp(value / 100, 0, 1);
+            if (amount == _settings.EffectAmount)
+                return;
+            _settings.EffectAmount = amount;
+            _engine.EffectControl.Amount = amount;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(EffectAmountPercent));
+            EffectChanged?.Invoke(this, EventArgs.Empty);
+            ScheduleSave();
+        }
+    }
+
+    public int EffectAmountPercent => (int)Math.Round(_settings.EffectAmount * 100);
 
     [RelayCommand]
     private void SetSoundEffect(EffectOptionViewModel? option)
@@ -209,6 +232,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             option.IsSelected = option.Effect == _settings.SoundEffect;
         OnPropertyChanged(nameof(SoundEffect));
         OnPropertyChanged(nameof(SoundEffectLabel));
+        _engine.EffectControl.Amount = _settings.EffectAmount;
+        OnPropertyChanged(nameof(EffectAmount));
+        OnPropertyChanged(nameof(EffectAmountPercent));
+        OnPropertyChanged(nameof(HasEffect));
         UpdateMicStatus();
         _micTimer.Start();
 

@@ -501,6 +501,18 @@ private fun NowPlayingBar(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     MicChip(state.mic, onToggle = { actions.setMic(!state.mic.enabled) })
                     EffectChip(state.effect, onPick = actions::setEffect)
+                    Knob(
+                        state.effectAmount,
+                        enabled = state.effect != SoundEffect.None,
+                        onChange = actions::setEffectAmount,
+                        modifier = Modifier.padding(start = 10.dp, bottom = 6.dp),
+                    )
+                    Text(
+                        "${state.effectAmount}%",
+                        color = TextDim,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(start = 6.dp, bottom = 6.dp),
+                    )
                 }
             }
         }

@@ -37,6 +37,7 @@ class ScreensSnapshotTest {
         override fun togglePause() {}
         override fun setMic(enabled: Boolean) {}
         override fun setEffect(effect: SoundEffect) {}
+        override fun setEffectAmount(percent: Int) {}
         override fun reconnect() {}
         override fun forgetServer() {}
         override fun setLook(look: FavoritesLook) {}
@@ -81,6 +82,7 @@ class ScreensSnapshotTest {
         ),
         mic = MicDto("active", true),
         effect = SoundEffect.Robot,
+        effectAmount = 45,
     )
 
     @Test

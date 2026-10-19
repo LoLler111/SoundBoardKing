@@ -56,6 +56,7 @@ data class UiState(
     val playbackReceivedAt: Long = 0,
     val mic: MicDto = MicDto(),
     val effect: SoundEffect = SoundEffect.None,
+    val effectAmount: Int = 70,
     val discovered: List<DiscoveredPc> = emptyList(),
     val discovering: Boolean = false,
     val pairingBusy: Boolean = false,
@@ -361,6 +362,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
                 playbackReceivedAt = SystemClock.elapsedRealtime(),
                 mic = library.mic,
                 effect = SoundEffect.fromWire(library.effect),
+                effectAmount = library.effectAmount,
             )
         }
     }
@@ -405,7 +407,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
                 it.copy(playback = event.playback, playbackReceivedAt = SystemClock.elapsedRealtime())
             }
             is ServerEvent.Mic -> _state.update { it.copy(mic = event.mic) }
-            is ServerEvent.Effect -> _state.update { it.copy(effect = SoundEffect.fromWire(event.effect)) }
+            is ServerEvent.Effect -> _state.update { it.copy(effect = SoundEffect.fromWire(event.effect), effectAmount = event.amount) }
             is ServerEvent.Error -> showMessage(event.message)
         }
     }
@@ -438,6 +440,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
     override fun setMic(enabled: Boolean) = send(SoundBoardApi.micCommand(enabled))
 
     override fun setEffect(effect: SoundEffect) = send(SoundBoardApi.effectCommand(effect))
+
+    // Shown at once so the knob follows the finger; the PC confirms with its own event.
+    override fun setEffectAmount(percent: Int) {
+        _state.update { it.copy(effectAmount = percent) }
+        send(SoundBoardApi.effectAmountCommand(percent))
+    }
 
     private fun send(command: String) {
         if (socket?.send(command) != true) showMessage("Non connesso al PC.")

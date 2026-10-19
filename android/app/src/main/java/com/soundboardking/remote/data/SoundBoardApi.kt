@@ -119,5 +119,10 @@ class SoundBoardApi(
             put("type", "setEffect")
             put("effect", effect.wire)
         }.toString()
+
+        fun effectAmountCommand(percent: Int) = buildJsonObject {
+            put("type", "setEffect")
+            put("amount", percent)
+        }.toString()
     }
 }

@@ -35,6 +35,7 @@ interface RemoteActions {
     fun togglePause()
     fun setMic(enabled: Boolean)
     fun setEffect(effect: SoundEffect)
+    fun setEffectAmount(percent: Int)
     fun reconnect()
     fun forgetServer()
     fun setLook(look: FavoritesLook)
