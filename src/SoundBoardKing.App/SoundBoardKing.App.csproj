@@ -8,6 +8,8 @@
     <RootNamespace>SoundBoardKing.App</RootNamespace>
     <!-- Same crown as the Android launcher icon. -->
     <ApplicationIcon>Assets\SoundBoardKing.ico</ApplicationIcon>
+    <!-- Precompiled at publish: the first start no longer waits for the JIT (about 5 s on a cold start). -->
+    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>

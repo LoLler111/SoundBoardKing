@@ -46,12 +46,26 @@ public partial class MainWindow : Window
             Close();
         };
 
-        Loaded += OnLoaded;
+        // The library and the phone server load only after the first frame, so the window shows up
+        // right away (dark, with this text) instead of staying white while the work runs.
+        _viewModel.StatusText = "Caricamento della libreria…";
+        ContentRendered += OnContentRendered;
         Closed += (_, _) => _viewModel.Dispose();
     }
 
-    private async void OnLoaded(object sender, RoutedEventArgs e)
+    // Until WPF draws, Windows fills the window with this colour: dark like the theme, not white.
+    protected override void OnSourceInitialized(EventArgs e)
     {
+        base.OnSourceInitialized(e);
+        if (PresentationSource.FromVisual(this) is System.Windows.Interop.HwndSource { CompositionTarget: { } target } &&
+            Background is SolidColorBrush brush)
+            target.BackgroundColor = brush.Color;
+    }
+
+    private async void OnContentRendered(object? sender, EventArgs e)
+    {
+        ContentRendered -= OnContentRendered;
+        _viewModel.StatusText = "";
         _viewModel.Initialize();
         _remote = new RemoteHost(_viewModel, Dispatcher);
         if (_viewModel.RemoteEnabled)
