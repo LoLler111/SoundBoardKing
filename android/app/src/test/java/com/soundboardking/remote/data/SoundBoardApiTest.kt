@@ -27,7 +27,11 @@ class SoundBoardApiTest {
 
     @After
     fun stop() {
-        server.shutdown()
+        // A slow machine may still be finishing a WebSocket close: that is not what the tests check.
+        try {
+            server.shutdown()
+        } catch (_: java.io.IOException) {
+        }
     }
 
     @Test
@@ -72,6 +76,10 @@ class SoundBoardApiTest {
                 webSocket.send("""{"type":"hello","libraryVersion":5}""")
             }
 
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                webSocket.close(1000, null)
+            }
+
             override fun onMessage(webSocket: WebSocket, text: String) {
                 received.add(text)
                 webSocket.send("""{"type":"playback","state":"playing","soundId":"s1","positionMs":0,"durationMs":1000}""")
@@ -79,12 +87,13 @@ class SoundBoardApiTest {
         }))
 
         val events = LinkedBlockingQueue<ServerEvent>()
+        val closed = java.util.concurrent.CountDownLatch(1)
         val socket = api.connect(baseUrl, "tok", object : SoundBoardApi.Listener {
             override fun onOpen() {}
             override fun onEvent(event: ServerEvent) {
                 events.add(event)
             }
-            override fun onClosed(error: Throwable?) {}
+            override fun onClosed(error: Throwable?) = closed.countDown()
         })
 
         assertEquals(ServerEvent.Hello(5), events.poll(5, TimeUnit.SECONDS))
@@ -93,6 +102,8 @@ class SoundBoardApiTest {
         assertEquals("s1", (events.poll(5, TimeUnit.SECONDS) as ServerEvent.Playback).playback.soundId)
         assertEquals("/ws?token=tok", server.takeRequest().path)
         socket.close(1000, null)
+        // Wait for the close handshake, so the server shuts down with no connection left open.
+        assertTrue(closed.await(5, TimeUnit.SECONDS))
     }
 
     @Test
