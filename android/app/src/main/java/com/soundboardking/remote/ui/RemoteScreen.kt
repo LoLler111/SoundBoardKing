@@ -504,13 +504,7 @@ private fun NowPlayingBar(
                 Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
                     MicChip(state.mic, onToggle = { actions.setMic(!state.mic.enabled) })
                     EffectChip(state.effect, onPick = actions::setEffect)
-                    FilterChip(
-                        selected = state.effectTarget != EffectTarget.Off,
-                        onClick = { actions.setEffectTarget(state.effectTarget.next) },
-                        label = { Text(state.effectTarget.label) },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = GoldSoft, selectedLabelColor = Gold),
-                        modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
-                    )
+                    EffectTargetChip(state.effectTarget, onPick = actions::setEffectTarget)
                     Knob(
                         state.effectAmount,
                         enabled = state.effect != SoundEffect.None,
@@ -577,6 +571,31 @@ private fun PlayingRow(
         if (onStop != null) {
             IconButton(onClick = onStop, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Filled.Close, contentDescription = "Ferma questo suono", tint = TextDim, modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
+/** What the effect is applied to (sounds, voice, both, none); a tap opens the list. */
+@Composable
+private fun EffectTargetChip(target: EffectTarget, onPick: (EffectTarget) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box(Modifier.padding(start = 8.dp, bottom = 6.dp)) {
+        FilterChip(
+            selected = target != EffectTarget.Off,
+            onClick = { open = true },
+            label = { Text(target.label) },
+            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = GoldSoft, selectedLabelColor = Gold),
+        )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            EffectTarget.entries.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label, color = if (option == target) Gold else Color.Unspecified) },
+                    onClick = {
+                        open = false
+                        onPick(option)
+                    },
+                )
             }
         }
     }

@@ -172,15 +172,13 @@ enum class SoundEffect(val wire: String, val label: String) {
     }
 }
 
-/** What the voice effect is applied to; the button steps through them in this order. */
+/** What the voice effect is applied to. */
 enum class EffectTarget(val wire: String, val label: String) {
     Sounds("sounds", "Solo suoni"),
     Voice("voice", "Solo microfono"),
     Both("both", "Suoni e microfono"),
     Off("off", "Nessuno"),
     ;
-
-    val next: EffectTarget get() = entries[(ordinal + 1) % entries.size]
 
     companion object {
         fun fromWire(wire: String?): EffectTarget = entries.firstOrNull { it.wire == wire } ?: Sounds

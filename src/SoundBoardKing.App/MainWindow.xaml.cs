@@ -94,10 +94,15 @@ public partial class MainWindow : Window
         base.OnClosing(e);
     }
 
-    private void EffectButton_Click(object sender, RoutedEventArgs e)
+    private void EffectButton_Click(object sender, RoutedEventArgs e) => OpenMenuAbove(EffectButton);
+
+    private void EffectTargetButton_Click(object sender, RoutedEventArgs e) => OpenMenuAbove(EffectTargetButton);
+
+    // The bottom-bar dropdowns: the button's own context menu, opened upwards on a normal click.
+    private static void OpenMenuAbove(Button button)
     {
-        var menu = EffectButton.ContextMenu;
-        menu.PlacementTarget = EffectButton;
+        var menu = button.ContextMenu;
+        menu.PlacementTarget = button;
         menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
         menu.IsOpen = true;
     }

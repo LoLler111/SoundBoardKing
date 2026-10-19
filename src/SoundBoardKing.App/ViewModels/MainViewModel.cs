@@ -193,28 +193,26 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public string EffectTargetLabel => EffectTarget switch
-    {
-        EffectTarget.Voice => "Solo microfono",
-        EffectTarget.Both => "Suoni e microfono",
-        EffectTarget.Off => "Nessuno",
-        _ => "Solo suoni",
-    };
+    public string EffectTargetLabel => EffectTargetOptionViewModel.LabelOf(EffectTarget);
 
     private bool EffectOnSounds => EffectTarget is EffectTarget.Sounds or EffectTarget.Both;
     private bool EffectOnVoice => EffectTarget is EffectTarget.Voice or EffectTarget.Both;
 
+    /// <summary>The choices of the "where" menu, with the current one ticked.</summary>
+    public IReadOnlyList<EffectTargetOptionViewModel> EffectTargetOptions { get; } =
+        Enum.GetValues<EffectTarget>().Select(t => new EffectTargetOptionViewModel(t)).ToList();
+
     [RelayCommand]
-    private void CycleEffectTarget() => EffectTarget = EffectTarget switch
+    private void SetEffectTarget(EffectTargetOptionViewModel? option)
     {
-        EffectTarget.Sounds => EffectTarget.Voice,
-        EffectTarget.Voice => EffectTarget.Both,
-        EffectTarget.Both => EffectTarget.Off,
-        _ => EffectTarget.Sounds,
-    };
+        if (option is not null)
+            EffectTarget = option.Target;
+    }
 
     private void ApplyEffectTarget()
     {
+        foreach (var option in EffectTargetOptions)
+            option.IsSelected = option.Target == EffectTarget;
         _engine.EffectControl.SoundsEnabled = EffectOnSounds;
         PushVoiceEffect();
     }

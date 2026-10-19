@@ -400,9 +400,9 @@
                             <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70D;" FontSize="9" VerticalAlignment="Center" Margin="6,1,0,0" />
                         </StackPanel>
                     </Button>
-                    <!-- Where the effect goes: each click steps sounds only -> voice only -> both -> none. -->
-                    <Button Margin="6,0,0,0" Cursor="Hand" Command="{Binding CycleEffectTargetCommand}"
-                            ToolTip="A cosa si applica l'effetto (clic per cambiare): solo suoni, solo microfono (la tua voce), entrambi, nessuno">
+                    <!-- Where the effect goes: sounds only, voice only, both or none, picked from a list. -->
+                    <Button x:Name="EffectTargetButton" Margin="6,0,0,0" Cursor="Hand" Click="EffectTargetButton_Click"
+                            ToolTip="A cosa si applica l'effetto: solo suoni, solo microfono (la tua voce), entrambi, nessuno">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="Bd" Background="{StaticResource Panel2Brush}" CornerRadius="6" Padding="8,5">
@@ -415,7 +415,23 @@
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
                         </Button.Template>
-                        <TextBlock Text="{Binding EffectTargetLabel}" FontSize="12" VerticalAlignment="Center" />
+                        <Button.ContextMenu>
+                            <ContextMenu ItemsSource="{Binding EffectTargetOptions}">
+                                <ContextMenu.ItemContainerStyle>
+                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                        <Setter Property="Header" Value="{Binding Label}" />
+                                        <Setter Property="IsCheckable" Value="False" />
+                                        <Setter Property="IsChecked" Value="{Binding IsSelected, Mode=OneWay}" />
+                                        <Setter Property="Command" Value="{Binding DataContext.SetEffectTargetCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                        <Setter Property="CommandParameter" Value="{Binding}" />
+                                    </Style>
+                                </ContextMenu.ItemContainerStyle>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding EffectTargetLabel}" FontSize="12" VerticalAlignment="Center" />
+                            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE70D;" FontSize="9" VerticalAlignment="Center" Margin="6,1,0,0" />
+                        </StackPanel>
                     </Button>
                     <!-- How strong the effect is; turning it changes the sounds already playing too. -->
                     <ctl:Knob Width="30" Height="30" Margin="8,0,0,0" Minimum="0" Maximum="100" DefaultValue="70"
