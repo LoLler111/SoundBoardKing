@@ -1,6 +1,6 @@
 # SoundBoardKing
 
-Soundboard per Windows ispirata a SoundPad, con telecomando Android (in arrivo). Analisi e fasi in [docs/ANALISI.md](docs/ANALISI.md).
+Soundboard per Windows, con telecomando Android (in arrivo). Analisi e fasi in [docs/ANALISI.md](docs/ANALISI.md).
 
 ## Requisiti
 - .NET 10 SDK
