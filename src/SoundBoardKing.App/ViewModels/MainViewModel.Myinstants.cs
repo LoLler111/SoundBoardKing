@@ -93,6 +93,7 @@ public sealed partial class MainViewModel
             return existing;
         }
 
+        bool folderChosen = OfferSoundFolder();
         var path = MyinstantsPathOf(sound);
         var partial = path + ".part";
         try
@@ -121,6 +122,8 @@ public sealed partial class MainViewModel
             Peak = loudness?.PeakDb,
         };
         AddToLibrary([model], category);
+        if (folderChosen)
+            await ScanSoundFolderAsync(atStartup: false, folderChanged: true);
         return _soundsById[model.Id];
     }
 

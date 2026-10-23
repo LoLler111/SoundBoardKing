@@ -13,6 +13,7 @@ namespace SoundBoardKing.App.ViewModels;
 public sealed partial class MainViewModel
 {
     private bool _scanningSoundFolder;
+    private bool _soundFolderOffered;
 
     /// <summary>The folder relative sounds-folder paths start from: the one the user sees the app in.</summary>
     public string AppFolder => _storage.ExecutableDirectory;
@@ -109,6 +110,46 @@ public sealed partial class MainViewModel
             _scanningSoundFolder = false;
         }
     }
+
+    /// <summary>
+    /// Without a sounds folder, the first sound added from elsewhere or from Myinstants asks for one
+    /// (once per session), suggesting the folder most sounds are in. True when one was just chosen:
+    /// the caller then looks through it once its sounds are added.
+    /// </summary>
+    private bool OfferSoundFolder()
+    {
+        if (SoundFolderPath is not null || _soundFolderOffered)
+            return false;
+        _soundFolderOffered = true;
+
+        const string why = "Non hai ancora scelto la cartella dei suoni: i suoni di Myinstants e quelli aggiunti " +
+            "da fuori vengono salvati lì, così stanno tutti insieme.";
+        string? chosen = null;
+        if (MostUsedSoundFolder() is { } suggested)
+        {
+            chosen = _dialogs.Confirm($"{why}\n\nUsare la cartella dove sono quasi tutti i tuoi suoni?\n{suggested}",
+                "Usa questa", "Scegli un'altra…")
+                ? suggested
+                : _dialogs.PickFolder("Cartella dei suoni", suggested);
+        }
+        else if (_dialogs.Confirm($"{why}\n\nSceglierla ora?", "Scegli…", "Non ora"))
+        {
+            chosen = _dialogs.PickFolder("Cartella dei suoni", null);
+        }
+        if (chosen is null)
+            return false;
+
+        _settings.SoundsFolder = SoundFolder.SettingFor(chosen, AppFolder);
+        ScheduleSave();
+        return true;
+    }
+
+    private string? MostUsedSoundFolder() => _library.Sounds
+        .Where(s => s.Path.Length > 0 && !IsMyinstantsDownload(s.Path))
+        .GroupBy(s => Path.GetDirectoryName(s.Path), StringComparer.OrdinalIgnoreCase)
+        .OrderByDescending(g => g.Count())
+        .Select(g => g.Key)
+        .FirstOrDefault(Directory.Exists);
 
     private static Sound NewSoundFrom(string file) => new()
     {

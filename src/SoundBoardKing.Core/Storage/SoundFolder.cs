@@ -36,6 +36,15 @@ public static class SoundFolder
         return Path.IsPathRooted(relative) ? null : relative;
     }
 
+    /// <summary>
+    /// The setting for a folder chosen when there was none: relative when it sits next to the app,
+    /// so they move together, otherwise the fixed path.
+    /// </summary>
+    public static string SettingFor(string fullPath, string appFolder) =>
+        RelativeToApp(fullPath, appFolder) is { } relative && !relative.StartsWith(@"..\..", StringComparison.Ordinal)
+            ? relative
+            : fullPath;
+
     public static bool Contains(string folder, string path) =>
         Path.GetFullPath(path).StartsWith(Path.TrimEndingDirectorySeparator(folder) + Path.DirectorySeparatorChar,
             StringComparison.OrdinalIgnoreCase);

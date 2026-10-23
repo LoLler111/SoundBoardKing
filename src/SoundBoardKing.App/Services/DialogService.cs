@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using Microsoft.Win32;
 using SoundBoardKing.App.ViewModels;
@@ -16,6 +17,17 @@ public sealed class DialogService(Window owner) : IDialogService
 
     public bool Confirm(string message) =>
         MessageDialog.Confirm(owner, message);
+
+    public bool Confirm(string message, string yes, string no) =>
+        MessageDialog.Confirm(owner, message, yes: yes, no: no);
+
+    public string? PickFolder(string title, string? initialFolder)
+    {
+        var dialog = new OpenFolderDialog { Title = title };
+        if (initialFolder is not null && Directory.Exists(initialFolder))
+            dialog.InitialDirectory = initialFolder;
+        return dialog.ShowDialog(owner) == true ? dialog.FolderName : null;
+    }
 
     public string? OpenSplFile(string? initialFolder)
     {

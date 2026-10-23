@@ -28,6 +28,18 @@ public class SoundFolderTests
     }
 
     [Fact]
+    public void A_folder_chosen_for_the_first_time_is_relative_only_next_to_the_app()
+    {
+        var sbk = Path.Combine(Path.GetTempPath(), "Sbk");
+        var app = Path.Combine(sbk, "App");
+
+        Assert.Equal(@"..\Suoni", SoundFolder.SettingFor(Path.Combine(sbk, "Suoni"), app));
+        Assert.Equal(Path.Combine(app, "Suoni"), Path.Combine(app, SoundFolder.SettingFor(Path.Combine(app, "Suoni"), app)));
+        Assert.Equal(@"D:\Altrove\Suoni", SoundFolder.SettingFor(@"D:\Altrove\Suoni", app));
+        Assert.Equal(@"\\NAS\Suoni", SoundFolder.SettingFor(@"\\NAS\Suoni", app));
+    }
+
+    [Fact]
     public void Copies_in_keeping_files_already_there_and_reusing_identical_ones()
     {
         using var dir = new TempDirectory();

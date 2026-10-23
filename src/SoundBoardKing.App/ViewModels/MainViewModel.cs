@@ -661,6 +661,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public async Task AddPathsAsync(IEnumerable<string> paths)
     {
         var known = _library.Sounds.Select(s => s.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        bool folderChosen = OfferSoundFolder();
         var folder = SoundFolderPath;
         if (folder is not null)
             StatusText = "Copia nella cartella dei suoni…";
@@ -668,16 +669,17 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var files = copied.Where(f => !known.Contains(f)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         IncludeInSoundFolder(files);
         if (files.Count == 0)
-        {
             StatusText = "Nessun nuovo file audio da aggiungere.";
-            return;
+        else
+        {
+            StatusText = $"Aggiunta di {files.Count} suoni…";
+            var sounds = await Task.Run(() => files.Select(NewSoundFrom).ToList());
+            AddToLibrary(sounds, TargetCategory);
+            if (copyError is not null)
+                StatusText += $" Non ho potuto copiarli tutti nella cartella dei suoni ({copyError}): quelli restano dove sono.";
         }
-
-        StatusText = $"Aggiunta di {files.Count} suoni…";
-        var sounds = await Task.Run(() => files.Select(NewSoundFrom).ToList());
-        AddToLibrary(sounds, TargetCategory);
-        if (copyError is not null)
-            StatusText += $" Non ho potuto copiarli tutti nella cartella dei suoni ({copyError}): quelli restano dove sono.";
+        if (folderChosen)
+            await ScanSoundFolderAsync(atStartup: false, folderChanged: true);
     }
 
     /// <summary>Puts new sounds in the library and, when given, in <paramref name="target"/>.</summary>

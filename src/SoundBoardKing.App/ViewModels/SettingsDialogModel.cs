@@ -178,9 +178,9 @@ public sealed partial class SettingsDialogModel : ObservableObject
     public void ChooseSoundsFolder(string fullPath)
     {
         var relative = SoundFolder.RelativeToApp(fullPath, AppFolder);
-        bool nearApp = relative is not null && !relative.StartsWith(@"..\..", StringComparison.Ordinal);
-        bool keepRelative = SoundsFolder.Trim().Length == 0 ? nearApp : IsSoundsFolderRelative;
-        SoundsFolder = keepRelative && relative is not null ? relative : fullPath;
+        SoundsFolder = SoundsFolder.Trim().Length == 0 ? SoundFolder.SettingFor(fullPath, AppFolder)
+            : IsSoundsFolderRelative && relative is not null ? relative
+            : fullPath;
     }
 
     // ---- Profile ----------------------------------------------------------------------------
