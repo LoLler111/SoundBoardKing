@@ -17,10 +17,12 @@ public sealed partial class SoundItemViewModel : ObservableObject
     [ObservableProperty]
     private string categories = "";
 
-    public SoundItemViewModel(Sound model)
+    /// <param name="checkFile">False when the caller checks the files of many sounds at once.</param>
+    public SoundItemViewModel(Sound model, bool checkFile = true)
     {
         Model = model;
-        RefreshFileState();
+        if (checkFile)
+            RefreshFileState();
     }
 
     public Sound Model { get; }

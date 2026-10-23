@@ -1021,12 +1021,33 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasArtists));
         _soundsById.Clear();
         foreach (var sound in _library.Sounds)
-            _soundsById[sound.Id] = new SoundItemViewModel(sound);
+            _soundsById[sound.Id] = new SoundItemViewModel(sound, checkFile: false);
 
         RebuildCategories(select: SelectedCategory?.Model);
         RefreshVisible();
         RefreshHotbar();
         OnPropertyChanged(nameof(LibrarySummary));
+        _ = RefreshMissingFilesAsync();
+    }
+
+    // Off the UI thread: on a cold start checking every file took seconds, with the list still empty.
+    private async Task RefreshMissingFilesAsync()
+    {
+        var sounds = _soundsById.Values.Select(s => (Item: s, s.Model.Path)).ToList();
+        var missing = await Task.Run(() => MissingFiles.Find(sounds.Select(s => s.Path)));
+        bool changed = false;
+        foreach (var (item, path) in sounds)
+        {
+            // A sound relinked meanwhile has been checked again already.
+            if (item.Model.Path != path || item.IsMissing == missing.Contains(path))
+                continue;
+            item.IsMissing = !item.IsMissing;
+            changed = true;
+        }
+        if (!changed)
+            return;
+        OnPropertyChanged(nameof(LibrarySummary));
+        NotifyLibraryChanged(); // phones mark missing files too
     }
 
     private void RebuildCategories(Category? select)
