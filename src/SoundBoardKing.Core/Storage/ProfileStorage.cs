@@ -48,6 +48,12 @@ public sealed class ProfileStorage
     /// </summary>
     public const string LinkFileName = "SoundBoardKing.sbklink";
 
+    /// <summary>
+    /// Start of a saved sound path relative to the sounds folder (<c>&lt;Suoni&gt;\Meme\airhorn.mp3</c>);
+    /// no file or folder name can contain &lt; or &gt;.
+    /// </summary>
+    public const string SoundsFolderPrefix = @"<Suoni>\";
+
     private readonly AppPaths _paths;
     private readonly JsonFileStore<LocalSettings> _localStore;
 
@@ -239,21 +245,31 @@ public sealed class ProfileStorage
         }
     }
 
-    private static Profile Read(string path, bool quarantineCorrupt)
+    private Profile Read(string path, bool quarantineCorrupt)
     {
         var profile = new JsonFileStore<Profile>(path).Load(quarantineCorrupt);
         var folder = Path.GetDirectoryName(Path.GetFullPath(path))!;
+        var soundsFolder = SoundFolder.Resolve(profile.Settings.SoundsFolder, ExecutableDirectory);
         foreach (var sound in profile.Library.Sounds)
         {
-            if (sound.Path.Length > 0 && !Path.IsPathFullyQualified(sound.Path))
+            if (sound.Path.StartsWith(SoundsFolderPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                // Without a sounds folder the path stays as it is: the sound shows up as missing.
+                if (soundsFolder is not null)
+                    sound.Path = Path.GetFullPath(Path.Combine(soundsFolder, sound.Path[SoundsFolderPrefix.Length..]));
+            }
+            else if (sound.Path.Length > 0 && !Path.IsPathFullyQualified(sound.Path))
+            {
                 sound.Path = Path.GetFullPath(Path.Combine(folder, sound.Path));
+            }
         }
         return profile;
     }
 
-    private static void Write(string path, Profile profile)
+    private void Write(string path, Profile profile)
     {
         var folder = Path.GetDirectoryName(Path.GetFullPath(path))!;
+        var soundsFolder = SoundFolder.Resolve(profile.Settings.SoundsFolder, ExecutableDirectory);
         var library = profile.Library;
         var portable = new Profile
         {
@@ -263,7 +279,7 @@ public sealed class ProfileStorage
             Library = new SoundLibrary
             {
                 Version = library.Version,
-                Sounds = library.Sounds.Select(s => s.WithPath(PortablePath(s.Path, folder))).ToList(),
+                Sounds = library.Sounds.Select(s => s.WithPath(PortablePath(s.Path, folder, soundsFolder))).ToList(),
                 Categories = library.Categories,
                 Hotbar = library.Hotbar,
                 Sort = library.Sort,
@@ -273,10 +289,17 @@ public sealed class ProfileStorage
         new JsonFileStore<Profile>(path).Save(portable);
     }
 
-    // Sounds near the profile are stored relative to it, so they are still found after the folders
-    // are moved or copied together.
-    private static string PortablePath(string soundPath, string folder) =>
-        Path.IsPathFullyQualified(soundPath) ? NearbyRelativePath(soundPath, folder) ?? soundPath : soundPath;
+    // Sounds in the sounds folder are stored relative to it, so they follow it wherever it is moved
+    // (only the folder's setting changes); those near the profile relative to the profile, so they are
+    // still found after the folders are moved or copied together.
+    private static string PortablePath(string soundPath, string folder, string? soundsFolder)
+    {
+        if (!Path.IsPathFullyQualified(soundPath))
+            return soundPath;
+        if (soundsFolder is not null && SoundFolder.Contains(soundsFolder, soundPath))
+            return SoundsFolderPrefix + Path.GetRelativePath(soundsFolder, soundPath);
+        return NearbyRelativePath(soundPath, folder) ?? soundPath;
+    }
 
     /// <summary>
     /// The path relative to <paramref name="folder"/> when it lies inside it or inside a sibling

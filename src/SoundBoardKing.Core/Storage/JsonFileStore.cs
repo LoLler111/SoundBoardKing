@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace SoundBoardKing.Core.Storage;
@@ -9,6 +10,8 @@ public sealed class JsonFileStore<T>(string filePath) where T : class, new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        // Never put in a web page: accents and <Suoni>\ stay readable instead of becoming è, <.
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
     public string FilePath { get; } = filePath;

@@ -160,6 +160,35 @@ public class ProfileStorageTests
     }
 
     [Fact]
+    public void Sounds_in_the_sounds_folder_follow_it_wherever_it_moves()
+    {
+        using var dir = new TempDirectory();
+        // The profile stays in the app data folder; the app and its sounds folder sit side by side.
+        var appData = new AppPaths(Path.Combine(dir.Path, "appdata"));
+        var storage = new ProfileStorage(appData, Path.Combine(dir.Path, "Kit", "App"));
+        storage.LoadLocal();
+        var horn = dir.CreateFile(Path.Combine("Kit", "Suoni", "Meme", "horn.mp3"));
+        var outside = dir.CreateFile(Path.Combine("Download", "boom.mp3"));
+        var profile = SampleProfile(horn);
+        profile.Library.Sounds.Add(new Sound { Path = outside });
+        profile.Settings.SoundsFolder = @"..\Suoni";
+        storage.Save(profile);
+
+        var text = File.ReadAllText(storage.ProfilePath);
+        Assert.Contains(@"""<Suoni>\\Meme\\horn.mp3""", text); // JSON-escaped
+        Assert.Contains(@"""..\\Download\\boom.mp3""", text); // outside the folder: as before, near the profile
+
+        var moved = Path.Combine(dir.Path, "Chiavetta", "Kit");
+        Directory.CreateDirectory(Path.GetDirectoryName(moved)!);
+        Directory.Move(Path.Combine(dir.Path, "Kit"), moved);
+        var other = new ProfileStorage(appData, Path.Combine(moved, "App"));
+        other.LoadLocal();
+
+        var paths = other.Open().Profile.Library.Sounds.Select(s => s.Path);
+        Assert.Equal([Path.Combine(moved, "Suoni", "Meme", "horn.mp3"), outside], paths);
+    }
+
+    [Fact]
     public void Using_another_file_rejects_what_is_not_a_profile()
     {
         using var dir = new TempDirectory();
