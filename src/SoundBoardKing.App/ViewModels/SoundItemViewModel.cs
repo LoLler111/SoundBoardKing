@@ -66,4 +66,11 @@ public sealed partial class SoundItemViewModel : ObservableObject
     }
 
     public void RefreshFileState() => IsMissing = !File.Exists(Model.Path);
+
+    /// <summary>The file was rewritten (by the editor): its length may differ.</summary>
+    public void FileChanged()
+    {
+        RefreshFileState();
+        OnPropertyChanged(nameof(Duration));
+    }
 }

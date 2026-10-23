@@ -178,6 +178,13 @@ public sealed class AudioEngine : IDisposable
     /// <summary>Stops one sound; the others keep playing.</summary>
     public void Stop(Playback playback) => playback.Stop();
 
+    /// <summary>Stops every play of the sound with this tag, e.g. before its file is rewritten.</summary>
+    public void StopTag(object tag)
+    {
+        foreach (var playback in Snapshot().Where(p => Equals(p.Tag, tag)))
+            playback.Stop();
+    }
+
     public void StopAll()
     {
         foreach (var playback in Snapshot())

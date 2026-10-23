@@ -8,7 +8,8 @@ namespace SoundBoardKing.Audio;
 /// <summary>
 /// Listens to a sound that is not in the library yet, straight from memory (nothing is written to
 /// disk), only in the headphones and with its own volume. It is levelled like the library sounds
-/// and limited, so an ear-rape upload is not worse than any other sound. One at a time; methods
+/// and limited, so an ear-rape upload is not worse than any other sound. The sound editor plays the
+/// sound being edited through it too, as it is. One at a time; methods
 /// are meant for the UI thread, <see cref="Ended"/> is raised on it.
 /// </summary>
 public sealed class PreviewPlayer : IDisposable
@@ -18,8 +19,9 @@ public sealed class PreviewPlayer : IDisposable
     private readonly SynchronizationContext? _sync = SynchronizationContext.Current;
     private readonly LevelingSwitch _limiterOn = new() { Enabled = true };
     private WasapiOut? _output;
-    private StreamMediaFoundationReader? _reader;
+    private IDisposable? _resource;
     private VolumeSampleProvider? _volumeStage;
+    private FrameCounter? _counter;
     private float _volume = 0.5f;
 
     /// <summary>The current preview finished or was stopped; the argument is its tag.</summary>
@@ -57,8 +59,34 @@ public sealed class PreviewPlayer : IDisposable
     public void Play(byte[] data, object? tag, string? deviceId, float levelGain)
     {
         Stop();
-
         var reader = OpenReader(data);
+        Start(reader.ToSampleProvider(), reader, tag, deviceId, levelGain);
+    }
+
+    /// <summary>
+    /// Plays a sound being edited as it is, without leveling; <see cref="Position"/> follows it.
+    /// </summary>
+    /// <exception cref="COMException">The device cannot open.</exception>
+    public void Play(ISampleProvider source, object? tag, string? deviceId)
+    {
+        Stop();
+        Start(source, null, tag, deviceId, 1f);
+    }
+
+    /// <summary>How far the current preview has got, as heard (the output's latency taken off).</summary>
+    public TimeSpan Position
+    {
+        get
+        {
+            if (_counter is not { } counter)
+                return TimeSpan.Zero;
+            var heard = TimeSpan.FromSeconds((double)counter.Frames / counter.WaveFormat.SampleRate) - TimeSpan.FromMilliseconds(OutputLatencyMs);
+            return heard > TimeSpan.Zero ? heard : TimeSpan.Zero;
+        }
+    }
+
+    private void Start(ISampleProvider input, IDisposable? resource, object? tag, string? deviceId, float levelGain)
+    {
         WasapiOut? output = null;
         try
         {
@@ -66,7 +94,8 @@ public sealed class PreviewPlayer : IDisposable
             var device = FindDevice(enumerator, deviceId) ?? enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
             var mixFormat = device.AudioClient.MixFormat;
 
-            var source = SampleChains.ToFormat(reader.ToSampleProvider(),
+            var counter = new FrameCounter(input);
+            var source = SampleChains.ToFormat(counter,
                 WaveFormat.CreateIeeeFloatWaveFormat(mixFormat.SampleRate, 2));
             var levelled = new VolumeSampleProvider(source) { Volume = levelGain };
             var volume = new VolumeSampleProvider(new Limiter(levelled, _limiterOn)) { Volume = _volume };
@@ -77,15 +106,16 @@ public sealed class PreviewPlayer : IDisposable
             output.Init(new SampleToWaveProvider(final));
             output.Play();
 
-            _reader = reader;
+            _resource = resource;
             _output = output;
             _volumeStage = volume;
+            _counter = counter;
             CurrentTag = tag;
         }
         catch
         {
             output?.Dispose();
-            reader.Dispose();
+            resource?.Dispose();
             throw;
         }
     }
@@ -137,10 +167,11 @@ public sealed class PreviewPlayer : IDisposable
             _output.PlaybackStopped -= OnStopped;
             _output.Dispose();
         }
-        _reader?.Dispose();
+        _resource?.Dispose();
         _output = null;
-        _reader = null;
+        _resource = null;
         _volumeStage = null;
+        _counter = null;
         CurrentTag = null;
     }
 
@@ -158,5 +189,21 @@ public sealed class PreviewPlayer : IDisposable
     {
         Ended = null;
         Close();
+    }
+
+    // Counts the frames taken from the source, which the output thread reads ahead of what is heard.
+    private sealed class FrameCounter(ISampleProvider source) : ISampleProvider
+    {
+        private long _frames;
+
+        public WaveFormat WaveFormat => source.WaveFormat;
+        public long Frames => Interlocked.Read(ref _frames);
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            int read = source.Read(buffer, offset, count);
+            Interlocked.Add(ref _frames, read / WaveFormat.Channels);
+            return read;
+        }
     }
 }

@@ -8,6 +8,9 @@
 
   <ItemGroup>
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+    <!-- The sound editor: voice isolation runs a separation model on the CPU; Ogg export. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
+    <PackageReference Include="OggVorbisEncoder" Version="1.2.2" />
   </ItemGroup>
 
   <ItemGroup>

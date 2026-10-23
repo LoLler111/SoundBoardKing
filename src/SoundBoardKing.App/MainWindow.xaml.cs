@@ -67,6 +67,7 @@ public partial class MainWindow : Window
         ContentRendered += OnContentRendered;
         Closed += (_, _) => _viewModel.Dispose();
         _viewModel.RenameRequested += (_, sound) => StartRename(sound);
+        _viewModel.EditorRequested += (_, sound) => new SoundEditorWindow(_viewModel, sound) { Owner = this }.ShowDialog();
         _viewModel.HotbarImported += OnHotbarImported;
         PreviewMouseDown += ClosePadOnClickElsewhere;
         Deactivated += ClosePad;
@@ -333,6 +334,11 @@ public partial class MainWindow : Window
         {
             SearchBox.Focus();
             SearchBox.SelectAll();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.E && Keyboard.Modifiers == ModifierKeys.Control && Keyboard.FocusedElement is not TextBox)
+        {
+            _viewModel.EditSoundCommand.Execute(null);
             e.Handled = true;
         }
         // Ctrl+V of a Myinstants link outside a text box adds that sound.
@@ -773,6 +779,12 @@ public partial class MainWindow : Window
     {
         if ((sender as FrameworkElement)?.DataContext is HotbarSlotViewModel slot)
             _viewModel.PreviewHotbarSlotCommand.Execute(slot);
+    }
+
+    private void EditHotbarSlot_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is HotbarSlotViewModel { Sound: { } sound })
+            _viewModel.EditSoundCommand.Execute(sound);
     }
 
     private void PlayHotbarSlotOnMic_Click(object sender, RoutedEventArgs e)

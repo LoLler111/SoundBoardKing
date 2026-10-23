@@ -71,8 +71,8 @@ Le app non sono firmate con un certificato di codice Windows, quindi al primo av
 | Cartella | Contenuto |
 |---|---|
 | `src/SoundBoardKing.Core` | Modello dati, import `.spl` di SoundPad, salvataggio JSON |
-| `src/SoundBoardKing.Audio` | Motore audio (NAudio): decodifica, mixer, uscita cuffie; `ApoMicFeed` scrive nel microfono tramite l'APO |
-| `src/SoundBoardKing.App` | App WPF: libreria, categorie, preferiti 5×20, tasti rapidi globali, gestione modulo microfono |
+| `src/SoundBoardKing.Audio` | Motore audio (NAudio): decodifica, mixer, uscita cuffie; `ApoMicFeed` scrive nel microfono tramite l'APO; `Editing/` è l'editor dei suoni (tagli, sfumature, salvataggio in MP3/M4A/WAV/FLAC/OGG/WMA, voce isolata con il modello UVR-MDX-NET Voc_FT, scaricato al primo uso in `%LOCALAPPDATA%\SoundBoardKing\Models`) |
+| `src/SoundBoardKing.App` | App WPF: libreria, categorie, preferiti 5×20, tasti rapidi globali, gestione modulo microfono, editor dei suoni (*Modifica…*, Ctrl+E) |
 | `src/SoundBoardKing.Remote` | Server per il telefono dentro l'app: REST + WebSocket sulla porta 8765, scoperta UDP, abbinamento con QR/codice ([protocollo](docs/PROTOCOLLO_REMOTO.md)) |
 | `src/SoundBoardKing.MicSetup` | Installatore del modulo microfono (amministratore): registra l'APO e la collega al microfono, con ripristino completo |
 | `native/SbkMicFx` | APO in C++ caricata dal motore audio di Windows: somma i suoni al segnale del microfono |
