@@ -163,7 +163,8 @@ public partial class MainWindow : Window
             e.Cancel = true;
             _remote = null;
             await remote.DisposeAsync();
-            Close();
+            // Queued: with the server off the await finishes at once, still inside this close.
+            Dispatcher.BeginInvoke(Close);
             return;
         }
         base.OnClosing(e);
