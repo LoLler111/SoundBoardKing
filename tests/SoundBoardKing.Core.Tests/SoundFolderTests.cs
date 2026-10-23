@@ -70,6 +70,56 @@ public class SoundFolderTests
     }
 
     [Fact]
+    public void A_new_folder_takes_over_the_old_one_following_its_subfolders()
+    {
+        using var dir = new TempDirectory();
+        var old = Path.Combine(dir.Path, "Vecchia");
+        var folder = Path.Combine(dir.Path, "Nuova");
+        // Copied, not moved: the old files are still there.
+        var meme = new Sound { Path = dir.CreateFile(@"Vecchia\Meme\airhorn.mp3", "meme") };
+        var film = new Sound { Path = dir.CreateFile(@"Vecchia\Film\airhorn.mp3", "film!") };
+        var gone = new Sound { Path = Path.Combine(old, "Voci", "ciao.mp3") };
+        var notCopied = new Sound { Path = dir.CreateFile(@"Vecchia\solo qui.mp3") };
+        var elsewhere = new Sound { Path = dir.CreateFile(@"Download\boom.mp3", "boom") };
+        var changed = new Sound { Path = dir.CreateFile(@"Download\bip.mp3", "bip") };
+        var newFilm = dir.CreateFile(@"Nuova\Film\airhorn.mp3", "film!");
+        var newMeme = dir.CreateFile(@"Nuova\Meme\airhorn.mp3", "meme");
+        var newCiao = dir.CreateFile(@"Nuova\Altro\Voci\ciao.mp3");
+        var newBoom = dir.CreateFile(@"Nuova\boom.mp3", "boom");
+        var otherBip = dir.CreateFile(@"Nuova\bip.mp3", "un altro bip");
+        Sound[] sounds = [meme, film, gone, notCopied, elsewhere, changed];
+
+        var scan = SoundFolder.Scan(folder, sounds, [], IsAudio, folderChanged: true, previousFolder: old);
+
+        var relinked = scan.Relinked.ToDictionary(r => r.Sound, r => r.Path);
+        Assert.Equal(newMeme, relinked[meme]);
+        Assert.Equal(newFilm, relinked[film]);
+        Assert.Equal(newCiao, relinked[gone]);
+        Assert.Equal(newBoom, relinked[elsewhere]); // same name and size: the same sound
+        Assert.Equal(4, relinked.Count);
+        Assert.Equal([otherBip], scan.NewFiles); // same name, other content: a new sound
+
+        // Without a change of folder, files still in place are left alone.
+        var again = SoundFolder.Scan(folder, sounds, [], IsAudio);
+        Assert.Equal([gone], again.Relinked.Select(r => r.Sound));
+    }
+
+    [Fact]
+    public void A_missing_sound_prefers_the_file_under_the_same_subfolders()
+    {
+        using var dir = new TempDirectory();
+        var folder = Path.Combine(dir.Path, "Suoni");
+        var other = dir.CreateFile(@"Suoni\Altro\airhorn.mp3");
+        var right = dir.CreateFile(@"Suoni\Meme\airhorn.mp3");
+        var lost = new Sound { Path = Path.Combine(dir.Path, "Chiavetta", "Meme", "airhorn.mp3") };
+
+        var scan = SoundFolder.Scan(folder, [lost], [], IsAudio);
+
+        Assert.Equal(right, Assert.Single(scan.Relinked).Path);
+        Assert.Equal([other], scan.NewFiles);
+    }
+
+    [Fact]
     public void Keeps_uncategorized_sounds_in_their_own_category_first_in_the_tree()
     {
         Sound a = new() { Title = "a" }, b = new() { Title = "b" }, c = new() { Title = "c" };

@@ -25,9 +25,11 @@ public sealed partial class MainViewModel
 
     /// <summary>
     /// Adds the sounds folder's new files to the library and relinks missing sounds found there.
-    /// At startup it says nothing when there is no folder or nothing new.
+    /// At startup it says nothing when there is no folder or nothing new. Right after choosing
+    /// another folder (<paramref name="folderChanged"/>), every sound is relinked to its file in it,
+    /// following the subfolders of <paramref name="previousFolder"/>.
     /// </summary>
-    public async Task ScanSoundFolderAsync(bool atStartup)
+    public async Task ScanSoundFolderAsync(bool atStartup, bool folderChanged = false, string? previousFolder = null)
     {
         if (_scanningSoundFolder)
             return;
@@ -49,7 +51,8 @@ public sealed partial class MainViewModel
             List<Sound> found;
             try
             {
-                scan = await Task.Run(() => SoundFolder.Scan(folder, sounds, excluded, AudioFileProbe.IsSupported));
+                scan = await Task.Run(() =>
+                    SoundFolder.Scan(folder, sounds, excluded, AudioFileProbe.IsSupported, folderChanged, previousFolder));
                 found = await Task.Run(() => scan.NewFiles.Select(NewSoundFrom).ToList());
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -78,6 +81,21 @@ public sealed partial class MainViewModel
                 LibraryEdited();
             }
 
+            if (folderChanged)
+            {
+                // Sounds of the old folder not found in the new one keep playing from where they are.
+                int left = previousFolder is null ? 0
+                    : _library.Sounds.Count(s => s.Path.Length > 0 && SoundFolder.Contains(previousFolder, s.Path));
+                var parts = new List<string>();
+                if (relinked > 0)
+                    parts.Add($"ricollegati {relinked} suoni");
+                if (found.Count > 0)
+                    parts.Add($"{found.Count} nuovi in \"{SoundLibrary.UncategorizedName}\"");
+                if (left > 0)
+                    parts.Add($"{left} non trovati, restano nella vecchia cartella");
+                StatusText = "Nuova cartella dei suoni: " + (parts.Count > 0 ? string.Join(", ", parts) : "nessun suono") + ".";
+                return;
+            }
             StatusText = (found.Count, relinked) switch
             {
                 (0, 0) => atStartup ? "" : "Nessun nuovo suono nella cartella dei suoni.",

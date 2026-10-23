@@ -1243,13 +1243,16 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _settings.PauseHotkey = pause;
 
         var soundsFolder = model.SoundsFolder.Trim();
-        bool newSoundsFolder = !string.Equals(soundsFolder, _settings.SoundsFolder ?? "", StringComparison.OrdinalIgnoreCase);
+        var previousSoundsFolder = SoundFolderPath;
         _settings.SoundsFolder = soundsFolder.Length == 0 ? null : soundsFolder;
+        // Only another place counts: switching between "..\Suoni" and its full path changes nothing.
+        bool newSoundsFolder = SoundFolderPath is { } current
+            && !string.Equals(current, previousSoundsFolder, StringComparison.OrdinalIgnoreCase);
 
         RegisterHotkeys();
         ScheduleSave();
         if (newSoundsFolder)
-            _ = ScanSoundFolderAsync(atStartup: false);
+            _ = ScanSoundFolderAsync(atStartup: false, folderChanged: true, previousSoundsFolder);
         if (model.UpdateRestartRequested)
             RestartToUpdate(); // "Riavvia e aggiorna" also confirms the dialog
     }
