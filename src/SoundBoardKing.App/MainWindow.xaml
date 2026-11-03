@@ -486,7 +486,7 @@
                             ToolTip="Volume in cuffia (sotto: lo spettro di ciò che senti)">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE767;" VerticalAlignment="Center" Margin="0,0,10,0" />
-                            <Grid Width="170">
+                            <Grid Width="100">
                                 <ctl:SpectrumMeter Reader="{Binding SpeakerSpectrum}" Fill="{StaticResource AccentBrush}"
                                                    Opacity="0.6" Margin="0,4" />
                                 <Slider Minimum="0" Maximum="100" Value="{Binding SpeakerVolume}" VerticalAlignment="Center" />
@@ -518,7 +518,7 @@
                     </Button>
                     <!-- Where the effect goes: sounds only, voice only, both or none, picked from a list. -->
                     <Button x:Name="EffectTargetButton" Margin="6,0,0,0" Style="{StaticResource DropdownButton}" Click="EffectTargetButton_Click"
-                            ToolTip="A cosa si applica l'effetto: solo suoni, solo microfono (la tua voce), entrambi, nessuno">
+                            ToolTip="A cosa si applica l'effetto: solo cuffie (i suoni), solo microfono (la tua voce), entrambi, nessuno">
                         <Button.ContextMenu>
                             <ContextMenu ItemsSource="{Binding EffectTargetOptions}">
                                 <ContextMenu.ItemContainerStyle>
@@ -557,11 +557,12 @@
                                     <ContentPresenter />
                                 </Border>
                                 <ControlTemplate.Triggers>
-                                    <Trigger Property="IsChecked" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                                    </Trigger>
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter TargetName="Bd" Property="Background" Value="{StaticResource LineBrush}" />
+                                    </Trigger>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBrush}" />
+                                        <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -629,8 +630,9 @@
                                 </Grid>
                                 <ControlTemplate.Triggers>
                                     <DataTrigger Binding="{Binding MicIndicator}" Value="active">
-                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                                        <Setter TargetName="Icon" Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBrush}" />
+                                        <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                        <Setter TargetName="Icon" Property="Foreground" Value="{StaticResource OnAccentBrush}" />
                                         <Setter TargetName="Dot" Property="Fill" Value="#5BD27A" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding MicIndicator}" Value="idle">
@@ -658,7 +660,7 @@
                     <Border Background="{StaticResource Panel2Brush}" CornerRadius="8" Padding="10,0" Height="38"
                             ToolTip="Volume nel microfono (sotto: lo spettro di ciò che arriva nel microfono)">
                         <StackPanel Orientation="Horizontal">
-                            <Grid Width="130" IsEnabled="{Binding PlayOnMic}">
+                            <Grid Width="100" IsEnabled="{Binding PlayOnMic}">
                                 <ctl:SpectrumMeter Reader="{Binding MicSpectrum}" Fill="{StaticResource MicBrush}"
                                                    Opacity="0.6" Margin="0,4" />
                                 <Slider Minimum="0" Maximum="100" Value="{Binding MicVolume}" VerticalAlignment="Center"

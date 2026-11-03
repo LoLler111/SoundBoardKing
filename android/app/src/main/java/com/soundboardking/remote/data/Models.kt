@@ -176,9 +176,9 @@ enum class SoundEffect(val wire: String, val label: String) {
 
 /** What the voice effect is applied to. */
 enum class EffectTarget(val wire: String, val label: String) {
-    Sounds("sounds", "Solo suoni"),
+    Sounds("sounds", "Solo Cuffie"),
     Voice("voice", "Solo microfono"),
-    Both("both", "Suoni e microfono"),
+    Both("both", "Cuffia e Mic."),
     Off("off", "Nessuno"),
     ;
 

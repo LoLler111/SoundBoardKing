@@ -15,8 +15,8 @@ public sealed partial class EffectTargetOptionViewModel(EffectTarget target) : O
     public static string LabelOf(EffectTarget target) => target switch
     {
         EffectTarget.Voice => "Solo microfono",
-        EffectTarget.Both => "Suoni e microfono",
+        EffectTarget.Both => "Cuffia e Mic.",
         EffectTarget.Off => "Nessuno",
-        _ => "Solo suoni",
+        _ => "Solo Cuffie",
     };
 }
