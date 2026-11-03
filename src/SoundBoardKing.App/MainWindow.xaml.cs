@@ -97,8 +97,10 @@ public partial class MainWindow : Window
         _viewModel.StatusText = "";
         _viewModel.Initialize();
         _remote = new RemoteHost(_viewModel, Dispatcher);
+        _remote.PhonesChanged += (_, _) => UpdatePhoneDot();
         if (_viewModel.RemoteEnabled)
             await _remote.StartAsync();
+        UpdatePhoneDot();
         await _viewModel.ScanSoundFolderAsync(atStartup: true);
         await _viewModel.OfferMicModuleRefreshAsync();
         await _viewModel.CheckForUpdatesInBackgroundAsync();
@@ -207,31 +209,80 @@ public partial class MainWindow : Window
     // ---- Effect pad held from its button ----------------------------------------------------
 
     // A click opens or closes the pad, a double click resets it. Pressed and dragged (the pad open or
-    // not), the pad shows and its point follows the mouse from where it was; letting go puts strength
+    // not), the pad shows and its point follows the mouse from where it was; letting go puts pitch
     // and speed back as they were and closes it, unless the right button was pressed meanwhile (the
     // phone's second finger): then they stay. Right again unlocks.
+    // The same from a sound (a favourite pressed, a row of the list double clicked) held still or
+    // dragged: the pad shows and the sound starts a moment later, already changed by it. Let go at
+    // once, the sound starts right away as a plain click.
     private Point? _padPress;
+    private UIElement _padSource = null!; // what holds the mouse: the pad's button or the sound pressed
+    private Action? _padSound; // the pressed sound's play, until it has started
     private bool _padHolding, _padLocked, _padDoubleClick, _padOpenBeforeClick;
-    private double _padStartAmount, _padStartSpeed;
+    private double _padStartPitch, _padStartSpeed;
+
+    // Held still this long on a sound, the pad shows without waiting for a drag.
+    private static readonly TimeSpan SoundPadHoldDelay = TimeSpan.FromMilliseconds(250);
+    // Then the sound waits this long, to leave time to move the point before it starts.
+    private static readonly TimeSpan SoundStartDelay = TimeSpan.FromMilliseconds(400);
+    private DispatcherTimer? _soundPadTimer, _soundStartTimer;
 
     private void PadToggle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true; // the toggle opens on the release instead, if it was not a drag
-        _padPress = e.GetPosition(PadToggle);
-        _padHolding = _padLocked = false;
+        BeginPadPress(PadToggle, e);
         _padDoubleClick = e.ClickCount == 2;
         if (_padDoubleClick)
             _viewModel.ResetPadCommand.Execute(null);
         else
             _padOpenBeforeClick = PadToggle.IsChecked == true;
-        PadToggle.CaptureMouse();
     }
 
-    private void PadToggle_PreviewMouseMove(object sender, MouseEventArgs e)
+    private void HotbarSlot_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.None ||
+            sender is not Button { DataContext: HotbarSlotViewModel { IsEmpty: false } slot } button)
+            return;
+        e.Handled = true; // no click of its own: the release or the hold decides
+        BeginSoundPadPress(button, e, () => _viewModel.PlayHotbarSlotCommand.Execute(slot));
+    }
+
+    private void BeginSoundPadPress(UIElement source, MouseButtonEventArgs e, Action play)
+    {
+        BeginPadPress(source, e);
+        _padSound = play;
+        _soundPadTimer ??= new DispatcherTimer(SoundPadHoldDelay, DispatcherPriority.Input, (_, _) =>
+        {
+            _soundPadTimer!.Stop();
+            if (_padPress is not null && !_padHolding)
+                StartPadHold();
+        }, Dispatcher);
+        _soundPadTimer.Start();
+    }
+
+    private void BeginPadPress(UIElement source, MouseButtonEventArgs e)
+    {
+        _padSource = source;
+        _padPress = e.GetPosition(source);
+        _padHolding = _padLocked = false;
+        _padSound = null;
+        source.CaptureMouse();
+    }
+
+    // Starts the pressed sound, once.
+    private void PlayPadSound()
+    {
+        _soundStartTimer?.Stop();
+        var play = _padSound;
+        _padSound = null;
+        play?.Invoke();
+    }
+
+    private void PadPress_PreviewMouseMove(object sender, MouseEventArgs e)
     {
         if (_padPress is not { } start)
             return;
-        var delta = e.GetPosition(PadToggle) - start;
+        var delta = e.GetPosition(_padSource) - start;
         if (!_padHolding)
         {
             if (Math.Abs(delta.X) < SystemParameters.MinimumHorizontalDragDistance &&
@@ -240,11 +291,11 @@ public partial class MainWindow : Window
             StartPadHold();
         }
         // The mouse moves the point as if it were on the pad, starting from where the point was.
-        _viewModel.EffectAmount = Math.Round(Math.Clamp(_padStartAmount + delta.X / Pad.Width * 100, 0, 100));
+        _viewModel.PadPitch = Math.Round(Math.Clamp(_padStartPitch - delta.X / Pad.Width * 200, -100, 100)); // left is higher
         _viewModel.PadSpeed = Math.Round(Math.Clamp(_padStartSpeed - delta.Y / Pad.Height * 200, -100, 100));
     }
 
-    private void PadToggle_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    private void PadPress_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (_padPress is null)
             return;
@@ -252,7 +303,7 @@ public partial class MainWindow : Window
         EndPadPress(click: true);
     }
 
-    private void PadToggle_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    private void PadPress_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (_padPress is null)
             return;
@@ -263,18 +314,29 @@ public partial class MainWindow : Window
         UpdatePadHoldHint();
     }
 
-    private void PadToggle_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e) => e.Handled = _padPress is not null;
+    // Also keeps a sound's context menu shut while its button is held.
+    private void PadPress_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e) => e.Handled |= _padPress is not null;
 
     // Taken away by another window or Alt+Tab: as if the button was let go.
-    private void PadToggle_LostMouseCapture(object sender, MouseEventArgs e) => EndPadPress(click: false);
+    private void PadPress_LostMouseCapture(object sender, MouseEventArgs e)
+    {
+        if (e.OriginalSource == _padSource) // not a row or a scroll bar inside the list letting go of its own
+            EndPadPress(click: false);
+    }
 
     private void StartPadHold()
     {
+        _soundPadTimer?.Stop();
         _padHolding = true;
-        _padStartAmount = _viewModel.EffectAmount;
+        _padStartPitch = _viewModel.PadPitch;
         _padStartSpeed = _viewModel.PadSpeed;
         PadToggle.IsChecked = true;
         UpdatePadHoldHint();
+        if (_padSound is not null)
+        {
+            _soundStartTimer ??= new DispatcherTimer(SoundStartDelay, DispatcherPriority.Input, (_, _) => PlayPadSound(), Dispatcher);
+            _soundStartTimer.Start();
+        }
     }
 
     private void UpdatePadHoldHint()
@@ -288,22 +350,48 @@ public partial class MainWindow : Window
         if (_padPress is null)
             return;
         _padPress = null; // first: releasing the capture comes back here
-        PadToggle.ReleaseMouseCapture();
+        _soundPadTimer?.Stop();
+        _padSource.ReleaseMouseCapture();
+        // Let go before the sound started: it starts now (a plain click); taken away, it does not.
+        if (click)
+            PlayPadSound();
+        _soundStartTimer?.Stop();
+        _padSound = null;
         if (!_padHolding)
         {
             // The first click of a double click opened or closed the pad: the second puts it back.
-            if (click)
+            if (click && _padSource == PadToggle)
                 PadToggle.IsChecked = _padDoubleClick ? _padOpenBeforeClick : !_padOpenBeforeClick;
             return;
         }
         _padHolding = false;
         if (!_padLocked)
         {
-            _viewModel.EffectAmount = _padStartAmount;
+            _viewModel.PadPitch = _padStartPitch;
             _viewModel.PadSpeed = _padStartSpeed;
         }
         PadToggle.IsChecked = false;
         UpdatePadHoldHint();
+    }
+
+    // Green while the phone app is connected, grey while the PC waits for it, none with the remote off.
+    private void UpdatePhoneDot()
+    {
+        if (_remote?.Server is null)
+        {
+            PhoneDot.Visibility = Visibility.Collapsed;
+            PhoneButton.ToolTip = "Telefono: controllo dal telefono spento";
+            return;
+        }
+        int phones = _remote.ConnectedPhones;
+        PhoneDot.Visibility = Visibility.Visible;
+        PhoneDot.Fill = (Brush)FindResource(phones > 0 ? "OnlineBrush" : "TextDimBrush");
+        PhoneButton.ToolTip = phones switch
+        {
+            0 => "Telefono: nessuna app collegata",
+            1 => "Telefono: app collegata",
+            _ => $"Telefono: {phones} app collegate",
+        };
     }
 
     private void PhoneButton_Click(object sender, RoutedEventArgs e)
@@ -368,8 +456,13 @@ public partial class MainWindow : Window
 
     // ---- Sound list --------------------------------------------------------------------------
 
+    // Set when the second click's press went to the pad instead (see SoundGrid_PreviewMouseLeftButtonDown).
+    private bool _gridPlayTaken;
+
     private void SoundGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
+        if (_gridPlayTaken)
+            return;
         if (FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject)?.Item is SoundItemViewModel sound)
             _viewModel.PlaySoundCommand.Execute(sound);
     }
@@ -413,12 +506,31 @@ public partial class MainWindow : Window
 
     private void SoundGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        _dragArmed = FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject) is not null;
+        _gridPlayTaken = false;
+        var row = FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject);
+        // The second click of a double click plays on release, or held shows the pad (instead of a
+        // drag of the row) and plays a moment later; the grid's own double click then does nothing.
+        if (row?.Item is SoundItemViewModel sound && e.ClickCount == 2 && _renaming is null &&
+            Keyboard.Modifiers == ModifierKeys.None)
+        {
+            _dragArmed = false;
+            _gridPlayTaken = true;
+            e.Handled = true;
+            BeginSoundPadPress(SoundGrid, e, () => _viewModel.PlaySoundCommand.Execute(sound));
+            return;
+        }
+        bool onRow = row is not null;
+        _dragArmed = onRow;
         _dragStart = e.GetPosition(null);
     }
 
     private void SoundGrid_PreviewMouseMove(object sender, MouseEventArgs e)
     {
+        if (_padPress is not null)
+        {
+            PadPress_PreviewMouseMove(sender, e);
+            return;
+        }
         if (!_dragArmed || e.LeftButton != MouseButtonState.Pressed || _renaming is not null)
             return;
         var delta = e.GetPosition(null) - _dragStart;

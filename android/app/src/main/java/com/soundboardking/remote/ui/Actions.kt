@@ -37,7 +37,7 @@ interface RemoteActions {
     fun setMic(enabled: Boolean)
     fun setEffect(effect: SoundEffect)
     fun setEffectAmount(percent: Int)
-    fun setPad(percent: Int, speed: Double)
+    fun setPad(pitch: Double, speed: Double)
     fun setEffectTarget(target: EffectTarget)
     fun renameSound(soundId: String, title: String)
     fun reconnect()

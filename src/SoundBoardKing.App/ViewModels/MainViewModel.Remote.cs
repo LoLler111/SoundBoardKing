@@ -66,7 +66,8 @@ public sealed partial class MainViewModel
         EffectNames.ToWire(SoundEffect),
         EffectAmountPercent,
         Math.Round(PlaybackSpeed, 3),
-        EffectNames.ToWire(EffectTarget));
+        EffectNames.ToWire(EffectTarget),
+        Math.Round(PlaybackPitch, 3));
 
     public PlayResult PlaySoundById(Guid soundId, PlayTarget target = PlayTarget.Default)
     {

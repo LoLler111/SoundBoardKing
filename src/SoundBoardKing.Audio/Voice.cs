@@ -30,7 +30,7 @@ internal sealed class Voice : ISampleProvider, IDisposable
         try
         {
             control ??= new EffectControl();
-            _chain = new LiveEffect(SampleChains.ToFormat(new VarispeedProvider(_reader.ToSampleProvider(), control), mixFormat), control);
+            _chain = new LiveEffect(SampleChains.ToFormat(SpeedAndPitch.Apply(_reader.ToSampleProvider(), control), mixFormat), control);
         }
         catch
         {

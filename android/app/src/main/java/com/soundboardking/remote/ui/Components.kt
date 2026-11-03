@@ -5,8 +5,6 @@ import android.content.ContextWrapper
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenu
@@ -112,11 +110,14 @@ fun SoundMenu(sound: SoundDto, expanded: Boolean, onDismiss: () -> Unit, onPlay:
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SoundRow(sound: SoundDto, playing: Boolean, onPlay: OnPlay) {
     val haptic = LocalHapticFeedback.current
     var menu by remember { mutableStateOf(false) }
+    val play = {
+        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        onPlay(sound.id, PlayTarget.Default)
+    }
     val subtitle = when {
         sound.missing -> "File mancante sul PC"
         sound.artist.isNotBlank() -> sound.artist
@@ -134,15 +135,7 @@ fun SoundRow(sound: SoundDto, playing: Boolean, onPlay: OnPlay) {
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
             modifier = Modifier
                 .alpha(if (sound.missing) 0.5f else 1f)
-                .combinedClickable(
-                    onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        menu = true
-                    },
-                ) {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onPlay(sound.id, PlayTarget.Default)
-                },
+                .soundPress(enabled = true, onPlay = play, onMenu = { menu = true }),
         )
         SoundMenu(sound, menu, onDismiss = { menu = false }, onPlay)
     }

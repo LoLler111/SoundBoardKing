@@ -59,6 +59,7 @@ data class UiState(
     val effect: SoundEffect = SoundEffect.None,
     val effectAmount: Int = 70,
     val playbackSpeed: Double = 1.0,
+    val playbackPitch: Double = 1.0,
     val effectTarget: EffectTarget = EffectTarget.Sounds,
     val discovered: List<DiscoveredPc> = emptyList(),
     val discovering: Boolean = false,
@@ -367,6 +368,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
                 effect = SoundEffect.fromWire(library.effect),
                 effectAmount = library.effectAmount,
                 playbackSpeed = library.playbackSpeed,
+                playbackPitch = library.playbackPitch,
                 effectTarget = EffectTarget.fromWire(library.effectTarget),
             )
         }
@@ -412,7 +414,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
                 it.copy(playback = event.playback, playbackReceivedAt = SystemClock.elapsedRealtime())
             }
             is ServerEvent.Mic -> _state.update { it.copy(mic = event.mic) }
-            is ServerEvent.Effect -> _state.update { it.copy(effect = SoundEffect.fromWire(event.effect), effectAmount = event.amount, playbackSpeed = event.speed, effectTarget = EffectTarget.fromWire(event.target)) }
+            is ServerEvent.Effect -> _state.update { it.copy(effect = SoundEffect.fromWire(event.effect), effectAmount = event.amount, playbackSpeed = event.speed, playbackPitch = event.pitch, effectTarget = EffectTarget.fromWire(event.target)) }
             is ServerEvent.Error -> showMessage(event.message)
         }
     }
@@ -467,9 +469,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application), Co
         send(SoundBoardApi.renameCommand(soundId, title))
     }
 
-    override fun setPad(percent: Int, speed: Double) {
-        _state.update { it.copy(effectAmount = percent, playbackSpeed = speed) }
-        send(SoundBoardApi.padCommand(percent, speed))
+    override fun setPad(pitch: Double, speed: Double) {
+        _state.update { it.copy(playbackPitch = pitch, playbackSpeed = speed) }
+        send(SoundBoardApi.padCommand(pitch, speed))
     }
 
     private fun send(command: String) {

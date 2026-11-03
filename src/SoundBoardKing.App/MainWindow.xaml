@@ -13,6 +13,7 @@
 
     <Window.Resources>
         <conv:IntEqualsConverter x:Key="IntEquals" />
+        <conv:NegateConverter x:Key="Negate" />
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
     </Window.Resources>
 
@@ -33,13 +34,6 @@
                     <Run Text="SoundBoard" /><Run Text="King" Foreground="{StaticResource AccentBrush}" />
                 </TextBlock>
 
-                <Button DockPanel.Dock="Left" Margin="0,0,8,0" Command="{Binding ImportSplCommand}"
-                        ToolTip="Importa suoni, categorie e preferiti da un file .spl di SoundPad">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8B5;" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Text="Importa da SoundPad" />
-                    </StackPanel>
-                </Button>
                 <Button DockPanel.Dock="Left" Command="{Binding AddFilesCommand}"
                         ToolTip="Aggiungi file audio (puoi anche trascinarli nella finestra)">
                     <StackPanel Orientation="Horizontal">
@@ -57,8 +51,15 @@
 
                 <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE713;"
                         Command="{Binding OpenSettingsCommand}" ToolTip="Impostazioni" Margin="4,0,0,0" />
-                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE8EA;"
-                        Click="PhoneButton_Click" ToolTip="Telefono" Margin="8,0,0,0" />
+                <!-- The dot tells whether the phone app is connected (see UpdatePhoneDot). -->
+                <Button x:Name="PhoneButton" DockPanel.Dock="Right" Style="{StaticResource IconButton}"
+                        Click="PhoneButton_Click" ToolTip="Telefono" Margin="8,0,0,0">
+                    <Grid Width="22" Height="22">
+                        <TextBlock Text="&#xE8EA;" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Ellipse x:Name="PhoneDot" Width="9" Height="9" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                 Stroke="{StaticResource PanelBrush}" StrokeThickness="2" Visibility="Collapsed" />
+                    </Grid>
+                </Button>
 
                 <Grid DockPanel.Dock="Right" Width="300">
                     <TextBox x:Name="SearchBox"
@@ -77,6 +78,10 @@
                         </TextBlock.Style>
                     </TextBlock>
                 </Grid>
+                <!-- Just left of the search, so it is at hand while playing. -->
+                <CheckBox DockPanel.Dock="Right" Content="Più suoni insieme" IsChecked="{Binding AllowOverlap}"
+                          VerticalAlignment="Center" Margin="0,0,14,0"
+                          ToolTip="Acceso: un suono nuovo si aggiunge a quelli che stanno suonando. Spento: li ferma e parte da solo" />
 
                 <Border />
             </DockPanel>
@@ -171,6 +176,10 @@
                       MouseDoubleClick="SoundGrid_MouseDoubleClick" PreviewKeyDown="SoundGrid_PreviewKeyDown"
                       PreviewMouseLeftButtonDown="SoundGrid_PreviewMouseLeftButtonDown"
                       PreviewMouseMove="SoundGrid_PreviewMouseMove"
+                      PreviewMouseLeftButtonUp="PadPress_PreviewMouseLeftButtonUp"
+                      PreviewMouseRightButtonDown="PadPress_PreviewMouseRightButtonDown"
+                      PreviewMouseRightButtonUp="PadPress_PreviewMouseRightButtonUp"
+                      LostMouseCapture="PadPress_LostMouseCapture"
                       BeginningEdit="SoundGrid_BeginningEdit" PreparingCellForEdit="SoundGrid_PreparingCellForEdit"
                       CellEditEnding="SoundGrid_CellEditEnding" Sorting="SoundGrid_Sorting"
                       AllowDrop="True" DragOver="SoundGrid_DragOver" DragLeave="SoundGrid_DragLeave" Drop="SoundGrid_Drop">
@@ -302,7 +311,13 @@
                                     Command="{Binding DataContext.PlayHotbarSlotCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                     CommandParameter="{Binding}"
                                     ToolTip="{Binding Sound.Title}"
-                                    AllowDrop="True" DragOver="HotbarSlot_DragOver" Drop="HotbarSlot_Drop">
+                                    AllowDrop="True" DragOver="HotbarSlot_DragOver" Drop="HotbarSlot_Drop"
+                                    PreviewMouseLeftButtonDown="HotbarSlot_PreviewMouseLeftButtonDown"
+                                    PreviewMouseMove="PadPress_PreviewMouseMove"
+                                    PreviewMouseLeftButtonUp="PadPress_PreviewMouseLeftButtonUp"
+                                    PreviewMouseRightButtonDown="PadPress_PreviewMouseRightButtonDown"
+                                    PreviewMouseRightButtonUp="PadPress_PreviewMouseRightButtonUp"
+                                    LostMouseCapture="PadPress_LostMouseCapture">
                                 <Button.ContextMenu>
                                     <ContextMenu>
                                         <MenuItem Header="Riproduci" Click="PlayHotbarSlot_Click" FontWeight="SemiBold" />
@@ -526,16 +541,16 @@
                               ToolTip="{Binding EffectAmountPercent}" ToolTipService.InitialShowDelay="0" />
                     <TextBlock Text="{Binding EffectAmountPercent, StringFormat={}{0}%}" Width="34" Margin="4,0,0,0" VerticalAlignment="Center"
                                FontSize="12" Foreground="{StaticResource TextDimBrush}" />
-                    <!-- Effect pad: across = strength, up and down = speed of the sounds, like a record. -->
+                    <!-- Sound pad: across = pitch, higher on the left (speed kept), up and down = speed (pitch kept). -->
                     <!-- Pressed and dragged it works the pad on the fly: let go and the effect goes back, unless the right button was pressed too. -->
                     <ToggleButton x:Name="PadToggle" Margin="4,0,0,0" Cursor="Hand"
                                   PreviewMouseLeftButtonDown="PadToggle_PreviewMouseLeftButtonDown"
-                                  PreviewMouseMove="PadToggle_PreviewMouseMove"
-                                  PreviewMouseLeftButtonUp="PadToggle_PreviewMouseLeftButtonUp"
-                                  PreviewMouseRightButtonDown="PadToggle_PreviewMouseRightButtonDown"
-                                  PreviewMouseRightButtonUp="PadToggle_PreviewMouseRightButtonUp"
-                                  LostMouseCapture="PadToggle_LostMouseCapture"
-                                  ToolTip="Pad degli effetti: orizzontale = intensità, verticale = velocità. Tienilo premuto e trascina per un effetto al volo: al rilascio torna com'era, a meno che nel frattempo premi anche il tasto destro. Doppio clic: reset">
+                                  PreviewMouseMove="PadPress_PreviewMouseMove"
+                                  PreviewMouseLeftButtonUp="PadPress_PreviewMouseLeftButtonUp"
+                                  PreviewMouseRightButtonDown="PadPress_PreviewMouseRightButtonDown"
+                                  PreviewMouseRightButtonUp="PadPress_PreviewMouseRightButtonUp"
+                                  LostMouseCapture="PadPress_LostMouseCapture"
+                                  ToolTip="Pad dei suoni: orizzontale = tonalità (a sinistra più acuto, a destra più grave, stessa velocità), verticale = velocità (stessa tonalità). Tienilo premuto e trascina per un effetto al volo: al rilascio torna com&apos;era, a meno che nel frattempo premi anche il tasto destro. Doppio clic: reset. Tenendo premuto un preferito (o con doppio clic tenuto nella lista) il pad si apre e il suono parte subito dopo, già alterato">
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="ToggleButton">
                                 <Border x:Name="Bd" Background="{StaticResource Panel2Brush}" CornerRadius="6" Padding="8,5">
@@ -554,6 +569,7 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE80A;" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding SpeedText}" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0" />
+                            <TextBlock Text="{Binding PitchText}" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0" />
                         </StackPanel>
                     </ToggleButton>
                     <Popup x:Name="PadPopup" IsOpen="{Binding IsChecked, ElementName=PadToggle}" PlacementTarget="{Binding ElementName=PadToggle}"
@@ -564,21 +580,23 @@
                             <StackPanel>
                                 <DockPanel Margin="0,0,0,8">
                                     <Button DockPanel.Dock="Right" Content="Reset" Command="{Binding ResetPadCommand}" Padding="10,3"
-                                            ToolTip="Velocità normale e intensità predefinita" />
+                                            ToolTip="Velocità e tonalità normali" />
                                     <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource TextDimBrush}">
-                                        <Run Text="{Binding SoundEffectLabel, Mode=OneWay}" />
-                                        <Run Text="·" />
-                                        <Run Text="{Binding EffectAmountPercent, Mode=OneWay, StringFormat={}{0}%}" />
-                                        <Run Text="·" />
                                         <Run Text="{Binding SpeedText, Mode=OneWay}" />
+                                        <Run Text="·" />
+                                        <Run Text="{Binding PitchText, Mode=OneWay}" />
                                     </TextBlock>
                                 </DockPanel>
                                 <Grid>
-                                    <ctl:XYPad x:Name="Pad" Width="280" Height="180" X="{Binding EffectAmount}" Y="{Binding PadSpeed}"
+                                    <!-- Higher pitch on the left, lower on the right. -->
+                                    <ctl:XYPad x:Name="Pad" Width="240" Height="240" X="{Binding PadPitch, Converter={StaticResource Negate}}" Y="{Binding PadSpeed}"
                                                Background="{StaticResource Panel2Brush}" Line="{StaticResource LineBrush}"
                                                Fill="{StaticResource AccentBrush}" />
-                                    <TextBlock Text="intensità →" FontSize="10" Foreground="{StaticResource TextDimBrush}"
-                                               HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,4" IsHitTestVisible="False" />
+                                    <!-- The pitch at the sides, just above the middle line. -->
+                                    <TextBlock Text="più grave →" FontSize="10" Foreground="{StaticResource TextDimBrush}"
+                                               HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,16" IsHitTestVisible="False" />
+                                    <TextBlock Text="← più acuto" FontSize="10" Foreground="{StaticResource TextDimBrush}"
+                                               HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,16" IsHitTestVisible="False" />
                                     <TextBlock Text="↑ più veloce" FontSize="10" Foreground="{StaticResource TextDimBrush}"
                                                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,4,0,0" IsHitTestVisible="False" />
                                     <TextBlock Text="↓ più lento" FontSize="10" Foreground="{StaticResource TextDimBrush}"

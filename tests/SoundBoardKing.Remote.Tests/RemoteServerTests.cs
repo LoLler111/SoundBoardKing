@@ -175,6 +175,7 @@ public sealed class RemoteServerTests : IAsyncLifetime
         await SendAsync(socket, new { type = "setEffect", effect = "echo" });
         await SendAsync(socket, new { type = "setEffect", amount = 30 });
         await SendAsync(socket, new { type = "setEffect", speed = 1.5 });
+        await SendAsync(socket, new { type = "setEffect", pitch = 0.75, speed = 1.25 });
         await SendAsync(socket, new { type = "setEffect", target = "voice" });
         await SendAsync(socket, new { type = "play", soundId = Guid.NewGuid() });
         using (var error = await ReceiveAsync(socket))
@@ -200,7 +201,8 @@ public sealed class RemoteServerTests : IAsyncLifetime
         Assert.False(_controller.MicEnabled);
         Assert.Equal([SoundEffect.Echo], _controller.Effects);
         Assert.Equal([30], _controller.Amounts);
-        Assert.Equal([1.5], _controller.Speeds);
+        Assert.Equal([1.5, 1.25], _controller.Speeds);
+        Assert.Equal([0.75], _controller.Pitches);
         Assert.Equal([EffectTarget.Voice], _controller.Targets2);
 
         _server.Broadcast(new { type = "libraryChanged", libraryVersion = 43 });
@@ -256,6 +258,33 @@ public sealed class RemoteServerTests : IAsyncLifetime
         Assert.Equal(0, _server.ConnectedClients);
         Assert.Equal(HttpStatusCode.Unauthorized,
             (await _http.SendAsync(Authorized(HttpMethod.Get, "/api/state", token))).StatusCode);
+    }
+
+    [Fact]
+    public async Task Tells_when_a_phone_connects_and_goes_away()
+    {
+        var counts = new List<int>();
+        _server.ClientsChanged += (_, _) => { lock (counts) counts.Add(_server.ConnectedClients); };
+
+        var token = await PairAsync();
+        using var socket = new ClientWebSocket();
+        await socket.ConnectAsync(new Uri($"ws://127.0.0.1:{_server.Port}/ws?token={token}"), CancellationToken.None);
+        (await ReceiveAsync(socket)).Dispose();
+        lock (counts) Assert.Equal([1], counts);
+
+        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+        for (int i = 0; i < 250 && _server.ConnectedClients > 0; i++)
+            await Task.Delay(20);
+        for (int i = 0; i < 50; i++)
+        {
+            lock (counts)
+            {
+                if (counts.Count == 2)
+                    break;
+            }
+            await Task.Delay(20);
+        }
+        lock (counts) Assert.Equal([1, 0], counts);
     }
 
     [Fact]
@@ -383,6 +412,14 @@ public sealed class RemoteServerTests : IAsyncLifetime
         public Task SetEffectTargetAsync(EffectTarget target)
         {
             Targets2.Add(target);
+            return Task.CompletedTask;
+        }
+
+        public List<double> Pitches { get; } = [];
+
+        public Task SetPlaybackPitchAsync(double pitch)
+        {
+            Pitches.Add(pitch);
             return Task.CompletedTask;
         }
 

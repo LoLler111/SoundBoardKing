@@ -50,6 +50,10 @@ class ModelsTest {
     @Test
     fun readsTheVoiceEffect() {
         assertEquals(ServerEvent.Effect("echo", 30), ServerEvent.parse("""{"type":"effect","effect":"echo","amount":30}"""))
+        assertEquals(
+            ServerEvent.Effect("echo", 30, 1.5, "both", 0.75),
+            ServerEvent.parse("""{"type":"effect","effect":"echo","amount":30,"speed":1.5,"pitch":0.75,"target":"both"}"""),
+        )
         assertEquals(SoundEffect.Echo, SoundEffect.fromWire("echo"))
         // Older PCs send no effect, and an unknown name falls back to none.
         assertEquals(SoundEffect.None, SoundEffect.fromWire("somethingNew"))

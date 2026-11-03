@@ -28,8 +28,11 @@ public interface IRemoteController
     /// <summary>Changes how strong the effect is, 0-100.</summary>
     Task SetEffectAmountAsync(int percent);
 
-    /// <summary>Playback speed of every sound, like a record: 0.5 to 2.</summary>
+    /// <summary>Playback speed of every sound, the pitch kept: 0.5 to 2.</summary>
     Task SetPlaybackSpeedAsync(double speed);
+
+    /// <summary>Pitch of every sound, the speed kept: 0.5 (an octave lower) to 2 (an octave higher).</summary>
+    Task SetPlaybackPitchAsync(double pitch);
 
     /// <summary>Whether the effect changes the sounds, the voice, both or nothing.</summary>
     Task SetEffectTargetAsync(EffectTarget target);

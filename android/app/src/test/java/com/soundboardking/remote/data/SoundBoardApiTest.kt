@@ -112,7 +112,7 @@ class SoundBoardApiTest {
         assertEquals("""{"type":"togglePauseOne","playbackId":"p1"}""", SoundBoardApi.togglePauseOneCommand("p1"))
         assertEquals("""{"type":"setEffect","effect":"robot"}""", SoundBoardApi.effectCommand(SoundEffect.Robot))
         assertEquals("""{"type":"setEffect","amount":40}""", SoundBoardApi.effectAmountCommand(40))
-        assertEquals("""{"type":"setEffect","amount":40,"speed":1.5}""", SoundBoardApi.padCommand(40, 1.5))
+        assertEquals("""{"type":"setEffect","pitch":0.8,"speed":1.5}""", SoundBoardApi.padCommand(0.8, 1.5))
         assertEquals("""{"type":"setEffect","target":"voice"}""", SoundBoardApi.effectTargetCommand(EffectTarget.Voice))
         assertEquals("""{"type":"play","soundId":"s1","target":"mic"}""", SoundBoardApi.playCommand("s1", PlayTarget.Mic))
         assertEquals("""{"type":"play","soundId":"s1","target":"speakers"}""", SoundBoardApi.playCommand("s1", PlayTarget.Speakers))

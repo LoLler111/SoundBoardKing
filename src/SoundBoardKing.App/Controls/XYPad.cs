@@ -5,8 +5,8 @@ using System.Windows.Media;
 namespace SoundBoardKing.App.Controls;
 
 /// <summary>
-/// Two-axis pad: press and drag to move the point. <see cref="X"/> goes 0..100 left to right,
-/// <see cref="Y"/> goes -100..100 bottom to top (0 in the middle). The point stays where it is let go.
+/// Two-axis pad: press and drag to move the point. <see cref="X"/> goes -100..100 left to right,
+/// <see cref="Y"/> goes -100..100 bottom to top (0 in the middle of both). The point stays where it is let go.
 /// </summary>
 public sealed class XYPad : FrameworkElement
 {
@@ -89,12 +89,12 @@ public sealed class XYPad : FrameworkElement
     }
 
     private Point ToPoint() => new(
-        Math.Clamp(X, 0, 100) / 100 * ActualWidth,
+        (Math.Clamp(X, -100, 100) + 100) / 200 * ActualWidth,
         (1 - (Math.Clamp(Y, -100, 100) + 100) / 200) * ActualHeight);
 
     private void MoveTo(Point p)
     {
-        X = Math.Round(Math.Clamp(p.X / ActualWidth, 0, 1) * 100);
+        X = Math.Round(Math.Clamp(p.X / ActualWidth, 0, 1) * 200 - 100);
         Y = Math.Round((1 - Math.Clamp(p.Y / ActualHeight, 0, 1)) * 200 - 100);
     }
 

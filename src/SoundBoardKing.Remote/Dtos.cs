@@ -38,7 +38,8 @@ public sealed record StateDto(
     string Effect = "none",
     int EffectAmount = 70,
     double PlaybackSpeed = 1.0,
-    string EffectTarget = "sounds");
+    string EffectTarget = "sounds",
+    double PlaybackPitch = 1.0);
 
 /// <summary>Outcome of a play request: the sound may not exist, or exist but fail to play (missing file, no audio device).</summary>
 public sealed record PlayResult(bool Found, string? Error)

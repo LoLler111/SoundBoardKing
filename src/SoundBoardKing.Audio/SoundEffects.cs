@@ -43,23 +43,41 @@ public sealed class EffectControl
     public float Wet => _soundsEnabled ? Amount : 0f;
 
     private float _speed = 1f;
+    private float _pitch = 1f;
 
     public const float MinSpeed = 0.5f;
     public const float MaxSpeed = 2f;
+    public const float MinPitch = 0.5f;
+    public const float MaxPitch = 2f;
 
-    /// <summary>Playback speed like a record: 2 is twice as fast and an octave higher.</summary>
+    /// <summary>Playback speed with the pitch kept, like a voice message at 2x: 2 is twice as fast.</summary>
     public float Speed
     {
         get => Volatile.Read(ref _speed);
         set => Volatile.Write(ref _speed, Math.Clamp(value, MinSpeed, MaxSpeed));
     }
+
+    /// <summary>Pitch factor with the speed kept: 2 is an octave higher, 0.5 an octave lower.</summary>
+    public float Pitch
+    {
+        get => Volatile.Read(ref _pitch);
+        set => Volatile.Write(ref _pitch, Math.Clamp(value, MinPitch, MaxPitch));
+    }
+}
+
+/// <summary>Speed and pitch apart, both following <see cref="EffectControl"/> while the sound plays.</summary>
+internal static class SpeedAndPitch
+{
+    // Read faster by the pitch (higher and shorter, like a record), then stretched back to the speed.
+    public static ISampleProvider Apply(ISampleProvider source, EffectControl control) =>
+        new TimeStretchProvider(new VarispeedProvider(source, () => control.Pitch), () => control.Speed / control.Pitch);
 }
 
 /// <summary>
-/// Reads the source faster or slower than real time, following <see cref="EffectControl.Speed"/>
-/// while it plays; linear interpolation between frames, so pitch moves with the speed.
+/// Reads the source faster or slower than real time, following <paramref name="rate"/> while it
+/// plays; linear interpolation between frames, so pitch moves with the speed, like a record.
 /// </summary>
-internal sealed class VarispeedProvider(ISampleProvider source, EffectControl control) : ISampleProvider
+internal sealed class VarispeedProvider(ISampleProvider source, Func<float> rate) : ISampleProvider
 {
     private readonly int _channels = source.WaveFormat.Channels;
     private float[] _frames = new float[4096 * source.WaveFormat.Channels];
@@ -72,7 +90,7 @@ internal sealed class VarispeedProvider(ISampleProvider source, EffectControl co
     public int Read(float[] buffer, int offset, int count)
     {
         int wanted = count / _channels;
-        float speed = control.Speed;
+        float speed = rate();
         int written = 0;
         while (written < wanted)
         {

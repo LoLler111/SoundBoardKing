@@ -27,13 +27,19 @@ public sealed class RemoteHost : IAsyncDisposable
         viewModel.MicChanged += (_, m) =>
             Broadcast(new { type = "mic", m.State, m.Enabled });
         viewModel.EffectChanged += (_, _) =>
-            Broadcast(new { type = "effect", effect = EffectNames.ToWire(viewModel.SoundEffect), amount = viewModel.EffectAmountPercent, speed = Math.Round(viewModel.PlaybackSpeed, 3), target = EffectNames.ToWire(viewModel.EffectTarget) });
+            Broadcast(new { type = "effect", effect = EffectNames.ToWire(viewModel.SoundEffect), amount = viewModel.EffectAmountPercent, speed = Math.Round(viewModel.PlaybackSpeed, 3), pitch = Math.Round(viewModel.PlaybackPitch, 3), target = EffectNames.ToWire(viewModel.EffectTarget) });
     }
 
     public DeviceRegistry Devices { get; }
     public RemoteServer? Server => _server;
     public string Status { get; private set; } = "Spento";
     public event EventHandler? StatusChanged;
+
+    /// <summary>Phones with the app open and connected right now (0 while the server is off).</summary>
+    public int ConnectedPhones => _server?.ConnectedClients ?? 0;
+
+    /// <summary>Raised on the UI thread when <see cref="ConnectedPhones"/> may have changed.</summary>
+    public event EventHandler? PhonesChanged;
 
     public async Task StartAsync()
     {
@@ -46,6 +52,7 @@ public sealed class RemoteHost : IAsyncDisposable
             Name = Environment.MachineName,
             ServerId = _viewModel.ServerId,
         });
+        server.ClientsChanged += (_, _) => _dispatcher.InvokeAsync(() => PhonesChanged?.Invoke(this, EventArgs.Empty));
         try
         {
             await server.StartAsync();
@@ -89,6 +96,7 @@ public sealed class RemoteHost : IAsyncDisposable
     {
         Status = status;
         StatusChanged?.Invoke(this, EventArgs.Empty);
+        PhonesChanged?.Invoke(this, EventArgs.Empty); // the server came or went with its phones
     }
 
     public async ValueTask DisposeAsync() => await StopAsync();

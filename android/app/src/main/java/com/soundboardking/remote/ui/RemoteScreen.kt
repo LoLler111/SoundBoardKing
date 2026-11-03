@@ -9,9 +9,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -73,6 +71,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -134,6 +133,10 @@ internal fun RemoteScreen(
     var lookDialog by rememberSaveable { mutableStateOf(false) }
     if (lookDialog) LookDialog(state.look, onChange = actions::setLook, onDismiss = { lookDialog = false })
     val padHold = remember { PadHold() }
+    // A sound's double tap held works the pad from where it is now.
+    val padNow by rememberUpdatedState(state.playbackPitch to state.playbackSpeed)
+    val padActions by rememberUpdatedState(actions)
+    val soundPad = remember(padHold) { SoundPad(padHold, { padNow }) { p, s -> padActions.setPad(p, s) } }
 
     Scaffold(
         modifier = Modifier.padHoldSecondFinger(padHold),
@@ -190,7 +193,7 @@ internal fun RemoteScreen(
                     Text(state.connectionMessage ?: "Connessione al PC…", color = TextDim, textAlign = TextAlign.Center)
                 }
             } else {
-                CompositionLocalProvider(LocalRenameSound provides actions::renameSound) {
+                CompositionLocalProvider(LocalRenameSound provides actions::renameSound, LocalSoundPad provides soundPad) {
                     when (if (fullScreen) Tab.Favorites else tab) {
                         Tab.Favorites -> FavoritesTab(library, soundsById, playingIds, state.look, actions::play, onExitFullScreen = if (fullScreen) ({ fullScreen = false }) else null)
                         Tab.Categories -> CategoriesTab(library, soundsById, playingIds, actions::play)
@@ -207,7 +210,7 @@ internal fun RemoteScreen(
                 }
             }
             if (padHold.active) {
-                PadHoldOverlay(state.effect, padHold, Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
+                PadHoldOverlay(padHold, Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
             }
         }
     }
@@ -346,11 +349,15 @@ private fun FavoritesTab(
 // Even an empty page shows a few tiles, so it doesn't look broken.
 private const val MinVisibleSlots = 20
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SlotTile(number: Int, sound: SoundDto?, category: String, playing: Boolean, look: FavoritesLook, onPlay: OnPlay) {
     val haptic = LocalHapticFeedback.current
     var menu by remember { mutableStateOf(false) }
+    val play = {
+        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        sound?.let { onPlay(it.id, PlayTarget.Default) }
+        Unit
+    }
     Box {
         Surface(
             shape = RoundedCornerShape(look.tileCorner),
@@ -359,16 +366,7 @@ private fun SlotTile(number: Int, sound: SoundDto?, category: String, playing: B
             modifier = Modifier
                 .aspectRatio(look.aspect)
                 .alpha(if (sound == null) 0.35f else if (sound.missing) 0.55f else 1f)
-                .combinedClickable(
-                    enabled = sound != null,
-                    onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        menu = true
-                    },
-                ) {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    sound?.let { onPlay(it.id, PlayTarget.Default) }
-                },
+                .soundPress(enabled = sound != null, onPlay = play, onMenu = { menu = true }),
         ) {
             TileContent(number, sound?.title.orEmpty(), look, category)
         }
@@ -531,21 +529,20 @@ private fun NowPlayingBar(
                         modifier = Modifier.padding(start = 6.dp, bottom = 6.dp),
                     )
                     PadChip(
-                        state.effect,
-                        state.effectAmount,
+                        state.playbackPitch,
                         state.playbackSpeed,
                         padHold,
                         onChange = actions::setPad,
                         modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
                     )
-                    // Back to normal speed and the default strength, as Reset in the pad does.
-                    val padChanged = state.effectAmount != 70 || state.playbackSpeed != 1.0
+                    // Back to normal speed and pitch, as Reset in the pad does.
+                    val padChanged = state.playbackPitch != 1.0 || state.playbackSpeed != 1.0
                     Box(
                         Modifier
                             .padding(start = 6.dp, end = 12.dp, bottom = 6.dp)
                             .size(36.dp)
                             .background(Panel2, RoundedCornerShape(8.dp))
-                            .clickable(onClickLabel = "Reset del pad") { actions.setPad(70, 1.0) }
+                            .clickable(onClickLabel = "Reset del pad") { actions.setPad(1.0, 1.0) }
                             .semantics { contentDescription = "Reset del pad" },
                         contentAlignment = Alignment.Center,
                     ) {

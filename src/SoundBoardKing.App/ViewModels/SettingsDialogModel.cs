@@ -20,9 +20,6 @@ public sealed partial class SettingsDialogModel : ObservableObject
     private AudioDevice? selectedDevice;
 
     [ObservableProperty]
-    private bool allowOverlap;
-
-    [ObservableProperty]
     private bool levelSounds;
 
     [ObservableProperty]
@@ -140,6 +137,11 @@ public sealed partial class SettingsDialogModel : ObservableObject
     }
 
     public void RequestUpdateRestart() => UpdateRestartRequested = true;
+
+    /// <summary>Set when the user chose to import a SoundPad list once the dialog has closed.</summary>
+    public bool ImportSplRequested { get; private set; }
+
+    public void RequestImportSpl() => ImportSplRequested = true;
 
     // ---- Sounds folder ----------------------------------------------------------------------
 

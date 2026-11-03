@@ -47,6 +47,9 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
     /// <summary>Raised on a request thread when a phone completes pairing.</summary>
     public event EventHandler<PairedDevice>? DevicePaired;
 
+    /// <summary>Raised on any thread when a phone connects or goes away (<see cref="ConnectedClients"/> changed).</summary>
+    public event EventHandler? ClientsChanged;
+
     public async Task StartAsync()
     {
         if (_app is not null)
@@ -57,7 +60,13 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.ListenAnyIP(options.Port));
 
         var app = builder.Build();
-        app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15) });
+        // A phone that vanishes without closing (Wi-Fi off, app killed) stops answering the pings:
+        // its connection is dropped, and counted as gone, within half a minute.
+        app.UseWebSockets(new WebSocketOptions
+        {
+            KeepAliveInterval = TimeSpan.FromSeconds(15),
+            KeepAliveTimeout = TimeSpan.FromSeconds(15),
+        });
         MapEndpoints(app);
         await app.StartAsync();
 
@@ -76,7 +85,10 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
         _discovery = null;
         foreach (var client in _clients.Values)
             client.Abort();
+        bool hadClients = !_clients.IsEmpty;
         _clients.Clear();
+        if (hadClients)
+            ClientsChanged?.Invoke(this, EventArgs.Empty);
         if (_app is not null)
         {
             await _app.StopAsync();
@@ -103,7 +115,8 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
         foreach (var client in _clients.Values.Where(c => c.DeviceId == deviceId))
         {
             client.Abort();
-            _clients.TryRemove(client.Id, out _);
+            if (_clients.TryRemove(client.Id, out _))
+                ClientsChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -251,6 +264,7 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
         using var socket = await context.WebSockets.AcceptWebSocketAsync();
         var client = new Client(socket, device.Id);
         _clients[client.Id] = client;
+        ClientsChanged?.Invoke(this, EventArgs.Empty);
         try
         {
             await client.SendAsync(JsonSerializer.SerializeToUtf8Bytes(
@@ -280,7 +294,8 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
         }
         finally
         {
-            _clients.TryRemove(client.Id, out _);
+            if (_clients.TryRemove(client.Id, out _))
+                ClientsChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -335,22 +350,24 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
                         await SendErrorAsync(client, "enabled mancante.");
                     break;
                 case "setEffect":
-                    // Any of "effect", "amount" (0-100), "speed" (0.5-2) and "target": the knob and the pad send only what they change.
+                    // Any of "effect", "amount" (0-100), "speed" (0.5-2), "pitch" (0.5-2) and "target": the knob and the pad send only what they change.
                     bool hasEffect = root.TryGetProperty("effect", out var effectElement);
                     bool hasAmount = root.TryGetProperty("amount", out var amountElement);
                     bool hasSpeed = root.TryGetProperty("speed", out var speedElement);
+                    bool hasPitch = root.TryGetProperty("pitch", out var pitchElement);
                     bool hasTarget = root.TryGetProperty("target", out var fxTargetElement);
                     SoundEffect effect = default;
                     int amount = 0;
-                    double speed = 1;
+                    double speed = 1, pitch = 1;
                     EffectTarget effectTarget = default;
-                    if ((!hasEffect && !hasAmount && !hasSpeed && !hasTarget) ||
+                    if ((!hasEffect && !hasAmount && !hasSpeed && !hasPitch && !hasTarget) ||
                         (hasSpeed && (speedElement.ValueKind != JsonValueKind.Number || !speedElement.TryGetDouble(out speed) || speed is < 0.5 or > 2)) ||
+                        (hasPitch && (pitchElement.ValueKind != JsonValueKind.Number || !pitchElement.TryGetDouble(out pitch) || pitch is < 0.5 or > 2)) ||
                         (hasTarget && (fxTargetElement.ValueKind != JsonValueKind.String || !EffectNames.TryParseTarget(fxTargetElement.GetString(), out effectTarget))) ||
                         (hasEffect && (effectElement.ValueKind != JsonValueKind.String || !EffectNames.TryParse(effectElement.GetString(), out effect))) ||
                         (hasAmount && (amountElement.ValueKind != JsonValueKind.Number || !amountElement.TryGetInt32(out amount) || amount is < 0 or > 100)))
                     {
-                        await SendErrorAsync(client, "effect, amount (0-100), speed (0.5-2) o target mancanti o non validi.");
+                        await SendErrorAsync(client, "effect, amount (0-100), speed (0.5-2), pitch (0.5-2) o target mancanti o non validi.");
                         break;
                     }
                     if (hasEffect)
@@ -359,6 +376,8 @@ public sealed class RemoteServer(IRemoteController controller, DeviceRegistry de
                         await controller.SetEffectAmountAsync(amount);
                     if (hasSpeed)
                         await controller.SetPlaybackSpeedAsync(speed);
+                    if (hasPitch)
+                        await controller.SetPlaybackPitchAsync(pitch);
                     if (hasTarget)
                         await controller.SetEffectTargetAsync(effectTarget);
                     break;

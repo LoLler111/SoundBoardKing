@@ -114,6 +114,13 @@ public partial class SettingsWindow : Window
 
     private void Ok_Click(object sender, RoutedEventArgs e) => DialogResult = true;
 
+    // Keeps the settings changed in the dialog, then the import starts from the main window.
+    private void ImportSpl_Click(object sender, RoutedEventArgs e)
+    {
+        _model.RequestImportSpl();
+        DialogResult = true;
+    }
+
     // Keeps the settings changed in the dialog, then the app closes and the updater restarts it.
     private void RestartToUpdate_Click(object sender, RoutedEventArgs e)
     {

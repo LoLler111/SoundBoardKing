@@ -249,7 +249,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>
     /// Pad height, -100 (half speed) .. 0 (normal) .. 100 (double speed), for every sound, the
-    /// ones playing too. Not saved: the next start always plays at normal speed.
+    /// ones playing too; the pitch stays. Not saved: the next start always plays at normal speed.
     /// </summary>
     public double PadSpeed
     {
@@ -270,12 +270,36 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public string SpeedText => $"×{_engine.EffectControl.Speed:0.00}";
 
-    /// <summary>Back to normal speed and the default effect strength.</summary>
+    /// <summary>
+    /// Pad across, -100 (an octave lower) .. 0 (normal) .. 100 (an octave higher), for every sound,
+    /// the ones playing too; the speed stays. Not saved, like the speed.
+    /// </summary>
+    public double PadPitch
+    {
+        get => Math.Log2(_engine.EffectControl.Pitch) * 100;
+        set
+        {
+            float pitch = (float)Math.Pow(2, Math.Clamp(value, -100, 100) / 100);
+            if (Math.Abs(pitch - _engine.EffectControl.Pitch) < 0.0005f)
+                return;
+            _engine.EffectControl.Pitch = pitch;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(PitchText));
+            EffectChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public float PlaybackPitch => _engine.EffectControl.Pitch;
+
+    /// <summary>The pitch in semitones: "tono +3", "tono 0".</summary>
+    public string PitchText => $"tono {Math.Round(12 * Math.Log2(_engine.EffectControl.Pitch)):+0;-0;0}";
+
+    /// <summary>Back to normal speed and pitch.</summary>
     [RelayCommand]
     private void ResetPad()
     {
-        EffectAmount = EffectControl.DefaultAmount * 100;
         PadSpeed = 0;
+        PadPitch = 0;
     }
 
     [RelayCommand]
@@ -300,6 +324,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Whether a new sound plays over the ones already playing instead of stopping them.</summary>
+    public bool AllowOverlap
+    {
+        get => _settings.AllowOverlap;
+        set
+        {
+            if (value == _settings.AllowOverlap)
+                return;
+            _settings.AllowOverlap = value;
+            OnPropertyChanged();
+            ScheduleSave();
+        }
+    }
+
     public void Initialize()
     {
         LoadProfile();
@@ -312,6 +350,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(SpeakerVolume));
         OnPropertyChanged(nameof(MicVolume));
         OnPropertyChanged(nameof(PlayOnMic));
+        OnPropertyChanged(nameof(AllowOverlap));
         foreach (var option in EffectOptions)
             option.IsSelected = option.Effect == _settings.SoundEffect;
         OnPropertyChanged(nameof(SoundEffect));
@@ -332,7 +371,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _initialized = true;
 
         if (_library.Sounds.Count == 0 && StatusText.Length == 0)
-            StatusText = "Libreria vuota: importa la lista di SoundPad o trascina qui dei file audio.";
+            StatusText = "Libreria vuota: trascina qui dei file audio, o importa la lista di SoundPad dalle impostazioni.";
         MeasureLoudness();
     }
 
@@ -1207,7 +1246,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var model = new SettingsDialogModel(devices, this, this)
         {
             SelectedDevice = devices.FirstOrDefault(d => d.Id == (_storage.Local.OutputDeviceId ?? "")) ?? devices[0],
-            AllowOverlap = _settings.AllowOverlap,
             LevelSounds = _settings.LevelSounds,
             StopHotkey = _settings.StopHotkey,
             PauseHotkey = _settings.PauseHotkey,
@@ -1229,7 +1267,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _storage.Local.OutputDeviceId = deviceId;
             _engine.SetOutputDevice(deviceId);
         }
-        _settings.AllowOverlap = model.AllowOverlap;
         _settings.LevelSounds = model.LevelSounds;
         _engine.LevelingEnabled = model.LevelSounds;
 
@@ -1257,6 +1294,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _ = ScanSoundFolderAsync(atStartup: false, folderChanged: true, previousSoundsFolder);
         if (model.UpdateRestartRequested)
             RestartToUpdate(); // "Riavvia e aggiorna" also confirms the dialog
+        else if (model.ImportSplRequested)
+            ImportSplCommand.Execute(null); // so does "Importa…"
     }
 
     // ---- Persistence -------------------------------------------------------------------------
