@@ -2,7 +2,11 @@ using SoundBoardKing.Core.Models;
 
 namespace SoundBoardKing.Remote;
 
-/// <summary>Wire names of the voice effects: "none", "chipmunk", "deep", "robot", "radio", "echo".</summary>
+/// <summary>
+/// Wire names of the voice effects: "none", "chipmunk", "deep", "robot", "radio", "echo",
+/// "megaphone", "overdrive", "bitcrush", "muffled", "underwater", "reverb", "chorus", "flanger",
+/// "vibrato", "walkieTalkie", "demon", "alien", "autotune", "whisper", "vinyl", "stutter", "reverse".
+/// </summary>
 public static class EffectNames
 {
     public static string ToWire(SoundEffect effect)

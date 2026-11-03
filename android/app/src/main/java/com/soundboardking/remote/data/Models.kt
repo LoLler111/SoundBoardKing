@@ -167,6 +167,23 @@ enum class SoundEffect(val wire: String, val label: String) {
     Robot("robot", "Robot"),
     Radio("radio", "Radio"),
     Echo("echo", "Eco"),
+    Megaphone("megaphone", "Megafono"),
+    Overdrive("overdrive", "Distrutto"),
+    Bitcrush("bitcrush", "8-bit"),
+    Muffled("muffled", "Dietro la porta"),
+    Underwater("underwater", "Sott'acqua"),
+    Reverb("reverb", "Cattedrale"),
+    Chorus("chorus", "Coro"),
+    Flanger("flanger", "Jet"),
+    Vibrato("vibrato", "Pecora"),
+    WalkieTalkie("walkieTalkie", "Walkie-talkie"),
+    Demon("demon", "Demone"),
+    Alien("alien", "Alieno"),
+    Autotune("autotune", "Autotune"),
+    Whisper("whisper", "Sussurro"),
+    Vinyl("vinyl", "Vinile"),
+    Stutter("stutter", "Balbuziente"),
+    Reverse("reverse", "Al contrario (solo suoni)"),
     ;
 
     companion object {
