@@ -436,6 +436,14 @@ public partial class MainWindow : Window
             e.Handled = true;
             _ = _viewModel.AddMyinstantsLinkAsync(link);
         }
+        // Esc stops the last sound started, then the one before it. A rename or an open list keeps it to close itself;
+        // a held key does not repeat, so it cannot stop them all by mistake.
+        else if (e.Key == Key.Escape && Keyboard.Modifiers == ModifierKeys.None && !e.IsRepeat && _renaming is null &&
+                 Keyboard.FocusedElement is not (ComboBox { IsDropDownOpen: true } or ComboBoxItem))
+        {
+            _viewModel.StopLatestCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 
     private static string? MyinstantsLinkOnClipboard()

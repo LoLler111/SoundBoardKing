@@ -476,6 +476,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _engine.Stop(item.Playback);
     }
 
+    /// <summary>Esc: stops the last sound started; pressed again, the one before it, and so on.</summary>
+    [RelayCommand]
+    private void StopLatest()
+    {
+        // A stopped sound leaves the bar only when the audio thread ends it, so skip those.
+        if (NowPlaying.LastOrDefault(p => !p.Playback.IsStopping) is { } item)
+            _engine.Stop(item.Playback);
+    }
+
     private void OnPlaybackStarted(object? sender, Playback playback)
     {
         var sound = playback.Tag is Guid id ? _soundsById.GetValueOrDefault(id) : null;

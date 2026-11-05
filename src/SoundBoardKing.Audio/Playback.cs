@@ -29,6 +29,9 @@ public sealed class Playback
     /// <summary>Paused on its own or with all the others.</summary>
     public bool IsPaused { get; private set; }
 
+    /// <summary>Asked to stop; it ends a moment later, on the audio thread.</summary>
+    public bool IsStopping { get; private set; }
+
     internal Voice? SpeakerVoice => _speaker;
 
     internal IEnumerable<Voice> Voices
@@ -52,6 +55,7 @@ public sealed class Playback
 
     internal void Stop()
     {
+        IsStopping = true;
         foreach (var voice in Voices)
             voice.Stop();
     }
