@@ -9,6 +9,7 @@ internal sealed class Voice : ISampleProvider, IDisposable
     private readonly MediaFoundationReader _reader;
     private readonly LiveEffect _chain;
     private long _reverseFromTicks = -1; // where the sound was when it switched to backwards
+    private long _seekTicks = -1; // where to jump at the next read, asked from the UI thread
     private volatile bool _stopped;
     private volatile bool _paused;
     private readonly float _levelGain;
@@ -70,6 +71,13 @@ internal sealed class Voice : ISampleProvider, IDisposable
     /// <summary>Makes the next read return 0 so the mixer drops this voice.</summary>
     public void Stop() => _stopped = true;
 
+    /// <summary>False once playing backwards: the rest of the sound is already read, it plays to the end.</summary>
+    public bool CanSeek => _chain.Reversed is null;
+
+    /// <summary>Jumps to <paramref name="position"/> at the next read, on the audio thread that owns the reader.</summary>
+    public void Seek(TimeSpan position) =>
+        Interlocked.Exchange(ref _seekTicks, Math.Clamp(position.Ticks, 0, Duration.Ticks));
+
     /// <summary>True only for the first caller, so a voice is accounted as ended exactly once.</summary>
     public bool TryMarkEnded() => Interlocked.Exchange(ref _ended, 1) == 0;
 
@@ -77,6 +85,10 @@ internal sealed class Voice : ISampleProvider, IDisposable
     {
         if (_stopped)
             return 0;
+        // Applied while paused too, so the bar moves to the new place before playing on.
+        long seek = Interlocked.Exchange(ref _seekTicks, -1);
+        if (seek >= 0 && CanSeek)
+            _reader.CurrentTime = TimeSpan.FromTicks(seek);
         if (_paused)
         {
             Array.Clear(buffer, offset, count);

@@ -12,14 +12,14 @@ class PadHoldTest {
     fun `moves from where the point was`() {
         val hold = PadHold()
         hold.start(PointerId(1), 1.0, 1.0)
-        hold.move(-0.25f, 0.25f) // a quarter of the pad is half the way to an octave, or to double speed
-        assertEquals(1.41, hold.pitch, 0.0)
+        hold.move(0.25f, 0.25f) // a quarter of the pad is half the way to double speed, or to an octave
         assertEquals(1.41, hold.speed, 0.0)
-        hold.move(-2f, -2f)
-        assertEquals(2.0, hold.pitch, 0.0)
-        assertEquals(0.5, hold.speed, 0.0)
-        hold.move(0.5f, 0f) // to the right is lower
+        assertEquals(1.41, hold.pitch, 0.0)
+        hold.move(2f, -2f)
+        assertEquals(2.0, hold.speed, 0.0)
         assertEquals(0.5, hold.pitch, 0.0)
+        hold.move(-0.5f, 0f) // to the left is slower
+        assertEquals(0.5, hold.speed, 0.0)
     }
 
     @Test

@@ -10,7 +10,18 @@ internal static class MicFxLayout
     public const uint Version = 1;
     public const int RingFrames = 1 << 17;
     public const int HeaderSize = 64;
-    public const long Size = HeaderSize + (long)RingFrames * sizeof(float);
+
+    /// <summary>The header and the ring: what an older APO maps, and still enough to feed the microphone.</summary>
+    public const long LegacySize = HeaderSize + (long)RingFrames * sizeof(float);
+
+    // The voice tap after the ring: the voice as the others hear it, written by the APO for the meter.
+    public const int VoiceTapFrames = 1 << 13;
+    public const long VoiceTapOffset = LegacySize;
+    public const int VoiceTapWritePosOffset = 0;
+    public const int VoiceTapHeartbeatOffset = 8;
+    public const int VoiceTapSampleRateOffset = 24;
+    public const int VoiceTapHeaderSize = 32;
+    public const long Size = VoiceTapOffset + VoiceTapHeaderSize + (long)VoiceTapFrames * sizeof(float);
 
     public const int MagicOffset = 0;
     public const int VersionOffset = 4;

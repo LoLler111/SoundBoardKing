@@ -313,6 +313,10 @@ namespace sbk
         if (!silent && m_reader.VoiceEffectWanted(voiceEffect, voiceAmount))
             m_voice.Process(target, frames, static_cast<VoiceEffect>(voiceEffect), voiceAmount);
 
+        // The voice as the others hear it, for the app's meter: after its effect, before the sounds.
+        if (!silent)
+            m_reader.TapVoice(target, frames, m_channels, m_sampleRate);
+
         const bool mixed = m_reader.MixInto(target, frames, m_channels, m_sampleRate);
 
         output->u32ValidFrameCount = frames;

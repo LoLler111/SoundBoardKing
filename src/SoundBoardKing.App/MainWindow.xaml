@@ -13,7 +13,6 @@
 
     <Window.Resources>
         <conv:IntEqualsConverter x:Key="IntEquals" />
-        <conv:NegateConverter x:Key="Negate" />
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
     </Window.Resources>
 
@@ -442,17 +441,35 @@
                                             <TextBlock DockPanel.Dock="Right" Text="{Binding PositionText}" Foreground="{StaticResource TextDimBrush}" />
                                             <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                         </DockPanel>
-                                        <ProgressBar Margin="0,4,0,0" Maximum="{Binding DurationSeconds}" Value="{Binding PositionSeconds}">
-                                            <ProgressBar.Style>
-                                                <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
+                                        <!-- Clicked or dragged, the bar moves the sound to that point. The border widens the grip. -->
+                                        <Border Margin="0,0,0,-4" Padding="0,4" Background="Transparent"
+                                                PreviewMouseLeftButtonDown="SeekBar_PreviewMouseLeftButtonDown"
+                                                PreviewMouseMove="SeekBar_PreviewMouseMove"
+                                                PreviewMouseLeftButtonUp="SeekBar_PreviewMouseLeftButtonUp">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Cursor" Value="Hand" />
+                                                    <Setter Property="ToolTip" Value="Clic o trascina: sposta il suono in quel punto" />
                                                     <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsPaused}" Value="True">
-                                                            <Setter Property="Opacity" Value="0.4" />
+                                                        <DataTrigger Binding="{Binding CanSeek}" Value="False">
+                                                            <Setter Property="Cursor" Value="Arrow" />
+                                                            <Setter Property="ToolTip" Value="Al contrario il suono va fino in fondo: non si può spostare" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </ProgressBar.Style>
-                                        </ProgressBar>
+                                            </Border.Style>
+                                            <ProgressBar Maximum="{Binding DurationSeconds}" Value="{Binding PositionSeconds}">
+                                                <ProgressBar.Style>
+                                                    <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsPaused}" Value="True">
+                                                                <Setter Property="Opacity" Value="0.4" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ProgressBar.Style>
+                                            </ProgressBar>
+                                        </Border>
                                     </StackPanel>
                                     <Button Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
                                             Command="{Binding DataContext.PauseOneCommand, ElementName=NowPlayingList}"
@@ -518,7 +535,7 @@
                     </Button>
                     <!-- Where the effect goes: sounds only, voice only, both or none, picked from a list. -->
                     <Button x:Name="EffectTargetButton" Margin="6,0,0,0" Style="{StaticResource DropdownButton}" Click="EffectTargetButton_Click"
-                            ToolTip="A cosa si applica l'effetto: solo cuffie (i suoni), solo microfono (la tua voce), entrambi, nessuno">
+                            ToolTip="A cosa si applica l'effetto: solo ai suoni, solo al microfono (la tua voce), a entrambi, o a niente">
                         <Button.ContextMenu>
                             <ContextMenu ItemsSource="{Binding EffectTargetOptions}">
                                 <ContextMenu.ItemContainerStyle>
@@ -541,7 +558,7 @@
                               ToolTip="{Binding EffectAmountPercent}" ToolTipService.InitialShowDelay="0" />
                     <TextBlock Text="{Binding EffectAmountPercent, StringFormat={}{0}%}" Width="34" Margin="4,0,0,0" VerticalAlignment="Center"
                                FontSize="12" Foreground="{StaticResource TextDimBrush}" />
-                    <!-- Sound pad: across = pitch, higher on the left (speed kept), up and down = speed (pitch kept). -->
+                    <!-- Sound pad: across = speed, faster on the right (pitch kept), up and down = pitch, higher at the top (speed kept). -->
                     <!-- Pressed and dragged it works the pad on the fly: let go and the effect goes back, unless the right button was pressed too. -->
                     <ToggleButton x:Name="PadToggle" Margin="4,0,0,0" Cursor="Hand"
                                   PreviewMouseLeftButtonDown="PadToggle_PreviewMouseLeftButtonDown"
@@ -550,7 +567,7 @@
                                   PreviewMouseRightButtonDown="PadPress_PreviewMouseRightButtonDown"
                                   PreviewMouseRightButtonUp="PadPress_PreviewMouseRightButtonUp"
                                   LostMouseCapture="PadPress_LostMouseCapture"
-                                  ToolTip="Pad dei suoni: orizzontale = tonalità (a sinistra più acuto, a destra più grave, stessa velocità), verticale = velocità (stessa tonalità). Tienilo premuto e trascina per un effetto al volo: al rilascio torna com&apos;era, a meno che nel frattempo premi anche il tasto destro. Doppio clic: reset. Tenendo premuto un preferito (o con doppio clic tenuto nella lista) il pad si apre e il suono parte subito dopo, già alterato">
+                                  ToolTip="Pad dei suoni: orizzontale = velocità (a sinistra più lento, a destra più veloce, stessa tonalità), verticale = tonalità (in alto più acuto, in basso più grave, stessa velocità). Tienilo premuto e trascina per un effetto al volo: al rilascio torna com&apos;era, a meno che nel frattempo premi anche il tasto destro. Doppio clic: reset. Tenendo premuto un preferito (o con doppio clic tenuto nella lista) il pad si apre e il suono parte subito dopo, già alterato">
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="ToggleButton">
                                 <Border x:Name="Bd" Background="{StaticResource Panel2Brush}" CornerRadius="6" Padding="8,5">
@@ -589,18 +606,18 @@
                                     </TextBlock>
                                 </DockPanel>
                                 <Grid>
-                                    <!-- Higher pitch on the left, lower on the right. -->
-                                    <ctl:XYPad x:Name="Pad" Width="240" Height="240" X="{Binding PadPitch, Converter={StaticResource Negate}}" Y="{Binding PadSpeed}"
+                                    <!-- Across the speed (slower on the left), up and down the pitch (higher at the top). -->
+                                    <ctl:XYPad x:Name="Pad" Width="240" Height="240" X="{Binding PadSpeed}" Y="{Binding PadPitch}"
                                                Background="{StaticResource Panel2Brush}" Line="{StaticResource LineBrush}"
-                                               Fill="{StaticResource AccentBrush}" />
-                                    <!-- The pitch at the sides, just above the middle line. -->
-                                    <TextBlock Text="più grave →" FontSize="10" Foreground="{StaticResource TextDimBrush}"
-                                               HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,16" IsHitTestVisible="False" />
-                                    <TextBlock Text="← più acuto" FontSize="10" Foreground="{StaticResource TextDimBrush}"
+                                               Axis="{StaticResource TextDimBrush}" Fill="{StaticResource AccentBrush}" />
+                                    <!-- The speed at the sides, just above the middle line. -->
+                                    <TextBlock Text="← più lento" FontSize="10" Foreground="{StaticResource TextDimBrush}"
                                                HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,16" IsHitTestVisible="False" />
-                                    <TextBlock Text="↑ più veloce" FontSize="10" Foreground="{StaticResource TextDimBrush}"
+                                    <TextBlock Text="più veloce →" FontSize="10" Foreground="{StaticResource TextDimBrush}"
+                                               HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,16" IsHitTestVisible="False" />
+                                    <TextBlock Text="↑ più acuto" FontSize="10" Foreground="{StaticResource TextDimBrush}"
                                                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,4,0,0" IsHitTestVisible="False" />
-                                    <TextBlock Text="↓ più lento" FontSize="10" Foreground="{StaticResource TextDimBrush}"
+                                    <TextBlock Text="↓ più grave" FontSize="10" Foreground="{StaticResource TextDimBrush}"
                                                HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8,0,0,4" IsHitTestVisible="False" />
                                     <TextBlock x:Name="PadHoldHint" FontSize="10" Foreground="{StaticResource AccentBrush}" Visibility="Collapsed"
                                                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,8,0" IsHitTestVisible="False" />
@@ -656,11 +673,13 @@
                             </ControlTemplate>
                         </ToggleButton.Template>
                     </ToggleButton>
-                    <!-- Volume nel microfono, with the spectrum of only what is sent into the microphone. -->
+                    <!-- Volume nel microfono, with the spectrum of the voice (grey, behind) and of the sounds sent into the microphone. -->
                     <Border Background="{StaticResource Panel2Brush}" CornerRadius="8" Padding="10,0" Height="38"
-                            ToolTip="Volume nel microfono (sotto: lo spettro di ciò che arriva nel microfono)">
+                            ToolTip="Volume dei suoni nel microfono (sotto: in grigio lo spettro della tua voce mentre un'app registra, in azzurro quello dei suoni che mandi nel microfono)">
                         <StackPanel Orientation="Horizontal">
                             <Grid Width="100" IsEnabled="{Binding PlayOnMic}">
+                                <ctl:SpectrumMeter Reader="{Binding VoiceSpectrum}" Fill="{StaticResource TextBrush}"
+                                                   Opacity="0.35" Margin="0,4" />
                                 <ctl:SpectrumMeter Reader="{Binding MicSpectrum}" Fill="{StaticResource MicBrush}"
                                                    Opacity="0.6" Margin="0,4" />
                                 <Slider Minimum="0" Maximum="100" Value="{Binding MicVolume}" VerticalAlignment="Center"

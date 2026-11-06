@@ -26,6 +26,11 @@ public sealed class XYPad : FrameworkElement
         nameof(Line), typeof(Brush), typeof(XYPad),
         new FrameworkPropertyMetadata(Brushes.Gray, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    /// <summary>The two axes through the middle, brighter than the grid: where 0, 0 is.</summary>
+    public static readonly DependencyProperty AxisProperty = DependencyProperty.Register(
+        nameof(Axis), typeof(Brush), typeof(XYPad),
+        new FrameworkPropertyMetadata(Brushes.LightGray, FrameworkPropertyMetadataOptions.AffectsRender));
+
     public static readonly DependencyProperty FillProperty = DependencyProperty.Register(
         nameof(Fill), typeof(Brush), typeof(XYPad),
         new FrameworkPropertyMetadata(Brushes.Orange, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -60,6 +65,12 @@ public sealed class XYPad : FrameworkElement
         set => SetValue(LineProperty, value);
     }
 
+    public Brush Axis
+    {
+        get => (Brush)GetValue(AxisProperty);
+        set => SetValue(AxisProperty, value);
+    }
+
     public Brush Fill
     {
         get => (Brush)GetValue(FillProperty);
@@ -72,12 +83,21 @@ public sealed class XYPad : FrameworkElement
         dc.DrawRoundedRectangle(Background, null, area, 8, 8);
 
         var grid = new Pen(Line, 1) { DashStyle = DashStyles.Dot };
-        for (int i = 1; i < 4; i++)
+        foreach (int i in (int[])[1, 3])
         {
             double gx = area.Width * i / 4, gy = area.Height * i / 4;
-            dc.DrawLine(i == 2 ? new Pen(Line, 1) : grid, new Point(gx, 4), new Point(gx, area.Height - 4));
-            dc.DrawLine(i == 2 ? new Pen(Line, 1) : grid, new Point(4, gy), new Point(area.Width - 4, gy));
+            dc.DrawLine(grid, new Point(gx, 4), new Point(gx, area.Height - 4));
+            dc.DrawLine(grid, new Point(4, gy), new Point(area.Width - 4, gy));
         }
+
+        // The axes through the middle, with a ring where they cross: speed and pitch as they are.
+        var axis = new Pen(Axis, 1.5);
+        var middle = new Point(area.Width / 2, area.Height / 2);
+        dc.PushOpacity(0.7);
+        dc.DrawLine(axis, new Point(middle.X, 4), new Point(middle.X, area.Height - 4));
+        dc.DrawLine(axis, new Point(4, middle.Y), new Point(area.Width - 4, middle.Y));
+        dc.DrawEllipse(null, axis, middle, 5, 5);
+        dc.Pop();
 
         var point = ToPoint();
         var cross = new Pen(Fill, 1) { DashStyle = DashStyles.Dash };

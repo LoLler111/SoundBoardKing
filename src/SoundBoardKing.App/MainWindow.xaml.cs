@@ -180,9 +180,35 @@ public partial class MainWindow : Window
     private void SortButton_Click(object sender, RoutedEventArgs e) => OpenMenu(SortButton, PlacementMode.Bottom);
 
     // The dropdowns: the button's own context menu, opened on a normal click (upwards in the bottom bar).
-    private static void OpenMenu(Button button, PlacementMode placement = PlacementMode.Top)
+    // A click on the button while its list is open closes it instead, and the clicks right after it do
+    // not reopen it: a double click leaves it shut, whether it was open or not.
+    private readonly Dictionary<ContextMenu, long> _menuClosedByButtonAt = [];
+    private const long MenuReopenDelayMs = 500;
+
+    private void OpenMenu(Button button, PlacementMode placement = PlacementMode.Top)
     {
         var menu = button.ContextMenu;
+        if (!_menuClosedByButtonAt.ContainsKey(menu))
+        {
+            _menuClosedByButtonAt[menu] = 0;
+            // A press outside the open list closes it and then reaches the button, whose click would reopen
+            // it: note when that happened. Closed comes too late for that, and the list holds the mouse,
+            // so the button cannot tell it is under the pointer: ask where the pointer is.
+            DependencyPropertyDescriptor.FromProperty(ContextMenu.IsOpenProperty, typeof(ContextMenu)).AddValueChanged(menu, (_, _) =>
+            {
+                if (!menu.IsOpen && Mouse.LeftButton == MouseButtonState.Pressed &&
+                    new Rect(button.RenderSize).Contains(Mouse.GetPosition(button)))
+                    _menuClosedByButtonAt[menu] = Environment.TickCount64;
+            });
+        }
+        if (menu.IsOpen)
+        {
+            menu.IsOpen = false;
+            _menuClosedByButtonAt[menu] = Environment.TickCount64;
+            return;
+        }
+        if (Environment.TickCount64 - _menuClosedByButtonAt[menu] < MenuReopenDelayMs)
+            return;
         menu.PlacementTarget = button;
         menu.Placement = placement;
         menu.IsOpen = true;
@@ -291,8 +317,8 @@ public partial class MainWindow : Window
             StartPadHold();
         }
         // The mouse moves the point as if it were on the pad, starting from where the point was.
-        _viewModel.PadPitch = Math.Round(Math.Clamp(_padStartPitch - delta.X / Pad.Width * 200, -100, 100)); // left is higher
-        _viewModel.PadSpeed = Math.Round(Math.Clamp(_padStartSpeed - delta.Y / Pad.Height * 200, -100, 100));
+        _viewModel.PadSpeed = Math.Round(Math.Clamp(_padStartSpeed + delta.X / Pad.Width * 200, -100, 100)); // right is faster
+        _viewModel.PadPitch = Math.Round(Math.Clamp(_padStartPitch - delta.Y / Pad.Height * 200, -100, 100)); // up is higher
     }
 
     private void PadPress_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -372,6 +398,39 @@ public partial class MainWindow : Window
         }
         PadToggle.IsChecked = false;
         UpdatePadHoldHint();
+    }
+
+    // ---- Playback bars -----------------------------------------------------------------------
+
+    // A click on a sound's bar moves it there; held, the sound follows the mouse until let go.
+    private void SeekBar_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: PlayingSoundViewModel { CanSeek: true } item } bar)
+            return;
+        e.Handled = true;
+        bar.CaptureMouse();
+        SeekTo(bar, item, e, final: false);
+    }
+
+    private void SeekBar_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (sender is FrameworkElement { IsMouseCaptured: true, DataContext: PlayingSoundViewModel item } bar)
+            SeekTo(bar, item, e, final: false);
+    }
+
+    private void SeekBar_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { IsMouseCaptured: true, DataContext: PlayingSoundViewModel item } bar)
+            return;
+        e.Handled = true;
+        SeekTo(bar, item, e, final: true);
+        bar.ReleaseMouseCapture();
+    }
+
+    private void SeekTo(FrameworkElement bar, PlayingSoundViewModel item, MouseEventArgs e, bool final)
+    {
+        double share = bar.ActualWidth > 0 ? Math.Clamp(e.GetPosition(bar).X / bar.ActualWidth, 0, 1) : 0;
+        _viewModel.SeekPlayback(item, share * item.DurationSeconds, final);
     }
 
     // Green while the phone app is connected, grey while the PC waits for it, none with the remote off.

@@ -98,8 +98,8 @@ class SoundPadGestureTest {
 
         compose.onNodeWithText("airhorn").performTouchInput { moveBy(Offset(width / 2f, -height / 2f)) }
         compose.mainClock.advanceTimeBy(100)
-        assertTrue(pads.last().first < 0.8) // to the right is lower
-        assertTrue(pads.last().second > 1.0)
+        assertTrue(pads.last().first > 0.8) // up is higher
+        assertTrue(pads.last().second > 1.0) // to the right is faster
         assertTrue(plays.isEmpty())
 
         compose.mainClock.advanceTimeBy(500)

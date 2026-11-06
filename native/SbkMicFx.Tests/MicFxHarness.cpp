@@ -528,6 +528,27 @@ int wmain(int argc, wchar_t** argv)
     process(false, 0.1f);
     Check(connection.u32BufferFlags == BUFFER_VALID && rms() > 0.1, "si somma al segnale del microfono");
 
+    // The voice tap: a 1 kHz "voice" for 3 s while the C# test reads its spectrum (it must find
+    // 1 kHz and not the producer's 440 Hz, which is added after the tap). VOICE says it can start.
+    {
+        double phase = 0;
+        const double step = 2 * 3.14159265358979 * 1000 / Rate;
+        for (int period = 0; period < 300; ++period)
+        {
+            for (UINT32 i = 0; i < Frames; ++i, phase += step)
+                buffer[i * 2] = buffer[i * 2 + 1] = 0.3f * static_cast<float>(std::sin(phase));
+            connection.u32ValidFrameCount = Frames;
+            connection.u32BufferFlags = BUFFER_VALID;
+            rt->APOProcess(1, connections, 1, connections);
+            if (period == 20)
+            {
+                std::printf("VOICE\n");
+                std::fflush(stdout);
+            }
+            Sleep(10);
+        }
+    }
+
     Check(config->UnlockForProcess() == S_OK, "UnlockForProcess");
     Check(config->UnlockForProcess() == APOERR_ALREADY_UNLOCKED, "doppio UnlockForProcess rifiutato");
     fx->Release();

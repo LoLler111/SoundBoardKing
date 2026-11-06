@@ -22,6 +22,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly ProfileStorage _storage;
     private readonly AudioEngine _engine;
     private readonly ApoMicFeed _micFeed;
+    private readonly VoiceSpectrum _voiceSpectrum;
     private readonly HotkeyService _hotkeys;
     private readonly IDialogService _dialogs;
     private readonly DispatcherTimer _saveTimer;
@@ -81,6 +82,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _updates = updates;
         _engine = engine;
         _micFeed = micFeed;
+        _voiceSpectrum = new VoiceSpectrum(micFeed);
         _hotkeys = hotkeys;
         _dialogs = dialogs;
 
@@ -136,6 +138,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>Spectrum of only what goes into the microphone.</summary>
     public Action<float[]> MicSpectrum => _engine.ReadMicSpectrum;
+
+    /// <summary>Spectrum of the voice in the microphone, while some app records it.</summary>
+    public Action<float[]> VoiceSpectrum => _voiceSpectrum.Read;
 
     public double MicVolume
     {
@@ -198,7 +203,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public string EffectTargetLabel => EffectTargetOptionViewModel.LabelOf(EffectTarget);
+    public string EffectTargetLabel => EffectTargetOptionViewModel.ShortLabelOf(EffectTarget);
 
     private bool EffectOnSounds => EffectTarget is EffectTarget.Sounds or EffectTarget.Both;
     private bool EffectOnVoice => EffectTarget is EffectTarget.Voice or EffectTarget.Both;
@@ -248,7 +253,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public int EffectAmountPercent => (int)Math.Round(_settings.EffectAmount * 100);
 
     /// <summary>
-    /// Pad height, -100 (half speed) .. 0 (normal) .. 100 (double speed), for every sound, the
+    /// Pad across, -100 (half speed) .. 0 (normal) .. 100 (double speed), for every sound, the
     /// ones playing too; the pitch stays. Not saved: the next start always plays at normal speed.
     /// </summary>
     public double PadSpeed
@@ -271,7 +276,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public string SpeedText => $"×{_engine.EffectControl.Speed:0.00}";
 
     /// <summary>
-    /// Pad across, -100 (an octave lower) .. 0 (normal) .. 100 (an octave higher), for every sound,
+    /// Pad height, -100 (an octave lower) .. 0 (normal) .. 100 (an octave higher), for every sound,
     /// the ones playing too; the speed stays. Not saved, like the speed.
     /// </summary>
     public double PadPitch
@@ -474,6 +479,26 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         if (item is not null)
             _engine.Stop(item.Playback);
+    }
+
+    private long _lastSeekAt;
+
+    /// <summary>
+    /// Moves a sound of the playback bar to <paramref name="seconds"/>. While the bar is dragged the
+    /// sound follows a few times a second; <paramref name="final"/> (let go) always lands and tells the phones.
+    /// </summary>
+    public void SeekPlayback(PlayingSoundViewModel item, double seconds, bool final)
+    {
+        if (!item.Playback.CanSeek)
+            return;
+        item.ShowSeek(seconds);
+        long now = Environment.TickCount64;
+        if (!final && now - _lastSeekAt < 100)
+            return;
+        _lastSeekAt = now;
+        _engine.Seek(item.Playback, TimeSpan.FromSeconds(seconds));
+        if (final)
+            RaisePlaybackChanged();
     }
 
     /// <summary>Esc: stops the last sound started; pressed again, the one before it, and so on.</summary>

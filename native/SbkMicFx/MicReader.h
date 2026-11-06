@@ -29,10 +29,16 @@ namespace sbk
         // Real-time safe. Returns false (no effect) otherwise.
         bool VoiceEffectWanted(uint32_t& effect, float& amount) const;
 
+        // Copies the voice (interleaved, mixed down to mono) where the app reads it for its spectrum
+        // meter, unless another instance is already doing so. Real-time safe.
+        void TapVoice(const float* src, UINT32 frames, UINT32 channels, UINT32 rate);
+
     private:
         HANDLE m_mapping = nullptr;
         SharedHeader* m_header = nullptr;
         float* m_ring = nullptr;
+        VoiceTap* m_tap = nullptr;    // null when an older APO created a smaller mapping
+        float* m_tapRing = nullptr;
         int64_t m_pos = 0;
         double m_frac = 0.0;
         bool m_synced = false;

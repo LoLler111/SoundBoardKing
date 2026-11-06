@@ -14,9 +14,18 @@ public sealed partial class EffectTargetOptionViewModel(EffectTarget target) : O
 
     public static string LabelOf(EffectTarget target) => target switch
     {
-        EffectTarget.Voice => "Solo microfono",
-        EffectTarget.Both => "Cuffia e Mic.",
-        EffectTarget.Off => "Nessuno",
-        _ => "Solo Cuffie",
+        EffectTarget.Voice => "Applica solo al microfono",
+        EffectTarget.Both => "Applica a entrambi",
+        EffectTarget.Off => "Non applicare",
+        _ => "Applica solo ai suoni",
+    };
+
+    /// <summary>On the button, which says "applica" in its tooltip: short, so the playback bars keep their room.</summary>
+    public static string ShortLabelOf(EffectTarget target) => target switch
+    {
+        EffectTarget.Voice => "Solo al microfono",
+        EffectTarget.Both => "A entrambi",
+        EffectTarget.Off => "Non applicare",
+        _ => "Solo ai suoni",
     };
 }

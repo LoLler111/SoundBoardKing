@@ -40,6 +40,7 @@ public sealed unsafe class ApoMicFeed : IMicFeed
     private byte* _base;
     private long _nextOpenAttempt;
     private MicFxState _openFailure = MicFxState.NotInstalled;
+    private bool _hasVoiceTap;
     private Thread? _thread;
     private volatile bool _stop;
 
@@ -159,7 +160,17 @@ public sealed unsafe class ApoMicFeed : IMicFeed
         try
         {
             file = MemoryMappedFile.OpenExisting(_name, MemoryMappedFileRights.ReadWrite);
-            view = file.CreateViewAccessor(0, MicFxLayout.Size, MemoryMappedFileAccess.ReadWrite);
+            // An older APO made it without the voice tap: the microphone works all the same.
+            try
+            {
+                view = file.CreateViewAccessor(0, MicFxLayout.Size, MemoryMappedFileAccess.ReadWrite);
+                _hasVoiceTap = true;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                view = file.CreateViewAccessor(0, MicFxLayout.LegacySize, MemoryMappedFileAccess.ReadWrite);
+                _hasVoiceTap = false;
+            }
             byte* pointer = null;
             view.SafeMemoryMappedViewHandle.AcquirePointer(ref pointer);
             pointer += view.PointerOffset;
@@ -219,6 +230,32 @@ public sealed unsafe class ApoMicFeed : IMicFeed
         // 0 means "never": skip it when the tick count wraps onto it.
         uint beat = (uint)Environment.TickCount64;
         Volatile.Write(ref *(uint*)(_base + MicFxLayout.VoiceHeartbeatOffset), effect == 0 ? 0 : Math.Max(beat, 1));
+    }
+
+    /// <summary>
+    /// Copies the latest <paramref name="window"/>.Length samples of the voice (as the others hear it,
+    /// before the sounds) when new ones arrived since <paramref name="seen"/>. False when the APO has
+    /// not written lately: nobody is recording, or the APO is too old to tap the voice.
+    /// </summary>
+    public bool TryReadVoice(float[] window, ref long seen, out int sampleRate)
+    {
+        sampleRate = 0;
+        if (!TryOpen() || !_hasVoiceTap || window.Length > MicFxLayout.VoiceTapFrames)
+            return false;
+        byte* tap = _base + MicFxLayout.VoiceTapOffset;
+        long beat = Volatile.Read(ref *(long*)(tap + MicFxLayout.VoiceTapHeartbeatOffset));
+        long written = Volatile.Read(ref *(long*)(tap + MicFxLayout.VoiceTapWritePosOffset));
+        if (beat == 0 || Environment.TickCount64 - beat > 250 || written == seen || written < window.Length)
+            return false;
+        seen = written;
+        sampleRate = (int)Volatile.Read(ref *(uint*)(tap + MicFxLayout.VoiceTapSampleRateOffset));
+
+        var ring = (float*)(tap + MicFxLayout.VoiceTapHeaderSize);
+        const long mask = MicFxLayout.VoiceTapFrames - 1;
+        long from = written - window.Length;
+        for (int i = 0; i < window.Length; i++)
+            window[i] = ring[(from + i) & mask];
+        return sampleRate > 0;
     }
 
     public void Dispose()

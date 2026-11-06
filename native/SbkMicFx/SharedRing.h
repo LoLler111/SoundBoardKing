@@ -49,5 +49,27 @@ namespace sbk
     static_assert(offsetof(SharedHeader, voiceEffect) == 52, "layout shared with C#");
     static_assert(offsetof(SharedHeader, voiceHeartbeatMs) == 60, "layout shared with C#");
 
-    inline constexpr size_t SharedSize = sizeof(SharedHeader) + size_t{RingFrames} * sizeof(float);
+    // The header and the ring: all that the first versions had.
+    inline constexpr size_t LegacySharedSize = sizeof(SharedHeader) + size_t{RingFrames} * sizeof(float);
+
+    // After the ring, the other way round: the voice as the others hear it (effect on, sounds not
+    // added yet), written by one APO instance for the app's spectrum meter. Older apps and APOs simply
+    // map less and never see it, so the version stays 1.
+    inline constexpr uint32_t VoiceTapFrames = 1u << 13;  // ~170 ms at 48 kHz
+
+#pragma pack(push, 8)
+    struct VoiceTap
+    {
+        int64_t writePos;             // owner: total frames written (release)
+        int64_t ownerHeartbeatMs;     // owner: GetTickCount64() of the last write
+        uint64_t owner;               // the instance writing; another takes over when it goes quiet
+        uint32_t sampleRate;          // owner: microphone sample rate
+        uint32_t reserved;
+    };
+#pragma pack(pop)
+
+    static_assert(sizeof(VoiceTap) == 32, "layout shared with C#");
+
+    inline constexpr size_t VoiceTapOffset = LegacySharedSize;
+    inline constexpr size_t SharedSize = VoiceTapOffset + sizeof(VoiceTap) + size_t{VoiceTapFrames} * sizeof(float);
 }

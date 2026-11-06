@@ -60,6 +60,16 @@ public sealed class Playback
             voice.Stop();
     }
 
+    /// <summary>False once the sound plays backwards (it then goes on to the end).</summary>
+    public bool CanSeek => Voices.All(v => v.CanSeek);
+
+    /// <summary>Jumps to <paramref name="position"/> on the speakers and in the microphone together.</summary>
+    internal void Seek(TimeSpan position)
+    {
+        foreach (var voice in Voices)
+            voice.Seek(position);
+    }
+
     internal void SetPaused(bool paused)
     {
         IsPaused = paused;

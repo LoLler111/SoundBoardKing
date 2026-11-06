@@ -69,10 +69,6 @@ import kotlin.math.roundToInt
 private fun factorToAxis(factor: Double) = log2(factor).coerceIn(-1.0, 1.0)
 private fun axisToFactor(axis: Double) = (2.0.pow(axis) * 100).roundToInt() / 100.0
 
-/** The pitch across the pad: higher on the left, lower on the right. */
-private fun pitchToX(pitch: Double) = -factorToAxis(pitch)
-private fun xToPitch(x: Double) = axisToFactor(-x)
-
 /** The pitch in semitones: "tono +3", "tono 0". */
 fun pitchText(pitch: Double): String {
     val semitones = (12 * log2(pitch)).roundToInt()
@@ -85,7 +81,7 @@ private const val PadAspect = 1f // square: both axes take the same room
 private val HeldPadWidth = 240.dp
 
 /**
- * Sound pad: across = pitch (left higher, right lower), up = faster, down = slower; each keeps the
+ * Sound pad: across = speed (left slower, right faster), up = higher, down = lower; each keeps the
  * other as it is. The point stays where it is let go; Reset brings back normal speed and pitch.
  */
 @Composable
@@ -97,10 +93,10 @@ fun PadDialog(
 ) {
     // While the finger is down the pad shows its own point: echoes from the PC would make it jump back.
     var touching by remember { mutableStateOf(false) }
-    var localX by remember { mutableStateOf(pitchToX(pitch).toFloat()) }
-    var localY by remember { mutableStateOf(factorToAxis(speed).toFloat()) }
-    val x = if (touching) localX else pitchToX(pitch).toFloat()
-    val y = if (touching) localY else factorToAxis(speed).toFloat()
+    var localX by remember { mutableStateOf(factorToAxis(speed).toFloat()) }
+    var localY by remember { mutableStateOf(factorToAxis(pitch).toFloat()) }
+    val x = if (touching) localX else factorToAxis(speed).toFloat()
+    val y = if (touching) localY else factorToAxis(pitch).toFloat()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -108,7 +104,7 @@ fun PadDialog(
         text = {
             Column {
                 Text(
-                    padText(axisToFactor(x.toDouble()), axisToFactor(y.toDouble())),
+                    padText(axisToFactor(y.toDouble()), axisToFactor(x.toDouble())),
                     color = TextDim,
                     fontSize = 13.sp,
                 )
@@ -123,7 +119,7 @@ fun PadDialog(
                             fun send(position: Offset) {
                                 localX = (position.x / size.width * 2f - 1f).coerceIn(-1f, 1f)
                                 localY = (1f - position.y / size.height * 2f).coerceIn(-1f, 1f)
-                                onChange(xToPitch(localX.toDouble()), axisToFactor(localY.toDouble()))
+                                onChange(axisToFactor(localY.toDouble()), axisToFactor(localX.toDouble()))
                             }
                             awaitEachGesture {
                                 val down = awaitFirstDown()
@@ -153,26 +149,30 @@ private fun PadSurface(x: Float, y: Float, modifier: Modifier = Modifier) {
     Box(modifier.clip(RoundedCornerShape(10.dp)).background(Background)) {
         Canvas(Modifier.matchParentSize()) {
             val dash = PathEffect.dashPathEffect(floatArrayOf(6f, 8f))
-            for (i in 1..3) {
+            for (i in listOf(1, 3)) {
                 val gx = size.width * i / 4
                 val gy = size.height * i / 4
-                val middle = i == 2
-                drawLine(TextDim.copy(alpha = if (middle) 0.5f else 0.25f), Offset(gx, 0f), Offset(gx, size.height),
-                    pathEffect = if (middle) null else dash)
-                drawLine(TextDim.copy(alpha = if (middle) 0.5f else 0.25f), Offset(0f, gy), Offset(size.width, gy),
-                    pathEffect = if (middle) null else dash)
+                drawLine(TextDim.copy(alpha = 0.25f), Offset(gx, 0f), Offset(gx, size.height), pathEffect = dash)
+                drawLine(TextDim.copy(alpha = 0.25f), Offset(0f, gy), Offset(size.width, gy), pathEffect = dash)
             }
+            // The axes through the middle, with a ring where they cross: speed and pitch as they are.
+            val axis = TextDim.copy(alpha = 0.8f)
+            val middle = Offset(size.width / 2, size.height / 2)
+            val axisWidth = 1.5.dp.toPx()
+            drawLine(axis, Offset(middle.x, 0f), Offset(middle.x, size.height), strokeWidth = axisWidth)
+            drawLine(axis, Offset(0f, middle.y), Offset(size.width, middle.y), strokeWidth = axisWidth)
+            drawCircle(axis, radius = 5.dp.toPx(), center = middle, style = Stroke(axisWidth))
             val point = Offset((x + 1f) / 2f * size.width, (1f - (y + 1f) / 2f) * size.height)
             drawLine(Gold.copy(alpha = 0.5f), Offset(point.x, 0f), Offset(point.x, size.height), pathEffect = dash)
             drawLine(Gold.copy(alpha = 0.5f), Offset(0f, point.y), Offset(size.width, point.y), pathEffect = dash)
             drawCircle(Gold, radius = 13.dp.toPx(), center = point)
             drawCircle(Color.White, radius = 13.dp.toPx(), center = point, style = Stroke(2.dp.toPx()))
         }
-        Text("↑ più veloce", color = TextDim, fontSize = 11.sp, modifier = Modifier.align(Alignment.TopStart).padding(8.dp))
-        Text("↓ più lento", color = TextDim, fontSize = 11.sp, modifier = Modifier.align(Alignment.BottomStart).padding(8.dp))
-        // The pitch at the sides, just above the middle line.
-        Text("← più acuto", color = TextDim, fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp, bottom = 22.dp))
-        Text("più grave →", color = TextDim, fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp, bottom = 22.dp))
+        Text("↑ più acuto", color = TextDim, fontSize = 11.sp, modifier = Modifier.align(Alignment.TopStart).padding(8.dp))
+        Text("↓ più grave", color = TextDim, fontSize = 11.sp, modifier = Modifier.align(Alignment.BottomStart).padding(8.dp))
+        // The speed at the sides, just above the middle line.
+        Text("← più lento", color = TextDim, fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp, bottom = 22.dp))
+        Text("più veloce →", color = TextDim, fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp, bottom = 22.dp))
     }
 }
 
@@ -209,8 +209,8 @@ class PadHold {
 
     /** Moves the point from where it was by [across] and [up], as fractions of the pad. */
     fun move(across: Float, up: Float) {
-        pitch = axisToFactor((factorToAxis(startPitch) - across * 2).coerceIn(-1.0, 1.0))
-        speed = axisToFactor((factorToAxis(startSpeed) + up * 2).coerceIn(-1.0, 1.0))
+        speed = axisToFactor((factorToAxis(startSpeed) + across * 2).coerceIn(-1.0, 1.0))
+        pitch = axisToFactor((factorToAxis(startPitch) + up * 2).coerceIn(-1.0, 1.0))
     }
 
     fun toggleLock() {
@@ -412,8 +412,8 @@ fun PadHoldOverlay(hold: PadHold, modifier: Modifier = Modifier) {
                 modifier = Modifier.padding(top = 2.dp),
             )
             PadSurface(
-                pitchToX(hold.pitch).toFloat(),
                 factorToAxis(hold.speed).toFloat(),
+                factorToAxis(hold.pitch).toFloat(),
                 Modifier.padding(top = 8.dp).width(HeldPadWidth).aspectRatio(PadAspect),
             )
         }

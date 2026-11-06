@@ -178,6 +178,13 @@ public sealed class AudioEngine : IDisposable
     /// <summary>Stops one sound; the others keep playing.</summary>
     public void Stop(Playback playback) => playback.Stop();
 
+    /// <summary>Moves a sound to another point; ignored once it plays backwards.</summary>
+    public void Seek(Playback playback, TimeSpan position)
+    {
+        if (playback.CanSeek && !playback.IsStopping)
+            playback.Seek(position);
+    }
+
     /// <summary>Stops every play of the sound with this tag, e.g. before its file is rewritten.</summary>
     public void StopTag(object tag)
     {

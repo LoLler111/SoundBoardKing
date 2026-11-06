@@ -40,7 +40,11 @@ namespace sbk
         if (!m_mapping)
             return false;
 
+        // Made smaller by an older APO still loaded in audiodg: then it works as before, without the voice tap.
         void* view = MapViewOfFile(m_mapping, FILE_MAP_ALL_ACCESS, 0, 0, SharedSize);
+        const bool withTap = view != nullptr;
+        if (!view)
+            view = MapViewOfFile(m_mapping, FILE_MAP_ALL_ACCESS, 0, 0, LegacySharedSize);
         if (!view)
         {
             Close();
@@ -49,6 +53,11 @@ namespace sbk
 
         m_header = static_cast<SharedHeader*>(view);
         m_ring = reinterpret_cast<float*>(m_header + 1);
+        if (withTap)
+        {
+            m_tap = reinterpret_cast<VoiceTap*>(static_cast<char*>(view) + VoiceTapOffset);
+            m_tapRing = reinterpret_cast<float*>(m_tap + 1);
+        }
 
         // A fresh mapping is zero-filled; whoever gets here first stamps it. Racing instances
         // write the same constants, so no lock is needed.
@@ -70,12 +79,20 @@ namespace sbk
 
     void MicReader::Close()
     {
+        // Hand the voice tap over at once instead of waiting for the next instance to time out.
+        if (m_tap)
+        {
+            uint64_t mine = reinterpret_cast<uint64_t>(this);
+            std::atomic_ref<uint64_t>(m_tap->owner).compare_exchange_strong(mine, 0);
+        }
         if (m_header)
             UnmapViewOfFile(m_header);
         if (m_mapping)
             CloseHandle(m_mapping);
         m_header = nullptr;
         m_ring = nullptr;
+        m_tap = nullptr;
+        m_tapRing = nullptr;
         m_mapping = nullptr;
         m_synced = false;
     }
@@ -150,5 +167,41 @@ namespace sbk
         effect = std::atomic_ref<uint32_t>(m_header->voiceEffect).load(std::memory_order_relaxed);
         amount = std::atomic_ref<float>(m_header->voiceAmount).load(std::memory_order_relaxed);
         return effect != 0;
+    }
+
+    void MicReader::TapVoice(const float* src, UINT32 frames, UINT32 channels, UINT32 rate)
+    {
+        if (!m_tap || channels == 0 || frames == 0)
+            return;
+
+        // Two apps recording at once run two instances on the same voice: only one writes, the
+        // other takes over when the first has been quiet for a while (its app stopped recording).
+        constexpr int64_t OwnerTimeoutMs = 200;
+        const uint64_t me = reinterpret_cast<uint64_t>(this);
+        const int64_t now = static_cast<int64_t>(GetTickCount64());
+        std::atomic_ref<uint64_t> owner(m_tap->owner);
+        uint64_t current = owner.load(std::memory_order_acquire);
+        if (current != me)
+        {
+            if (current != 0 && now - LoadAcquire(m_tap->ownerHeartbeatMs) < OwnerTimeoutMs)
+                return;
+            if (!owner.compare_exchange_strong(current, me, std::memory_order_acq_rel))
+                return;
+        }
+
+        constexpr int64_t mask = VoiceTapFrames - 1;
+        int64_t pos = LoadAcquire(m_tap->writePos);
+        const float scale = 1.0f / static_cast<float>(channels);
+        for (UINT32 i = 0; i < frames; ++i, ++pos)
+        {
+            const float* frame = src + static_cast<size_t>(i) * channels;
+            float mono = 0;
+            for (UINT32 c = 0; c < channels; ++c)
+                mono += frame[c];
+            m_tapRing[pos & mask] = mono * scale;
+        }
+        StoreRelaxed(m_tap->sampleRate, rate);
+        StoreRelaxed(m_tap->ownerHeartbeatMs, now);
+        std::atomic_ref<int64_t>(m_tap->writePos).store(pos, std::memory_order_release);
     }
 }

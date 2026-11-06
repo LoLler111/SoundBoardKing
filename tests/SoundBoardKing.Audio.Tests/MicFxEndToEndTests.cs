@@ -68,6 +68,19 @@ public class MicFxEndToEndTests(ITestOutputHelper output)
         // Robot on the voice, refreshed like the app does every second: the harness checks the APO reads it.
         using var heartbeat = new Timer(_ => feed.SetVoiceEffect(3, 0.8f), null, 0, 500);
 
+        // Then the harness's microphone hums 1 kHz: the voice tap shows it, without the 440 Hz sounds added after it.
+        while ((line = await process.StandardOutput.ReadLineAsync()) is not null && line != "VOICE")
+            output.WriteLine(line);
+        Assert.Equal("VOICE", line);
+        var voice = new VoiceSpectrum(feed);
+        var levels = new float[SpectrumTap.BandCount];
+        for (int i = 0; i < 10; i++, await Task.Delay(30))
+            voice.Read(levels);
+        int loudest = Array.IndexOf(levels, levels.Max());
+        output.WriteLine("voce: " + string.Join(" ", levels.Select(l => l.ToString("0.00"))));
+        Assert.Equal(BandOf(1000), loudest);
+        Assert.True(levels[BandOf(440)] < levels[loudest] - 0.2f, "the sounds must not be in the voice tap");
+
         var rest = await process.StandardOutput.ReadToEndAsync();
         await process.WaitForExitAsync();
         feed.Detach();
@@ -75,5 +88,8 @@ public class MicFxEndToEndTests(ITestOutputHelper output)
 
         Assert.Contains("PASS", rest);
         Assert.Equal(0, process.ExitCode);
+
+        // The band holding a frequency, as SpectrumAnalyser spaces them (40 Hz - 16 kHz, logarithmic).
+        static int BandOf(double hz) => (int)(Math.Log(hz / 40) / Math.Log(16_000.0 / 40) * SpectrumTap.BandCount);
     }
 }

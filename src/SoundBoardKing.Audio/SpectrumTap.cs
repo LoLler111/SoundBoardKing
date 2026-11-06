@@ -1,5 +1,6 @@
 using NAudio.Dsp;
 using NAudio.Wave;
+using SoundBoardKing.Audio.MicFx;
 
 namespace SoundBoardKing.Audio;
 
@@ -9,39 +10,19 @@ namespace SoundBoardKing.Audio;
 /// </summary>
 public sealed class SpectrumTap : ISampleProvider
 {
-    public const int BandCount = 24;
-
-    private const int FftSize = 1024;
-    private const int FftExponent = 10;
-    private const float MinFrequency = 40f;
-    private const float MaxFrequency = 16_000f;
-    private const float FloorDb = -54f;
+    public const int BandCount = SpectrumAnalyser.BandCount;
 
     private readonly ISampleProvider _source;
     private readonly int _channels;
-    private readonly float[] _window = new float[FftSize];
-    private readonly Complex[] _fft = new Complex[FftSize];
-    private readonly (int First, int Last)[] _bandBins = new (int, int)[BandCount];
-    private readonly float[] _bands = new float[BandCount];
-    private readonly object _gate = new();
+    private readonly SpectrumAnalyser _analyser;
+    private readonly float[] _window = new float[SpectrumAnalyser.FftSize];
     private int _filled;
-    private long _analysedAt;
 
     public SpectrumTap(ISampleProvider source)
     {
         _source = source;
         _channels = source.WaveFormat.Channels;
-
-        // Bands are spaced logarithmically, like hearing: as many for 40-160 Hz as for 4-16 kHz.
-        float binWidth = (float)source.WaveFormat.SampleRate / FftSize;
-        for (int band = 0; band < BandCount; band++)
-        {
-            float low = MinFrequency * MathF.Pow(MaxFrequency / MinFrequency, (float)band / BandCount);
-            float high = MinFrequency * MathF.Pow(MaxFrequency / MinFrequency, (float)(band + 1) / BandCount);
-            int first = Math.Clamp((int)(low / binWidth), 1, FftSize / 2 - 1);
-            int last = Math.Clamp((int)(high / binWidth), first, FftSize / 2 - 1);
-            _bandBins[band] = (first, last);
-        }
+        _analyser = new SpectrumAnalyser(source.WaveFormat.SampleRate);
     }
 
     public WaveFormat WaveFormat => _source.WaveFormat;
@@ -55,14 +36,77 @@ public sealed class SpectrumTap : ISampleProvider
             for (int c = 0; c < _channels; c++)
                 mono += buffer[i + c];
             _window[_filled++] = mono / _channels;
-            if (_filled == FftSize)
+            if (_filled == _window.Length)
             {
-                Analyse();
+                _analyser.Analyse(_window);
                 _filled = 0;
             }
         }
         return read;
     }
+
+    /// <inheritdoc cref="SpectrumAnalyser.Read"/>
+    public void Read(float[] levels) => _analyser.Read(levels);
+}
+
+/// <summary>
+/// The spectrum of the voice in the microphone, as the others hear it, read from the mic module
+/// when the meter asks: zeros while nobody is recording or with a module too old to tell.
+/// </summary>
+public sealed class VoiceSpectrum(ApoMicFeed feed)
+{
+    private readonly float[] _window = new float[SpectrumAnalyser.FftSize];
+    private SpectrumAnalyser? _analyser;
+    private long _seen;
+
+    public void Read(float[] levels)
+    {
+        if (feed.TryReadVoice(_window, ref _seen, out int rate))
+        {
+            if (_analyser?.SampleRate != rate)
+                _analyser = new SpectrumAnalyser(rate);
+            _analyser.Analyse(_window);
+        }
+        if (_analyser is null)
+            Array.Clear(levels);
+        else
+            _analyser.Read(levels);
+    }
+}
+
+/// <summary>Levels of <see cref="BandCount"/> bands, from 40 Hz to 16 kHz, of a window of mono samples.</summary>
+public sealed class SpectrumAnalyser
+{
+    public const int BandCount = 24;
+    public const int FftSize = 1024;
+
+    private const int FftExponent = 10;
+    private const float MinFrequency = 40f;
+    private const float MaxFrequency = 16_000f;
+    private const float FloorDb = -54f;
+
+    private readonly Complex[] _fft = new Complex[FftSize];
+    private readonly (int First, int Last)[] _bandBins = new (int, int)[BandCount];
+    private readonly float[] _bands = new float[BandCount];
+    private readonly object _gate = new();
+    private long _analysedAt;
+
+    public SpectrumAnalyser(int sampleRate)
+    {
+        SampleRate = sampleRate;
+        // Bands are spaced logarithmically, like hearing: as many for 40-160 Hz as for 4-16 kHz.
+        float binWidth = (float)sampleRate / FftSize;
+        for (int band = 0; band < BandCount; band++)
+        {
+            float low = MinFrequency * MathF.Pow(MaxFrequency / MinFrequency, (float)band / BandCount);
+            float high = MinFrequency * MathF.Pow(MaxFrequency / MinFrequency, (float)(band + 1) / BandCount);
+            int first = Math.Clamp((int)(low / binWidth), 1, FftSize / 2 - 1);
+            int last = Math.Clamp((int)(high / binWidth), first, FftSize / 2 - 1);
+            _bandBins[band] = (first, last);
+        }
+    }
+
+    public int SampleRate { get; }
 
     /// <summary>
     /// Copies the latest levels, 0..1 per band from low to high frequencies; zeros when nothing has
@@ -79,11 +123,12 @@ public sealed class SpectrumTap : ISampleProvider
         }
     }
 
-    private void Analyse()
+    /// <summary>Measures <see cref="FftSize"/> mono samples.</summary>
+    public void Analyse(float[] window)
     {
         for (int i = 0; i < FftSize; i++)
         {
-            _fft[i].X = _window[i] * (float)FastFourierTransform.HannWindow(i, FftSize);
+            _fft[i].X = window[i] * (float)FastFourierTransform.HannWindow(i, FftSize);
             _fft[i].Y = 0;
         }
         FastFourierTransform.FFT(true, FftExponent, _fft);
