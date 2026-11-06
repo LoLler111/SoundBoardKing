@@ -475,9 +475,32 @@ public partial class MainWindow : Window
         }
     }
 
+    private TtsWindow? _tts;
+
+    private void TtsButton_Click(object sender, RoutedEventArgs e) => ShowTts();
+
+    private void ShowTts()
+    {
+        if (_tts is null)
+        {
+            _tts = new TtsWindow(new TtsViewModel(_viewModel)) { Owner = this };
+            _tts.Closed += (_, _) => _tts = null;
+            _tts.Show();
+        }
+        else
+        {
+            _tts.Activate();
+        }
+    }
+
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+        if (e.Key == Key.T && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            ShowTts();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
         {
             SearchBox.Focus();
             SearchBox.SelectAll();

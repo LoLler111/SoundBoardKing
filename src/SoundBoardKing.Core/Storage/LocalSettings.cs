@@ -25,6 +25,15 @@ public sealed class LocalSettings
 
     /// <summary>Height of the favourites buttons area, in device-independent pixels.</summary>
     public double HotbarHeight { get; set; } = 128;
+
+    /// <summary>Name of the text-to-speech voice last used (the voices installed differ between PCs).</summary>
+    public string? TtsVoice { get; set; }
+
+    /// <summary>Speaking rate, -10 (slowest) .. 0 (normal) .. 10 (fastest).</summary>
+    public int TtsRate { get; set; }
+
+    /// <summary>Phrases spoken lately, newest first, to say them again with a click.</summary>
+    public List<string> TtsHistory { get; set; } = [];
 }
 
 /// <summary>Position and size in device-independent pixels; <see cref="Maximized"/> keeps the normal size too.</summary>

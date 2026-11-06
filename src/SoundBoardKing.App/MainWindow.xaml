@@ -47,6 +47,13 @@
                         <TextBlock Text="Myinstants" />
                     </StackPanel>
                 </Button>
+                <Button DockPanel.Dock="Left" Margin="8,0,0,0" Click="TtsButton_Click"
+                        ToolTip="Scrivi una frase e una voce di Windows la dice, anche nel microfono (Ctrl+T)">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8D4;" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="Sintesi vocale" />
+                    </StackPanel>
+                </Button>
 
                 <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE713;"
                         Command="{Binding OpenSettingsCommand}" ToolTip="Impostazioni" Margin="4,0,0,0" />

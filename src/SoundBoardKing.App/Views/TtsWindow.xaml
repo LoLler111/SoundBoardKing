@@ -1,0 +1,191 @@
+<Window x:Class="SoundBoardKing.App.Views.TtsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="clr-namespace:SoundBoardKing.Core.Models;assembly=SoundBoardKing.Core"
+        Title="Sintesi vocale" Width="580" Height="840" MinWidth="460" MinHeight="600" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource PanelBrush}" Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI" FontSize="13">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
+
+    <DockPanel Margin="18">
+        <!-- Voice and speed -->
+        <Grid DockPanel.Dock="Top">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Text="Voce" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding Voices}" SelectedItem="{Binding SelectedVoice}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" />
+                            <TextBlock Text="{Binding Language, StringFormat={} · {0}}" Foreground="{StaticResource TextDimBrush}" />
+                            <TextBlock Text="{Binding Gender, StringFormat={} · {0}}" Foreground="{StaticResource TextDimBrush}" />
+                            <TextBlock Text=" · 32 bit" Foreground="{StaticResource TextDimBrush}"
+                                       Visibility="{Binding Is32Bit, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <TextBlock Grid.Row="1" Text="Velocità" VerticalAlignment="Center" Margin="0,12,12,0" />
+            <DockPanel Grid.Row="1" Grid.Column="1" Margin="0,12,0,0">
+                <TextBlock DockPanel.Dock="Right" Text="{Binding RateText}" Width="56" TextAlignment="Right"
+                           VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" />
+                <Slider Minimum="{Binding MinRate, Mode=OneTime}" Maximum="{Binding MaxRate, Mode=OneTime}" Value="{Binding Rate}"
+                        IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
+                        MouseDoubleClick="RateSlider_MouseDoubleClick"
+                        ToolTip="A sinistra più lenta, a destra più veloce. Doppio clic: normale" />
+            </DockPanel>
+        </Grid>
+
+        <!-- Text -->
+        <Grid DockPanel.Dock="Top" Margin="0,16,0,0">
+            <TextBox x:Name="TextBox" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" Height="110" Padding="8,6"
+                     AcceptsReturn="False" TextWrapping="Wrap" VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto"
+                     MaxLength="2000" PreviewKeyDown="TextBox_PreviewKeyDown" />
+            <TextBlock Text="Scrivi cosa dire… (Invio per parlare, Maiusc+Invio per andare a capo)" Margin="11,7,0,0"
+                       VerticalAlignment="Top" TextWrapping="Wrap" Foreground="{StaticResource TextDimBrush}" IsHitTestVisible="False">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Text, ElementName=TextBox}" Value="">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </Grid>
+
+        <!-- Speak -->
+        <DockPanel DockPanel.Dock="Top" Margin="0,12,0,0">
+            <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE71A;" Command="{Binding StopCommand}"
+                    ToolTip="Ferma la voce (e gli altri suoni)" Margin="6,0,0,0" />
+            <Button DockPanel.Dock="Right" Command="{Binding SpeakCommand}" CommandParameter="{x:Static models:PlayTarget.Speakers}"
+                    Margin="6,0,0,0" ToolTip="Prova la voce solo in cuffia: nel microfono non va">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE7F6;" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Text="Anteprima" />
+                </StackPanel>
+            </Button>
+            <Button DockPanel.Dock="Right" Command="{Binding SpeakCommand}" CommandParameter="{x:Static models:PlayTarget.Mic}"
+                    Margin="6,0,0,0" ToolTip="Solo nel microfono: chi ti ascolta la sente, tu no">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE720;" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Text="Solo microfono" />
+                </StackPanel>
+            </Button>
+            <Button Style="{StaticResource AccentButton}" Command="{Binding SpeakCommand}" CommandParameter="{x:Static models:PlayTarget.Default}"
+                    HorizontalAlignment="Left" ToolTip="{Binding SpeakHint}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE768;" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBlock Text="Parla" FontWeight="SemiBold" />
+                </StackPanel>
+            </Button>
+        </DockPanel>
+
+        <!-- Status and where to find more voices -->
+        <TextBlock DockPanel.Dock="Bottom" FontSize="11" Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap" Margin="2,10,0,0"
+                   Text="Altre voci di Windows: Impostazioni › Ora e lingua › Voce. Le voci SAPI5 di altri produttori (per esempio Loquendo) compaiono qui da sole, anche quelle a 32 bit. L'effetto e il pad si applicano anche alla voce." />
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <TextBlock DockPanel.Dock="Left" FontFamily="{StaticResource IconFont}" Text="&#xE916;" Margin="0,0,6,0" VerticalAlignment="Center"
+                       Foreground="{StaticResource AccentBrush}" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+            <TextBlock Text="{Binding StatusText}" FontSize="12" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+
+        <!-- Neural voices: downloaded once, then they speak without Internet -->
+        <TextBlock DockPanel.Dock="Top" Text="VOCI NEURALI · GRATIS, SENZA INTERNET UNA VOLTA SCARICATE" FontSize="11" FontWeight="SemiBold"
+                   Margin="2,18,0,6" Foreground="{StaticResource TextDimBrush}" />
+        <Border DockPanel.Dock="Top" Background="{StaticResource BgBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
+                CornerRadius="6" Padding="4">
+            <ItemsControl x:Name="PackageList" ItemsSource="{Binding Packages}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel Margin="8,5">
+                            <!-- Download / progress and cancel / installed with delete -->
+                            <Grid DockPanel.Dock="Right" VerticalAlignment="Center" MinWidth="120">
+                                <Button Content="{Binding SizeText}" ToolTip="Scarica la voce (una volta sola)" HorizontalAlignment="Right"
+                                        Command="{Binding DataContext.DownloadPackageCommand, ElementName=PackageList}" CommandParameter="{Binding}"
+                                        Visibility="{Binding CanDownload, Converter={StaticResource BoolToVisibility}}" />
+                                <DockPanel Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVisibility}}">
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Content="&#xE711;" Margin="6,0,0,0"
+                                            ToolTip="Annulla il download"
+                                            Command="{Binding DataContext.CancelDownloadCommand, ElementName=PackageList}" CommandParameter="{Binding}" />
+                                    <ProgressBar Value="{Binding Progress}" Maximum="100" Width="90" VerticalAlignment="Center" />
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                            Visibility="{Binding IsInstalled, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE73E;" Foreground="{StaticResource AccentBrush}"
+                                               VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <TextBlock Text="Installata" VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" />
+                                    <Button Style="{StaticResource SmallIconButton}" Content="&#xE74D;" Margin="6,0,0,0"
+                                            ToolTip="Elimina i file della voce dal PC (si può riscaricare)"
+                                            Command="{Binding DataContext.DeletePackageCommand, ElementName=PackageList}" CommandParameter="{Binding}" />
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock>
+                                    <Run Text="{Binding Speakers, Mode=OneWay}" FontWeight="SemiBold" />
+                                </TextBlock>
+                                <TextBlock Text="{Binding Credits}" FontSize="11" Foreground="{StaticResource TextDimBrush}"
+                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Credits}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <!-- Recent phrases: a click says them again -->
+        <TextBlock DockPanel.Dock="Top" Text="FRASI RECENTI" FontSize="11" FontWeight="SemiBold" Margin="2,18,0,6"
+                   Foreground="{StaticResource TextDimBrush}" />
+        <Border Background="{StaticResource BgBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="6">
+            <Grid>
+                <TextBlock Text="Le frasi che fai dire restano qui: un clic e la voce le ripete." Margin="12" TextWrapping="Wrap"
+                           Foreground="{StaticResource TextDimBrush}" FontSize="12">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding History.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="HistoryList" ItemsSource="{Binding History}" Margin="4">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel Margin="0,1">
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Content="&#xE711;"
+                                            Command="{Binding DataContext.RemoveFromHistoryCommand, ElementName=HistoryList}"
+                                            CommandParameter="{Binding}" ToolTip="Togli dalle frasi recenti" />
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Content="&#xE70F;"
+                                            Click="EditPhrase_Click" ToolTip="Copia nella casella per modificarla" />
+                                    <Button Command="{Binding DataContext.SpeakAgainCommand, ElementName=HistoryList}" CommandParameter="{Binding}"
+                                            HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Padding="8,5"
+                                            ToolTip="Fallo ripetere alla voce">
+                                        <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" />
+                                    </Button>
+                                </DockPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </DockPanel>
+</Window>

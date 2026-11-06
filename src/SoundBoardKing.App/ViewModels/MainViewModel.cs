@@ -516,7 +516,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (sound is not null)
             sound.IsPlaying = true;
 
-        var item = new PlayingSoundViewModel(playback, sound?.Title ?? "");
+        var item = new PlayingSoundViewModel(playback, sound?.Title ?? (playback.Tag as SpokenTextTag)?.Title ?? "");
         item.Refresh();
         NowPlaying.Add(item);
         UpdateNowPlaying();
@@ -1367,6 +1367,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _micFeed.SetVoiceEffect(0, 0); // the voice goes back to normal at once, not after the timeout
         _hotkeys.Dispose();
         _engine.Dispose();
+        _speech.Dispose();
         DeletePendingDownloads(); // nothing plays them any more
         ApplyDownloadedUpdate();
     }
