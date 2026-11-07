@@ -46,6 +46,22 @@ public partial class TtsWindow : Window
         }
     }
 
+    private async void AddRvc_Click(object sender, RoutedEventArgs e)
+    {
+        var editor = new RvcVoiceWindow(_model.EditorFor(null)) { Owner = this };
+        if (editor.ShowDialog() == true && editor.Result is { } saved)
+            await _model.SaveRvcVoiceAsync(null, saved);
+    }
+
+    private async void EditRvc_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: RvcVoiceItem item })
+            return;
+        var editor = new RvcVoiceWindow(_model.EditorFor(item)) { Owner = this };
+        if (editor.ShowDialog() == true && editor.Result is { } saved)
+            await _model.SaveRvcVoiceAsync(item, saved);
+    }
+
     private void RateSlider_MouseDoubleClick(object sender, MouseButtonEventArgs e) => _model.Rate = 0;
 
     private void EditPhrase_Click(object sender, RoutedEventArgs e)

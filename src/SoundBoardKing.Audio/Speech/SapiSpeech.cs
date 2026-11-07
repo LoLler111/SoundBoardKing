@@ -264,20 +264,36 @@ internal static class SapiSpeech
         Activator.CreateInstance(Type.GetTypeFromProgID(progId, throwOnError: true)!)!;
 
     // SAPI is happiest on an STA thread with nothing else to do, as in a classic desktop program.
-    private static Task<T> RunSta<T>(Func<T> work)
+    // Every SAPI call runs on one STA thread that lives as long as the app. A thread per call, which then
+    // ends, let the COM binder keep objects of a finished apartment and use them from another thread
+    // ("COM object that has been separated from its underlying RCW") when calls overlapped.
+    private static readonly System.Collections.Concurrent.BlockingCollection<Action> Work = StartWorker();
+
+    private static System.Collections.Concurrent.BlockingCollection<Action> StartWorker()
     {
-        var done = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var queue = new System.Collections.Concurrent.BlockingCollection<Action>();
         var thread = new Thread(() =>
         {
-            try { done.SetResult(work()); }
-            catch (Exception ex) { done.SetException(ex); }
+            foreach (var item in queue.GetConsumingEnumerable())
+                item();
         })
         {
             IsBackground = true,
-            Name = "SBK text-to-speech",
+            Name = "SBK text-to-speech (SAPI)",
         };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
+        return queue;
+    }
+
+    private static Task<T> RunSta<T>(Func<T> work)
+    {
+        var done = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Work.Add(() =>
+        {
+            try { done.SetResult(work()); }
+            catch (Exception ex) { done.SetException(ex); }
+        });
         return done.Task;
     }
 }

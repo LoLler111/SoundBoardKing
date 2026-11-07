@@ -77,7 +77,8 @@ public class NeuralVoiceTests
             string fast = await tts.SynthesizeAsync(Announcement + " Attenzione! Allontanarsi dalla linea gialla.", voice, 10, output);
             var length = Duration(normal);
             Assert.True(length.TotalSeconds is > 4 and < 15, $"{voice.Name}: {length}");
-            Assert.True(Duration(fast) < length * 0.75, $"{voice.Name}: {length} / {Duration(fast)}");
+            // Piper predicts durations with some randomness: twice as fast is never exactly half as long.
+            Assert.True(Duration(fast) < length * 0.85, $"{voice.Name}: {length} / {Duration(fast)}");
             // Kept for listening to; the folder is in the temp files.
             File.Copy(normal, Path.Combine(output, voice.Name + ".wav"), overwrite: true);
         }

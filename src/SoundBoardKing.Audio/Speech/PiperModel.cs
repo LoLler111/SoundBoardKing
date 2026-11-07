@@ -19,7 +19,7 @@ internal sealed class PiperModel : IDisposable
     private readonly float _noiseW;
     private readonly bool _hasSpeakerInput;
 
-    public PiperModel(string modelPath)
+    public PiperModel(string modelPath, bool gpu = false)
     {
         using (var config = JsonDocument.Parse(File.ReadAllBytes(modelPath + ".json")))
         {
@@ -38,12 +38,16 @@ internal sealed class PiperModel : IDisposable
                 _longestPhoneme = Math.Max(_longestPhoneme, entry.Name.Length);
             }
         }
-        var options = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
-        _session = new InferenceSession(modelPath, options);
+
+        _session = OnnxSessions.Create(modelPath, gpu, out bool onGpu);
+        OnGpu = onGpu;
         _hasSpeakerInput = _session.InputMetadata.ContainsKey("sid");
     }
 
     public int SampleRate { get; }
+
+    /// <summary>Whether it runs on the graphics card.</summary>
+    public bool OnGpu { get; }
     public string ESpeakVoice { get; }
 
     private static float Read(JsonElement section, string name, float fallback) =>

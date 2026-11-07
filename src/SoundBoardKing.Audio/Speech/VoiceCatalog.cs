@@ -85,15 +85,36 @@ public sealed class VoiceCatalog(string folder)
             ]),
     ];
 
+    private const string RvcFiles = "https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/e6d0c1a17da07c33557852f9dfa2bd44cc75737d/";
+
+    /// <summary>
+    /// What every RVC voice needs besides its own model: ContentVec (HuBERT base, the weights for the
+    /// graph shipped with the app) and RMVPE for the pitch, both from RVC's own release (MIT).
+    /// </summary>
+    public static CatalogPackage RvcSupport { get; } = new("rvc-support", "Componenti RVC", TtsEngine.Rvc, "", "",
+        "ContentVec e RMVPE dal progetto RVC (lj1995/VoiceConversionWebUI, MIT)", [],
+        [
+            new("hubert_base.bin", new(RvcFiles + "hubert_base/pytorch_model.bin"),
+                189_206_711, "cc8c20f4b90a520757260197a3ff2505705a7adbd20ad9eeaa4e1a9b38442ef5"),
+            new("rmvpe.onnx", new(RvcFiles + "rmvpe.onnx"),
+                361_688_443, "5370e71ac80af8b4b7c793d27efd51fd8bf962de3a7ede0766dac0befa3660fd"),
+        ]);
+
     public string Folder { get; } = folder;
 
     internal string ESpeakFolder => Path.Combine(Folder, "espeak");
 
+    internal string ContentVecPath => PathOf(RvcSupport, RvcSupport.Files[0]);
+    internal string RmvpePath => PathOf(RvcSupport, RvcSupport.Files[1]);
+
     private bool IsESpeakInstalled => File.Exists(Path.Combine(ESpeakFolder, "espeak-ng.dll"))
                                       && File.Exists(Path.Combine(ESpeakFolder, "espeak-ng-data", "phontab"));
 
+    // eSpeak turns text into phonemes: the RVC components do not need it.
+    private bool NeedsESpeak(CatalogPackage package) => package.Engine != TtsEngine.Rvc && !IsESpeakInstalled;
+
     public bool IsInstalled(CatalogPackage package) =>
-        IsESpeakInstalled && package.Files.All(f => IsComplete(PathOf(package, f)));
+        !NeedsESpeak(package) && package.Files.All(f => IsComplete(PathOf(package, f)));
 
     /// <summary>Every voice of the installed packages.</summary>
     public IReadOnlyList<TtsVoice> InstalledVoices() =>
@@ -101,7 +122,7 @@ public sealed class VoiceCatalog(string folder)
 
     /// <summary>What is still to download for <paramref name="package"/>, in bytes.</summary>
     public long DownloadSize(CatalogPackage package) =>
-        (IsESpeakInstalled ? 0 : ESpeakArchive.Size)
+        (NeedsESpeak(package) ? ESpeakArchive.Size : 0)
         + package.Files.Where(f => !IsComplete(PathOf(package, f))).Sum(f => f.Size);
 
     internal string PathOf(CatalogPackage package, CatalogFile file) => Path.Combine(Folder, package.Id, file.Name);
@@ -130,7 +151,7 @@ public sealed class VoiceCatalog(string folder)
         long done = 0;
         var step = new SyncProgress(bytes => progress?.Report(Math.Min(1, (done + bytes) / total)));
 
-        if (!IsESpeakInstalled)
+        if (NeedsESpeak(package))
         {
             string archive = Path.Combine(Folder, ESpeakArchive.Name);
             await DownloadFileAsync(http, ESpeakArchive, archive, step, cancel);

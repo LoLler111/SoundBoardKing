@@ -34,6 +34,27 @@ public sealed class LocalSettings
 
     /// <summary>Phrases spoken lately, newest first, to say them again with a click.</summary>
     public List<string> TtsHistory { get; set; } = [];
+
+    /// <summary>Compute the neural voices on the graphics card (DirectML) when this PC has one.</summary>
+    public bool TtsUseGpu { get; set; } = true;
+
+    /// <summary>The RVC voices set up on this PC (their models are files on this PC).</summary>
+    public List<RvcVoiceSetting> RvcVoices { get; set; } = [];
+}
+
+/// <summary>An RVC voice: a base voice says the text, the RVC model turns it into its own voice.</summary>
+public sealed class RvcVoiceSetting
+{
+    public string Name { get; set; } = "";
+    public string ModelPath { get; set; } = "";
+    public string? IndexPath { get; set; }
+    public string BaseVoice { get; set; } = "";
+
+    /// <summary>Semitones added to the base voice's pitch.</summary>
+    public int Pitch { get; set; }
+
+    /// <summary>How much of the model's index goes into each frame, 0..1.</summary>
+    public float IndexRate { get; set; } = 0.66f;
 }
 
 /// <summary>Position and size in device-independent pixels; <see cref="Maximized"/> keeps the normal size too.</summary>

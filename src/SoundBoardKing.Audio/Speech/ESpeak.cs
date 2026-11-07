@@ -25,48 +25,59 @@ internal sealed partial class ESpeak : IDisposable
     private const int Colon = 30 | 0x00000000 | 0x00040000;
     private const int Semicolon = 30 | 0x00001000 | 0x00040000;
 
-    // eSpeak keeps one global state: one caller at a time, across every instance.
+    // eSpeak keeps one global state for the whole process: it is loaded once, shared by every instance,
+    // and shut down only when the last one is disposed — never under another instance's feet.
     private static readonly Lock Gate = new();
+    private static int _users;
+    private static nint _library;
+    private static unsafe delegate* unmanaged[Cdecl]<byte*, int> _setVoiceByName;
+    private static unsafe delegate* unmanaged[Cdecl]<void**, int, int, int*, byte*> _toPhonemesWithTerminator;
+    private static unsafe delegate* unmanaged[Cdecl]<void**, int, int, byte*> _toPhonemes;
+    private static unsafe delegate* unmanaged[Cdecl]<int> _terminate;
+    private static string? _voice;
+    private bool _disposed;
 
-    private readonly nint _library;
-    private readonly unsafe delegate* unmanaged[Cdecl]<int, int, byte*, int, int> _initialize;
-    private readonly unsafe delegate* unmanaged[Cdecl]<byte*, int> _setVoiceByName;
-    private readonly unsafe delegate* unmanaged[Cdecl]<void**, int, int, int*, byte*> _toPhonemesWithTerminator;
-    private readonly unsafe delegate* unmanaged[Cdecl]<void**, int, int, byte*> _toPhonemes;
-    private readonly unsafe delegate* unmanaged[Cdecl]<int> _terminate;
-    private string? _voice;
-
-    /// <param name="folder">The folder with espeak-ng.dll and espeak-ng-data.</param>
+    /// <param name="folder">The folder with espeak-ng.dll and espeak-ng-data (used by the first instance).</param>
     /// <exception cref="InvalidOperationException">The library is missing or does not start.</exception>
-    public unsafe ESpeak(string folder)
+    public ESpeak(string folder)
+    {
+        lock (Gate)
+        {
+            if (_users == 0)
+                Load(folder);
+            _users++;
+        }
+    }
+
+    private static unsafe void Load(string folder)
     {
         string dll = Path.Combine(folder, "espeak-ng.dll");
         if (!File.Exists(dll))
             throw new InvalidOperationException("Il motore delle voci neurali (eSpeak NG) non è installato.");
-        _library = NativeLibrary.Load(dll);
+        nint library = NativeLibrary.Load(dll);
         try
         {
-            _initialize = (delegate* unmanaged[Cdecl]<int, int, byte*, int, int>)NativeLibrary.GetExport(_library, "espeak_Initialize");
-            _setVoiceByName = (delegate* unmanaged[Cdecl]<byte*, int>)NativeLibrary.GetExport(_library, "espeak_SetVoiceByName");
-            _toPhonemes = (delegate* unmanaged[Cdecl]<void**, int, int, byte*>)NativeLibrary.GetExport(_library, "espeak_TextToPhonemes");
-            _terminate = (delegate* unmanaged[Cdecl]<int>)NativeLibrary.GetExport(_library, "espeak_Terminate");
+            var initialize = (delegate* unmanaged[Cdecl]<int, int, byte*, int, int>)NativeLibrary.GetExport(library, "espeak_Initialize");
+            _setVoiceByName = (delegate* unmanaged[Cdecl]<byte*, int>)NativeLibrary.GetExport(library, "espeak_SetVoiceByName");
+            _toPhonemes = (delegate* unmanaged[Cdecl]<void**, int, int, byte*>)NativeLibrary.GetExport(library, "espeak_TextToPhonemes");
+            _terminate = (delegate* unmanaged[Cdecl]<int>)NativeLibrary.GetExport(library, "espeak_Terminate");
             // Only in Piper's build of eSpeak: it also tells which punctuation ended each clause.
-            if (NativeLibrary.TryGetExport(_library, "espeak_TextToPhonemesWithTerminator", out var withTerminator))
-                _toPhonemesWithTerminator = (delegate* unmanaged[Cdecl]<void**, int, int, int*, byte*>)withTerminator;
+            _toPhonemesWithTerminator = NativeLibrary.TryGetExport(library, "espeak_TextToPhonemesWithTerminator", out var withTerminator)
+                ? (delegate* unmanaged[Cdecl]<void**, int, int, int*, byte*>)withTerminator
+                : null;
 
             byte[] data = Encoding.UTF8.GetBytes(Path.Combine(folder, "espeak-ng-data") + "\0");
             int rate;
-            lock (Gate)
-            {
-                fixed (byte* path = data)
-                    rate = _initialize(OutputSynchronous, 0, path, 0);
-            }
+            fixed (byte* path = data)
+                rate = initialize(OutputSynchronous, 0, path, 0);
             if (rate <= 0)
                 throw new InvalidOperationException("eSpeak NG non si avvia: i suoi dati sono danneggiati o mancano.");
+            _library = library;
+            _voice = null;
         }
         catch
         {
-            NativeLibrary.Free(_library);
+            NativeLibrary.Free(library);
             throw;
         }
     }
@@ -164,7 +175,16 @@ internal sealed partial class ESpeak : IDisposable
     public unsafe void Dispose()
     {
         lock (Gate)
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            if (--_users > 0)
+                return;
             _terminate();
-        NativeLibrary.Free(_library);
+            NativeLibrary.Free(_library);
+            _library = 0;
+            _voice = null;
+        }
     }
 }

@@ -42,15 +42,19 @@ internal sealed class KokoroModel : IDisposable
     private readonly string _tokensInput;
     private readonly bool _integerSpeed;
 
-    public KokoroModel(string modelPath, string voicesPath)
+    public KokoroModel(string modelPath, string voicesPath, bool gpu = false)
     {
         _voicesPath = voicesPath;
-        var options = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
-        _session = new InferenceSession(modelPath, options);
+
+        _session = OnnxSessions.Create(modelPath, gpu, out bool onGpu);
+        OnGpu = onGpu;
         // Older exports call the input "tokens", newer ones "input_ids"; some take the speed as an integer.
         _tokensInput = _session.InputMetadata.ContainsKey("input_ids") ? "input_ids" : "tokens";
         _integerSpeed = _session.InputMetadata["speed"].ElementDataType is TensorElementType.Int32 or TensorElementType.Int64;
     }
+
+    /// <summary>Whether it runs on the graphics card.</summary>
+    public bool OnGpu { get; }
 
     /// <param name="speed">1 normal, 0.5..2.</param>
     public float[] Synthesize(IReadOnlyList<string> sentences, string voice, float speed, CancellationToken cancellation)

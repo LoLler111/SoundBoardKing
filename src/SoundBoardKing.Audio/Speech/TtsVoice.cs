@@ -11,6 +11,12 @@ public enum TtsEngine
 
     /// <summary>Kokoro: a neural model with many voices that runs on the PC, downloaded on request.</summary>
     Kokoro,
+
+    /// <summary>
+    /// RVC: another voice (the base) says the text, then a voice-conversion model the user chose turns it
+    /// into the voice it was trained on.
+    /// </summary>
+    Rvc,
 }
 
 /// <summary>A voice that can say a text.</summary>

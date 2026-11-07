@@ -18,15 +18,74 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
     private (string Path, PiperModel Model)? _piper;
     private KokoroModel? _kokoro;
 
+    private (string Key, Rvc.RvcConverter Converter)? _rvc;
+
     public VoiceCatalog Catalog { get; } = new(voicesFolder);
 
-    /// <summary>The Windows voices, then the neural voices downloaded; each name once.</summary>
+    /// <summary>The RVC voices the user set up (their models stay where the user keeps them).</summary>
+    public IReadOnlyList<RvcVoiceDefinition> RvcVoices { get; set; } = [];
+
+    /// <summary>The Windows voices, then the neural voices downloaded, then the RVC voices; each name once.</summary>
     public async Task<IReadOnlyList<TtsVoice>> GetVoicesAsync()
     {
         var voices = new List<TtsVoice>(await SapiSpeech.GetVoicesAsync());
         var names = voices.Select(v => v.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         voices.AddRange(Catalog.InstalledVoices().Where(v => names.Add(v.Name)));
+        var bases = voices.ToList();
+        foreach (var rvc in RvcVoices)
+        {
+            var baseVoice = bases.FirstOrDefault(v => v.Name == rvc.BaseVoice);
+            if (names.Add(rvc.Name))
+                voices.Add(new TtsVoice(rvc.Name, baseVoice?.Language ?? "", "RVC", TtsEngine.Rvc, rvc.Name));
+        }
         return voices;
+    }
+
+    /// <summary>Whether ContentVec and RMVPE, needed by every RVC voice, are downloaded.</summary>
+    public bool IsRvcReady => Catalog.IsInstalled(VoiceCatalog.RvcSupport);
+
+    private bool _useGpu;
+    private bool _gpuFailed;
+
+    /// <summary>
+    /// Run the neural voices on the graphics card (DirectML) when there is one; they fall back to the
+    /// processor by themselves when it cannot. Changing it reloads the models at the next phrase.
+    /// </summary>
+    public bool UseGpu
+    {
+        get => _useGpu;
+        set
+        {
+            if (value == _useGpu)
+                return;
+            _useGpu = value;
+            _gpuFailed = false;
+            ReleaseModels();
+        }
+    }
+
+    /// <summary>Whether the last phrase was computed on the graphics card (Windows voices never are).</summary>
+    public bool LastOnGpu { get; private set; }
+
+    /// <summary>Why the graphics card is not used although asked, when it is not.</summary>
+    public string? GpuProblem => OnnxSessions.GpuProblem;
+
+    private bool GpuNow => _useGpu && !_gpuFailed;
+
+    // A model that fails on the graphics card (a driver, an operator DirectML gets wrong) is loaded again on
+    // the processor and the phrase is computed again, once. Runs inside the gate.
+    private T WithGpuFallback<T>(Func<T> work, Func<bool> onGpu)
+    {
+        try
+        {
+            return work();
+        }
+        catch (Microsoft.ML.OnnxRuntime.OnnxRuntimeException) when (onGpu())
+        {
+            _gpuFailed = true;
+            DisposeModels();
+            return work();
+        }
     }
 
     /// <summary>
@@ -37,6 +96,9 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
     public async Task<string> SynthesizeAsync(string text, TtsVoice voice, int rate, string folder,
         CancellationToken cancellation = default)
     {
+        if (voice.Engine == TtsEngine.Rvc)
+            return await SynthesizeRvcAsync(text, voice, rate, folder, cancellation);
+
         Directory.CreateDirectory(folder);
         DeleteOldFiles(folder);
         string path = Path.Combine(folder, $"tts-{Guid.NewGuid():N}.wav");
@@ -46,6 +108,7 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
             if (voice.Engine == TtsEngine.Windows)
             {
                 await SapiSpeech.SynthesizeAsync(text, voice, rate, path, cancellation);
+                LastOnGpu = false;
             }
             else
             {
@@ -90,21 +153,29 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
 
             if (package.Engine == TtsEngine.Kokoro)
             {
-                _kokoro ??= new KokoroModel(Catalog.PathOf(package, package.Files[0]), Catalog.PathOf(package, package.Files[1]));
-                audio = _kokoro.Synthesize(sentences, speaker.Id, speed, cancellation);
+                audio = WithGpuFallback(() =>
+                {
+                    _kokoro ??= new KokoroModel(Catalog.PathOf(package, package.Files[0]), Catalog.PathOf(package, package.Files[1]), GpuNow);
+                    return _kokoro.Synthesize(sentences, speaker.Id, speed, cancellation);
+                }, () => _kokoro?.OnGpu == true);
                 sampleRate = KokoroModel.SampleRate;
+                LastOnGpu = _kokoro!.OnGpu;
             }
             else
             {
                 string model = Catalog.PathOf(package, package.Files[0]);
-                if (_piper?.Path != model)
+                audio = WithGpuFallback(() =>
                 {
-                    _piper?.Model.Dispose();
-                    _piper = null;
-                    _piper = (model, new PiperModel(model));
-                }
-                audio = _piper.Value.Model.Synthesize(sentences, speed, cancellation);
-                sampleRate = _piper.Value.Model.SampleRate;
+                    if (_piper?.Path != model)
+                    {
+                        _piper?.Model.Dispose();
+                        _piper = null;
+                        _piper = (model, new PiperModel(model, GpuNow));
+                    }
+                    return _piper.Value.Model.Synthesize(sentences, speed, cancellation);
+                }, () => _piper?.Model.OnGpu == true);
+                sampleRate = _piper!.Value.Model.SampleRate;
+                LastOnGpu = _piper.Value.Model.OnGpu;
             }
         }
         catch (Exception ex) when (ex is Microsoft.ML.OnnxRuntime.OnnxRuntimeException or DllNotFoundException
@@ -114,6 +185,87 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
             throw new InvalidOperationException($"La voce \"{voice.Name}\" non funziona: {ex.Message}", ex);
         }
         WriteWave(path, audio, sampleRate);
+    }
+
+    // The base voice says the text, then the RVC model changes it into its own voice.
+    private async Task<string> SynthesizeRvcAsync(string text, TtsVoice voice, int rate, string folder, CancellationToken cancellation)
+    {
+        var definition = RvcVoices.FirstOrDefault(v => v.Name == voice.Id)
+            ?? throw new InvalidOperationException($"La voce \"{voice.Name}\" non è più configurata.");
+        if (!File.Exists(definition.ModelPath))
+            throw new InvalidOperationException($"Il modello di \"{voice.Name}\" non c'è più: {definition.ModelPath}");
+        if (!IsRvcReady)
+            throw new InvalidOperationException("Mancano i componenti RVC (ContentVec e RMVPE): scaricali dalla finestra.");
+        var baseVoice = (await GetVoicesAsync()).FirstOrDefault(v => v.Name == definition.BaseVoice && v.Engine != TtsEngine.Rvc)
+            ?? throw new InvalidOperationException($"La voce di base \"{definition.BaseVoice}\" di \"{voice.Name}\" non è installata.");
+
+        string basePath = await SynthesizeAsync(text, baseVoice, rate, folder, cancellation);
+        string path = Path.Combine(folder, $"tts-{Guid.NewGuid():N}.wav");
+        try
+        {
+            await _gate.WaitAsync(cancellation);
+            try
+            {
+                await Task.Run(() =>
+                {
+                    float[] input = ReadMono16k(basePath);
+                    bool baseOnGpu = LastOnGpu;
+                    string key = definition.ModelPath + "|" + definition.IndexPath;
+                    float[] output = WithGpuFallback(() =>
+                    {
+                        if (_rvc?.Key != key)
+                        {
+                            _rvc?.Converter.Dispose();
+                            _rvc = null;
+                            try
+                            {
+                                _rvc = (key, new Rvc.RvcConverter(Catalog.ContentVecPath, Catalog.RmvpePath,
+                                    definition.ModelPath, definition.IndexPath, Path.Combine(Catalog.Folder, "rvc-cache"), GpuNow));
+                            }
+                            catch (Exception ex) when (ex is InvalidDataException or IOException)
+                            {
+                                throw new InvalidOperationException($"Il modello di \"{voice.Name}\" non si carica: {ex.Message}", ex);
+                            }
+                        }
+                        return _rvc.Value.Converter.Convert(input, new Rvc.RvcSettings(definition.Pitch, definition.IndexRate), cancellation);
+                    }, () => _rvc?.Converter.OnGpu == true);
+                    LastOnGpu = _rvc!.Value.Converter.OnGpu && (baseOnGpu || baseVoice.Engine == TtsEngine.Windows);
+                    if (output.Length == 0)
+                        throw new InvalidOperationException($"La voce \"{voice.Name}\" non ha prodotto audio: la frase è troppo corta?");
+                    WriteWave(path, output, Rvc.RvcConverter.OutputRate);
+                }, cancellation);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+            return path;
+        }
+        catch
+        {
+            TryDelete(path);
+            throw;
+        }
+        finally
+        {
+            TryDelete(basePath);
+        }
+    }
+
+    private static float[] ReadMono16k(string path)
+    {
+        using var reader = new WaveFileReader(path);
+        ISampleProvider source = reader.ToSampleProvider();
+        if (source.WaveFormat.Channels > 1)
+            source = new NAudio.Wave.SampleProviders.StereoToMonoSampleProvider(source);
+        if (source.WaveFormat.SampleRate != Rvc.RvcConverter.InputRate)
+            source = new NAudio.Wave.SampleProviders.WdlResamplingSampleProvider(source, Rvc.RvcConverter.InputRate);
+        var samples = new List<float>();
+        var buffer = new float[16000];
+        int read;
+        while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+            samples.AddRange(buffer.AsSpan(0, read));
+        return [.. samples];
     }
 
     /// <summary>Peak-normalized to -1 dBFS (as Piper does), 16-bit mono.</summary>
@@ -135,15 +287,23 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
         _gate.Wait();
         try
         {
-            _piper?.Model.Dispose();
-            _piper = null;
-            _kokoro?.Dispose();
-            _kokoro = null;
+            DisposeModels();
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    // Inside the gate.
+    private void DisposeModels()
+    {
+        _piper?.Model.Dispose();
+        _piper = null;
+        _kokoro?.Dispose();
+        _kokoro = null;
+        _rvc?.Converter.Dispose();
+        _rvc = null;
     }
 
     // Spoken files are only needed while they play; older ones go (a file still playing is locked and stays).

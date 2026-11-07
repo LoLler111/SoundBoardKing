@@ -9,12 +9,26 @@
   <ItemGroup>
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
     <!-- The sound editor: voice isolation runs a separation model on the CPU; Ogg export. -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
+    <!-- The DirectML build also runs on the GPU (any DirectX 12 card); it carries the CPU engine too. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" />
     <PackageReference Include="OggVorbisEncoder" Version="1.2.2" />
+  </ItemGroup>
+
+  <!-- The DirectML runtime ONNX Runtime was built against (the copy in Windows is older); not copied by the package. -->
+  <ItemGroup>
+    <None Include="$(NuGetPackageRoot)microsoft.ai.directml\1.15.4\bin\x64-win\DirectML.dll" Link="DirectML.dll"
+          CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="SoundBoardKing.Audio.Tests" />
+  </ItemGroup>
+
+  <!-- RVC: the graphs of ContentVec and of the v2 generator, without weights (those come from the user's model),
+       each with the list of the weights it expects ("name<TAB>dims"). -->
+  <ItemGroup>
+    <EmbeddedResource Include="Speech\Rvc\Templates\*.onnx" LogicalName="Rvc.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Speech\Rvc\Templates\*.weights.txt" LogicalName="Rvc.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

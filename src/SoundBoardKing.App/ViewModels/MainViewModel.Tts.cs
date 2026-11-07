@@ -20,7 +20,27 @@ public sealed partial class MainViewModel
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SoundBoardKing", "Voci"));
 
     /// <summary>The voices of Windows and the neural voices, with the catalog to download them.</summary>
-    public TextToSpeech Speech => _speech;
+    public TextToSpeech Speech
+    {
+        get
+        {
+            ApplyRvcVoices();
+            return _speech;
+        }
+    }
+
+    /// <summary>Where the RVC models picked from a .zip are unpacked.</summary>
+    public static string RvcFolder => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SoundBoardKing", "Voci", "rvc");
+
+    /// <summary>Hands the RVC voices and the graphics card choice of this PC's settings to the speech engine.</summary>
+    public void ApplyRvcVoices()
+    {
+        _speech.RvcVoices = _storage.Local.RvcVoices
+            .Select(v => new RvcVoiceDefinition(v.Name, v.ModelPath, v.IndexPath, v.BaseVoice, v.Pitch, v.IndexRate))
+            .ToList();
+        _speech.UseGpu = _storage.Local.TtsUseGpu;
+    }
 
     public LocalSettings Local => _storage.Local;
 
@@ -37,6 +57,7 @@ public sealed partial class MainViewModel
         if (target == PlayTarget.Mic && !_engine.IsMicAvailable)
             return StatusText = "Microfono non disponibile: installa il modulo dalle impostazioni.";
 
+        ApplyRvcVoices();
         string path = await _speech.SynthesizeAsync(text, voice, rate, TtsFolder, cancellation);
         // Same loudness as the sounds, when they are leveled.
         var loudness = await Task.Run(() => Loudness.TryMeasure(path), cancellation);

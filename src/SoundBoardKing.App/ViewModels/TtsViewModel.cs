@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SoundBoardKing.Audio.Speech;
 using SoundBoardKing.Core.Models;
+using SoundBoardKing.Core.Storage;
 
 namespace SoundBoardKing.App.ViewModels;
 
@@ -58,6 +59,22 @@ public sealed partial class TtsViewModel(MainViewModel main) : ObservableObject,
             OnPropertyChanged();
             OnPropertyChanged(nameof(RateText));
             main.SaveLocalSettings();
+        }
+    }
+
+    /// <summary>Compute the neural voices on the graphics card; off, always on the processor.</summary>
+    public bool UseGpu
+    {
+        get => main.Local.TtsUseGpu;
+        set
+        {
+            if (value == main.Local.TtsUseGpu)
+                return;
+            main.Local.TtsUseGpu = value;
+            main.SaveLocalSettings();
+            OnPropertyChanged();
+            // The models are loaded again, where asked, at the next phrase.
+            _ = Task.Run(main.ApplyRvcVoices);
         }
     }
 
@@ -118,8 +135,8 @@ public sealed partial class TtsViewModel(MainViewModel main) : ObservableObject,
                 new Progress<double>(p => package.Progress = p * 100), cancel.Token);
             foreach (var other in Packages)
                 other.Refresh();
-            await LoadVoicesAsync(select: package.Package.Speakers[0].Name);
-            StatusText = $"{package.Title}: pronta. Scegli la voce e scrivi qualcosa.";
+            await LoadVoicesAsync(select: package.Package.Speakers.FirstOrDefault()?.Name);
+            StatusText = package.Package.Speakers.Count > 0 ? $"{package.Title}: pronta. Scegli la voce e scrivi qualcosa." : $"{package.Title}: installati.";
         }
         catch (OperationCanceledException)
         {
@@ -163,6 +180,57 @@ public sealed partial class TtsViewModel(MainViewModel main) : ObservableObject,
         }
         package.Refresh();
         await LoadVoicesAsync();
+    }
+
+    /// <summary>ContentVec and RMVPE, downloaded once for every RVC voice.</summary>
+    public VoicePackageViewModel RvcSupport { get; } = new(VoiceCatalog.RvcSupport, main.Speech.Catalog);
+
+    /// <summary>The RVC voices of this PC.</summary>
+    public ObservableCollection<RvcVoiceItem> RvcVoices { get; } =
+        new(main.Local.RvcVoices.Select(v => new RvcVoiceItem(v)));
+
+    /// <summary>The dialog's model for a new RVC voice, or for changing <paramref name="existing"/>.</summary>
+    public RvcVoiceEditorViewModel EditorFor(RvcVoiceItem? existing) => new(
+        Voices.Where(v => v.Engine != TtsEngine.Rvc).Select(v => v.Name).ToList(),
+        Voices.Select(v => v.Name).Where(n => n != existing?.Setting.Name).ToList(),
+        existing?.Setting);
+
+    /// <summary>Adds <paramref name="saved"/>, or puts it in place of <paramref name="replaced"/>.</summary>
+    public async Task SaveRvcVoiceAsync(RvcVoiceItem? replaced, RvcVoiceSetting saved)
+    {
+        var list = main.Local.RvcVoices;
+        int at = replaced is null ? -1 : list.IndexOf(replaced.Setting);
+        if (at >= 0)
+        {
+            list[at] = saved;
+            RvcVoices[RvcVoices.IndexOf(replaced!)] = new RvcVoiceItem(saved);
+        }
+        else
+        {
+            list.Add(saved);
+            RvcVoices.Add(new RvcVoiceItem(saved));
+        }
+        main.SaveLocalSettings();
+        main.ApplyRvcVoices();
+        // A changed model or index is loaded again at the next phrase.
+        await Task.Run(main.Speech.ReleaseModels);
+        await LoadVoicesAsync(select: saved.Name);
+        StatusText = main.Speech.IsRvcReady
+            ? $"{saved.Name}: pronta."
+            : $"{saved.Name}: salvata. Per farla parlare scarica i componenti RVC qui sotto.";
+    }
+
+    [RelayCommand]
+    private async Task RemoveRvcVoice(RvcVoiceItem? item)
+    {
+        if (item is null)
+            return;
+        main.Local.RvcVoices.Remove(item.Setting);
+        RvcVoices.Remove(item);
+        main.SaveLocalSettings();
+        main.ApplyRvcVoices();
+        await LoadVoicesAsync();
+        StatusText = $"{item.Setting.Name}: tolta (il file del modello resta dov'era).";
     }
 
     partial void OnSelectedVoiceChanged(TtsVoice? value)
@@ -215,8 +283,12 @@ public sealed partial class TtsViewModel(MainViewModel main) : ObservableObject,
         StatusText = $"{voice.Name} sta preparando la frase…";
         try
         {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
             var problem = await main.SpeakAsync(phrase, voice, main.Local.TtsRate, target, speaking.Token);
-            StatusText = problem ?? $"{voice.Name}: «{(phrase.Length > 50 ? phrase[..47] + "…" : phrase)}»";
+            watch.Stop();
+            // How long the phrase took and where, so the difference the graphics card makes shows.
+            string device = voice.Engine == TtsEngine.Windows ? "" : main.Speech.LastOnGpu ? ", scheda video" : ", processore";
+            StatusText = problem ?? $"{voice.Name}: «{(phrase.Length > 40 ? phrase[..37] + "…" : phrase)}» · {watch.Elapsed.TotalSeconds:0.0} s{device}";
             if (problem is null)
                 Remember(phrase);
         }
@@ -265,4 +337,17 @@ public sealed partial class TtsViewModel(MainViewModel main) : ObservableObject,
         // The neural models take hundreds of MB: only while the window is open.
         Task.Run(main.Speech.ReleaseModels);
     }
+}
+
+/// <summary>A row of "Voci RVC".</summary>
+public sealed class RvcVoiceItem(RvcVoiceSetting setting)
+{
+    public RvcVoiceSetting Setting { get; } = setting;
+    public string Name => Setting.Name;
+
+    public string Summary =>
+        $"legge {Setting.BaseVoice} · tono {(Setting.Pitch == 0 ? "0" : Setting.Pitch.ToString("+0;-0"))} · indice {Setting.IndexRate * 100:0}%"
+        + (Setting.IndexPath is null ? " (senza indice)" : "");
+
+    public string ModelFile => Setting.ModelPath;
 }
