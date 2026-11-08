@@ -4,7 +4,8 @@ using System.Security.Cryptography;
 namespace SoundBoardKing.Audio.Speech;
 
 /// <summary>One file of a download, checked against its known size and SHA-256.</summary>
-internal sealed record CatalogFile(string Name, Uri Source, long Size, string Sha256);
+/// <param name="Previous">The file an older version of the app downloaded in its place: it still works until this one is.</param>
+internal sealed record CatalogFile(string Name, Uri Source, long Size, string Sha256, string? Previous = null);
 
 /// <summary>One voice of a package: Piper models have one, Kokoro has a style per voice.</summary>
 public sealed record CatalogSpeaker(string Id, string Name, string Gender);
@@ -78,8 +79,11 @@ public sealed class VoiceCatalog(string folder)
             "Kokoro-82M di hexgrad (Apache 2.0) · contiene le voci di tutte le lingue, qui quelle italiane",
             [new("im_nicola", "Nicola (Kokoro)", "maschile"), new("if_sara", "Sara (Kokoro)", "femminile")],
             [
-                new("kokoro-v1.0.int8.onnx", new(KokoroFiles + "kokoro-v1.0.int8.onnx"),
-                    92_361_271, "6e742170d309016e5891a994e1ce1559c702a2ccd0075e67ef7157974f6406cb"),
+                // The full model, not the 8-bit one (kokoro-v1.0.int8.onnx, 92 MB) of 0.15 and 0.16: three times
+                // bigger, but faster on the processor too, and the graphics card cannot run the 8-bit one well.
+                new("kokoro-v1.0.onnx", new(KokoroFiles + "kokoro-v1.0.onnx"),
+                    325_532_387, "7d5df8ecf7d4b1878015a32686053fd0eebe2bc377234608764cc0ef3636a6c5",
+                    Previous: "kokoro-v1.0.int8.onnx"),
                 new("voices-v1.0.bin", new(KokoroFiles + "voices-v1.0.bin"),
                     28_214_398, "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d"),
             ]),
@@ -114,7 +118,21 @@ public sealed class VoiceCatalog(string folder)
     private bool NeedsESpeak(CatalogPackage package) => package.Engine != TtsEngine.Rvc && !IsESpeakInstalled;
 
     public bool IsInstalled(CatalogPackage package) =>
-        !NeedsESpeak(package) && package.Files.All(f => IsComplete(PathOf(package, f)));
+        !NeedsESpeak(package) && package.Files.All(f => File.Exists(UsablePath(package, f)));
+
+    /// <summary>Installed, but with a file an older version of the app downloaded: a newer one is there to download.</summary>
+    public bool HasUpgrade(CatalogPackage package) =>
+        IsInstalled(package) && package.Files.Any(f => !IsComplete(PathOf(package, f)));
+
+    /// <summary>The file to use: the current one, or the older one it replaces while that one is all there is.</summary>
+    internal string UsablePath(CatalogPackage package, CatalogFile file)
+    {
+        string path = PathOf(package, file);
+        if (IsComplete(path) || file.Previous is null)
+            return path;
+        string previous = Path.Combine(Folder, package.Id, file.Previous);
+        return File.Exists(previous) ? previous : path;
+    }
 
     /// <summary>Every voice of the installed packages.</summary>
     public IReadOnlyList<TtsVoice> InstalledVoices() =>
@@ -169,6 +187,9 @@ public sealed class VoiceCatalog(string folder)
         {
             await DownloadFileAsync(http, file, PathOf(package, file), step, cancel);
             done += file.Size;
+            // The file it replaces is not needed any more (it is not in use: models load at the next phrase).
+            if (file.Previous is not null)
+                TryDelete(Path.Combine(Folder, package.Id, file.Previous));
         }
         progress?.Report(1);
     }
@@ -217,6 +238,12 @@ public sealed class VoiceCatalog(string folder)
     }
 
     private static bool IsComplete(string path) => File.Exists(path);
+
+    private static void TryDelete(string path)
+    {
+        try { File.Delete(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
 
     private static async Task DownloadFileAsync(HttpClient http, CatalogFile file, string path, IProgress<long> progress, CancellationToken cancel)
     {

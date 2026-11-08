@@ -103,7 +103,7 @@
         <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <TextBlock DockPanel.Dock="Left" FontFamily="{StaticResource IconFont}" Text="&#xE916;" Margin="0,0,6,0" VerticalAlignment="Center"
                        Foreground="{StaticResource AccentBrush}" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
-            <TextBlock Text="{Binding StatusText}" FontSize="12" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center"
+            <TextBlock Text="{Binding StatusText}" FontSize="12" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" ToolTip="{Binding StatusText}"
                        TextTrimming="CharacterEllipsis" />
         </DockPanel>
 
@@ -118,7 +118,7 @@
                         <DockPanel Margin="8,5">
                             <!-- Download / progress and cancel / installed with delete -->
                             <Grid DockPanel.Dock="Right" VerticalAlignment="Center" MinWidth="120">
-                                <Button Content="{Binding SizeText}" ToolTip="Scarica la voce (una volta sola)" HorizontalAlignment="Right"
+                                <Button Content="{Binding SizeText}" ToolTip="{Binding DownloadTip}" HorizontalAlignment="Right"
                                         Command="{Binding DataContext.DownloadPackageCommand, ElementName=PackageList}" CommandParameter="{Binding}"
                                         Visibility="{Binding CanDownload, Converter={StaticResource BoolToVisibility}}" />
                                 <DockPanel Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVisibility}}">
@@ -128,7 +128,7 @@
                                     <ProgressBar Value="{Binding Progress}" Maximum="100" Width="90" VerticalAlignment="Center" />
                                 </DockPanel>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
-                                            Visibility="{Binding IsInstalled, Converter={StaticResource BoolToVisibility}}">
+                                            Visibility="{Binding ShowInstalled, Converter={StaticResource BoolToVisibility}}">
                                     <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE73E;" Foreground="{StaticResource AccentBrush}"
                                                VerticalAlignment="Center" Margin="0,0,6,0" />
                                     <TextBlock Text="Installata" VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" />

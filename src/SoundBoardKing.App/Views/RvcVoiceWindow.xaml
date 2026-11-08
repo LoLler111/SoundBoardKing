@@ -39,6 +39,15 @@
                     VerticalAlignment="Center" ToolTip="Semitoni in più o in meno rispetto alla voce di base" />
         </DockPanel>
 
+        <TextBlock Text="Intonazione" Margin="0,14,0,4" />
+        <DockPanel>
+            <TextBlock DockPanel.Dock="Right" Text="{Binding IntonationText}" Width="150" TextAlignment="Right"
+                       VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" />
+            <Slider Minimum="0" Maximum="200" Value="{Binding IntonationPercent}" IsSnapToTickEnabled="True" TickFrequency="10"
+                    VerticalAlignment="Center"
+                    ToolTip="Quanto sale e scende la voce: sotto il 100% più piatta e monotona, sopra più mossa ed espressiva" />
+        </DockPanel>
+
         <TextBlock Text="Somiglianza al modello (indice)" Margin="0,14,0,4" />
         <DockPanel>
             <TextBlock DockPanel.Dock="Right" Text="{Binding IndexText}" Width="150" TextAlignment="Right"

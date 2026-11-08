@@ -108,6 +108,41 @@ public class TextToSpeechTests : IDisposable
             batches.Sum(b => KokoroModel.Tokens(b).Length) + batches.Count - 1);
     }
 
+    [Fact]
+    public void The_8_bit_kokoro_model_of_older_versions_works_until_the_full_one_is_downloaded()
+    {
+        var kokoro = VoiceCatalog.Packages.Single(p => p.Id == "kokoro-it");
+        var catalog = _tts.Catalog;
+        // eSpeak and the voices as an older version left them, with the 8-bit model.
+        Directory.CreateDirectory(Path.Combine(catalog.ESpeakFolder, "espeak-ng-data"));
+        File.WriteAllText(Path.Combine(catalog.ESpeakFolder, "espeak-ng.dll"), "");
+        File.WriteAllText(Path.Combine(catalog.ESpeakFolder, "espeak-ng-data", "phontab"), "");
+        string folder = Path.Combine(catalog.Folder, "kokoro-it");
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "kokoro-v1.0.int8.onnx"), "");
+        File.WriteAllText(Path.Combine(folder, "voices-v1.0.bin"), "");
+
+        Assert.True(catalog.IsInstalled(kokoro));
+        Assert.True(catalog.HasUpgrade(kokoro));
+        Assert.EndsWith("kokoro-v1.0.int8.onnx", catalog.UsablePath(kokoro, kokoro.Files[0]));
+        Assert.Equal(325_532_387, catalog.DownloadSize(kokoro));
+
+        // Once the full model is there it is the one used.
+        File.WriteAllText(Path.Combine(folder, "kokoro-v1.0.onnx"), "");
+        Assert.False(catalog.HasUpgrade(kokoro));
+        Assert.EndsWith("kokoro-v1.0.onnx", catalog.UsablePath(kokoro, kokoro.Files[0]));
+    }
+
+    [Fact]
+    public void Graphics_card_errors_are_cut_down_to_their_reason()
+    {
+        Assert.Equal("Handle alla scheda video specificato non valido.", OnnxSessions.Reason(new Exception(
+            @"[ErrorCode:RuntimeException] E:\_work\1\s\onnxruntime\core\providers\dml\dml_provider_factory.cc(520)\onnxruntime.dll!00007FFD5EE4B160: (caller: 00007FFD5EE4B46A) Exception(1) tid(2e38) C0262002 Handle alla scheda video specificato non valido.")));
+        Assert.Equal("No devices detected that match the filter criteria.", OnnxSessions.Reason(new Exception(
+            @"[ErrorCode:Fail] E:\_work\1\s\onnxruntime\core\providers\dml\dml_provider_factory.cc:361 onnxruntime::DMLProviderFactoryCreator::CreateFromDeviceOptions No devices detected that match the filter criteria.")));
+        Assert.Equal("Something else", OnnxSessions.Reason(new Exception("Something else")));
+    }
+
     private static TimeSpan Duration(string path)
     {
         using var reader = new WaveFileReader(path);

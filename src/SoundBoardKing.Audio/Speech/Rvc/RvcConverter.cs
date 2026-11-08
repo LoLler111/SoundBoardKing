@@ -5,8 +5,12 @@ using SoundBoardKing.Audio.Editing;
 
 namespace SoundBoardKing.Audio.Speech.Rvc;
 
-/// <summary>How an RVC voice changes a voice: pitch in semitones, how much of the index, consonant protection.</summary>
-public sealed record RvcSettings(int Pitch = 0, float IndexRate = 0.66f, float Protect = 0.33f, float RmsMix = 0.25f);
+/// <summary>
+/// How an RVC voice changes a voice: pitch in semitones, how much of the index, consonant protection, and how
+/// much the melody of the voice moves around its average (1 as it is).
+/// </summary>
+public sealed record RvcSettings(int Pitch = 0, float IndexRate = 0.66f, float Protect = 0.33f, float RmsMix = 0.25f,
+    float Intonation = 1f);
 
 /// <summary>
 /// Retrieval-based Voice Conversion (RVC v2), as the reference pipeline does it, without Python: the voice
@@ -52,7 +56,12 @@ internal sealed class RvcConverter : IDisposable
             _contentVec = new WeightedSession("contentvec-layer12", "model.", contentVecWeights,
                 () => TorchCheckpoint.Tensors(TorchCheckpoint.Load(contentVecWeights)), cacheFolder, gpu);
             _rmvpe = OnnxSessions.Create(rmvpeModel, gpu, out bool rmvpeOnGpu);
-            OnGpu = _generator.OnGpu && _contentVec.OnGpu && rmvpeOnGpu;
+            if (gpu)
+            {
+                CpuParts = new[] { ("ContentVec", _contentVec.OnGpu), ("RMVPE", rmvpeOnGpu), ("il modello RVC", _generator.OnGpu) }
+                    .Where(p => !p.Item2).Select(p => p.Item1).ToList();
+            }
+            OnGpu = gpu && CpuParts.Count == 0;
             _index = indexPath is not null && File.Exists(indexPath) ? new FaissIndex(indexPath) : null;
             if (_index is not null && _index.Dimension != 768)
                 throw new InvalidDataException("L'indice non è di un modello RVC v2 (768 valori per fotogramma).");
@@ -115,6 +124,7 @@ internal sealed class RvcConverter : IDisposable
         // Pitch with RMVPE, then shifted, as continuous Hz and as the coarse 1..255 the model embeds.
         float[] f0 = Pitch(padded);
         Array.Resize(ref f0, Math.Min(f0.Length, pitchFrames));
+        ScaleIntonation(f0, settings.Intonation, Pad / Hop);
         float shift = MathF.Pow(2, settings.Pitch / 12f);
         for (int i = 0; i < f0.Length; i++)
             f0[i] *= shift;
@@ -170,6 +180,34 @@ internal sealed class RvcConverter : IDisposable
         if (settings.RmsMix != 1 && result.Length > 0)
             MixLoudness(audio, result, settings.RmsMix);
         return result;
+    }
+
+    /// <summary>
+    /// Widens or narrows the melody: every voiced frame's distance from the average pitch (in semitones, i.e. in
+    /// log Hz) times <paramref name="scale"/>. The average comes from the real audio, not the padding around it.
+    /// </summary>
+    internal static void ScaleIntonation(float[] f0, float scale, int padFrames)
+    {
+        if (Math.Abs(scale - 1) < 0.001f)
+            return;
+        double sum = 0;
+        int count = 0;
+        for (int i = padFrames; i < f0.Length - padFrames; i++)
+        {
+            if (f0[i] > 0)
+            {
+                sum += Math.Log(f0[i]);
+                count++;
+            }
+        }
+        if (count == 0)
+            return;
+        double average = sum / count;
+        for (int i = 0; i < f0.Length; i++)
+        {
+            if (f0[i] > 0)
+                f0[i] = (float)Math.Clamp(Math.Exp(average + (Math.Log(f0[i]) - average) * scale), 50, 1100);
+        }
     }
 
     /// <summary>ContentVec's layer 12, frames x 768.</summary>
@@ -375,6 +413,9 @@ internal sealed class RvcConverter : IDisposable
 
     /// <summary>Whether ContentVec, RMVPE and the generator all run on the graphics card.</summary>
     public bool OnGpu { get; }
+
+    /// <summary>The parts left on the processor although the graphics card was asked for.</summary>
+    public IReadOnlyList<string> CpuParts { get; } = [];
 
     private static byte[] Template(string name)
     {

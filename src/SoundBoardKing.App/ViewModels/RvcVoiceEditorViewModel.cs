@@ -31,6 +31,10 @@ public sealed partial class RvcVoiceEditorViewModel : ObservableObject
     private double indexPercent = 66;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IntonationText))]
+    private double intonationPercent = 100;
+
+    [ObservableProperty]
     private string error = "";
 
     [ObservableProperty]
@@ -51,6 +55,7 @@ public sealed partial class RvcVoiceEditorViewModel : ObservableObject
             baseVoice = existing.BaseVoice;
             pitch = existing.Pitch;
             indexPercent = existing.IndexRate * 100;
+            intonationPercent = existing.Intonation * 100;
         }
         else
         {
@@ -66,6 +71,13 @@ public sealed partial class RvcVoiceEditorViewModel : ObservableObject
     public IReadOnlyList<string> BaseVoices { get; }
     public string PitchText => Pitch == 0 ? "come la voce di base" : $"{Pitch:+0;-0} semitoni";
     public string IndexText => $"{IndexPercent:0}%";
+
+    public string IntonationText => Math.Round(IntonationPercent) switch
+    {
+        100 => "come la voce di base",
+        < 100 => $"{IntonationPercent:0}% · più piatta",
+        _ => $"{IntonationPercent:0}% · più mossa",
+    };
 
     /// <summary>A model picked from the PC: a .pth (its .index is looked for beside it) or a .zip with both.</summary>
     public async Task PickModelAsync(string path)
@@ -128,6 +140,7 @@ public sealed partial class RvcVoiceEditorViewModel : ObservableObject
                 BaseVoice = BaseVoice,
                 Pitch = (int)Math.Round(Pitch),
                 IndexRate = (float)Math.Round(IndexPercent / 100, 2),
+                Intonation = (float)Math.Round(IntonationPercent / 100, 2),
             };
         return null;
     }

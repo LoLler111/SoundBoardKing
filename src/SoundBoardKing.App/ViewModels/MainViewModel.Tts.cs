@@ -37,7 +37,7 @@ public sealed partial class MainViewModel
     public void ApplyRvcVoices()
     {
         _speech.RvcVoices = _storage.Local.RvcVoices
-            .Select(v => new RvcVoiceDefinition(v.Name, v.ModelPath, v.IndexPath, v.BaseVoice, v.Pitch, v.IndexRate))
+            .Select(v => new RvcVoiceDefinition(v.Name, v.ModelPath, v.IndexPath, v.BaseVoice, v.Pitch, v.IndexRate, v.Intonation))
             .ToList();
         _speech.UseGpu = _storage.Local.TtsUseGpu;
     }

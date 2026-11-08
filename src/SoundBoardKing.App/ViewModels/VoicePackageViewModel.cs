@@ -7,11 +7,15 @@ namespace SoundBoardKing.App.ViewModels;
 public sealed partial class VoicePackageViewModel(CatalogPackage package, VoiceCatalog catalog) : ObservableObject
 {
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanDownload), nameof(SizeText))]
+    [NotifyPropertyChangedFor(nameof(CanDownload), nameof(SizeText), nameof(ShowInstalled), nameof(DownloadTip))]
     private bool isInstalled = catalog.IsInstalled(package);
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanDownload))]
+    [NotifyPropertyChangedFor(nameof(CanDownload), nameof(SizeText), nameof(ShowInstalled), nameof(DownloadTip))]
+    private bool hasUpgrade = catalog.HasUpgrade(package);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanDownload), nameof(ShowInstalled))]
     private bool isDownloading;
 
     [ObservableProperty]
@@ -23,14 +27,23 @@ public sealed partial class VoicePackageViewModel(CatalogPackage package, VoiceC
 
     public string Speakers => string.Join(", ", Package.Speakers.Select(s => $"{s.Name.Split(' ')[0]} ({s.Gender})"));
 
-    public bool CanDownload => !IsInstalled && !IsDownloading;
+    /// <summary>Not installed, or installed with an older file a better one replaces.</summary>
+    public bool CanDownload => (!IsInstalled || HasUpgrade) && !IsDownloading;
+
+    public bool ShowInstalled => IsInstalled && !HasUpgrade && !IsDownloading;
 
     /// <summary>What a download costs now (eSpeak is counted with the first voice only).</summary>
-    public string SizeText => IsInstalled ? "Installata" : $"Scarica · {catalog.DownloadSize(Package) / 1_000_000.0:0} MB";
+    public string SizeText => IsInstalled && !HasUpgrade ? "Installata"
+        : $"{(HasUpgrade ? "Migliora" : "Scarica")} · {catalog.DownloadSize(Package) / 1_000_000.0:0} MB";
+
+    public string DownloadTip => HasUpgrade
+        ? "C'è una versione migliore del modello: più naturale e più veloce, anche sulla scheda video. Intanto la voce funziona con quella che hai"
+        : "Scarica la voce (una volta sola)";
 
     public void Refresh()
     {
         IsInstalled = catalog.IsInstalled(Package);
+        HasUpgrade = catalog.HasUpgrade(Package);
         OnPropertyChanged(nameof(SizeText));
     }
 }

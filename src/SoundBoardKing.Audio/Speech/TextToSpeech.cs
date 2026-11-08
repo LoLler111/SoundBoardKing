@@ -67,6 +67,27 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
     /// <summary>Whether the last phrase was computed on the graphics card (Windows voices never are).</summary>
     public bool LastOnGpu { get; private set; }
 
+    /// <summary>
+    /// Where the last neural phrase was computed, for the user: "scheda video", "processore", or which parts
+    /// stayed on the processor and why, when the graphics card was asked for. Empty for the Windows voices.
+    /// </summary>
+    public string LastDevice { get; private set; } = "";
+
+    // cpuParts: the models that ran on the processor; total: how many models the phrase used.
+    private void SetDevice(IReadOnlyList<string> cpuParts, int total)
+    {
+        LastOnGpu = _useGpu && cpuParts.Count == 0;
+        if (!_useGpu)
+            LastDevice = "processore";
+        else if (cpuParts.Count == 0)
+            LastDevice = "scheda video";
+        else
+        {
+            string where = cpuParts.Count >= total ? "processore" : $"scheda video, ma {string.Join(", ", cpuParts)} sul processore";
+            LastDevice = GpuProblem is { Length: > 0 } reason ? $"{where} (la scheda video non va: {reason})" : where;
+        }
+    }
+
     /// <summary>Why the graphics card is not used although asked, when it is not.</summary>
     public string? GpuProblem => OnnxSessions.GpuProblem;
 
@@ -80,8 +101,9 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
         {
             return work();
         }
-        catch (Microsoft.ML.OnnxRuntime.OnnxRuntimeException) when (onGpu())
+        catch (Microsoft.ML.OnnxRuntime.OnnxRuntimeException ex) when (onGpu())
         {
+            OnnxSessions.Failed(ex);
             _gpuFailed = true;
             DisposeModels();
             return work();
@@ -109,6 +131,7 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
             {
                 await SapiSpeech.SynthesizeAsync(text, voice, rate, path, cancellation);
                 LastOnGpu = false;
+                LastDevice = "";
             }
             else
             {
@@ -155,15 +178,15 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
             {
                 audio = WithGpuFallback(() =>
                 {
-                    _kokoro ??= new KokoroModel(Catalog.PathOf(package, package.Files[0]), Catalog.PathOf(package, package.Files[1]), GpuNow);
+                    _kokoro ??= new KokoroModel(Catalog.UsablePath(package, package.Files[0]), Catalog.UsablePath(package, package.Files[1]), GpuNow);
                     return _kokoro.Synthesize(sentences, speaker.Id, speed, cancellation);
                 }, () => _kokoro?.OnGpu == true);
                 sampleRate = KokoroModel.SampleRate;
-                LastOnGpu = _kokoro!.OnGpu;
+                SetDevice(_kokoro!.OnGpu ? [] : [voice.Name], 1);
             }
             else
             {
-                string model = Catalog.PathOf(package, package.Files[0]);
+                string model = Catalog.UsablePath(package, package.Files[0]);
                 audio = WithGpuFallback(() =>
                 {
                     if (_piper?.Path != model)
@@ -175,7 +198,7 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
                     return _piper.Value.Model.Synthesize(sentences, speed, cancellation);
                 }, () => _piper?.Model.OnGpu == true);
                 sampleRate = _piper!.Value.Model.SampleRate;
-                LastOnGpu = _piper.Value.Model.OnGpu;
+                SetDevice(_piper.Value.Model.OnGpu ? [] : [voice.Name], 1);
             }
         }
         catch (Exception ex) when (ex is Microsoft.ML.OnnxRuntime.OnnxRuntimeException or DllNotFoundException
@@ -209,7 +232,8 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
                 await Task.Run(() =>
                 {
                     float[] input = ReadMono16k(basePath);
-                    bool baseOnGpu = LastOnGpu;
+                    // The Windows voices never use the graphics card: they do not count.
+                    bool baseOnCpu = baseVoice.Engine != TtsEngine.Windows && !LastOnGpu;
                     string key = definition.ModelPath + "|" + definition.IndexPath;
                     float[] output = WithGpuFallback(() =>
                     {
@@ -227,9 +251,13 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
                                 throw new InvalidOperationException($"Il modello di \"{voice.Name}\" non si carica: {ex.Message}", ex);
                             }
                         }
-                        return _rvc.Value.Converter.Convert(input, new Rvc.RvcSettings(definition.Pitch, definition.IndexRate), cancellation);
+                        return _rvc.Value.Converter.Convert(input, new Rvc.RvcSettings(definition.Pitch, definition.IndexRate, Intonation: definition.Intonation), cancellation);
                     }, () => _rvc?.Converter.OnGpu == true);
-                    LastOnGpu = _rvc!.Value.Converter.OnGpu && (baseOnGpu || baseVoice.Engine == TtsEngine.Windows);
+                    var cpuParts = new List<string>();
+                    if (baseOnCpu)
+                        cpuParts.Add(baseVoice.Name);
+                    cpuParts.AddRange(_rvc!.Value.Converter.CpuParts);
+                    SetDevice(cpuParts, baseVoice.Engine == TtsEngine.Windows ? 3 : 4);
                     if (output.Length == 0)
                         throw new InvalidOperationException($"La voce \"{voice.Name}\" non ha prodotto audio: la frase è troppo corta?");
                     WriteWave(path, output, Rvc.RvcConverter.OutputRate);

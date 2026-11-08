@@ -43,6 +43,27 @@ public class RvcTests
     }
 
     [Fact]
+    public void Intonation_widens_or_flattens_the_melody_around_its_average()
+    {
+        // Padding frames (the first and last two) are not counted in the average; unvoiced frames stay 0.
+        float[] f0 = [400, 400, 100, 0, 200, 400, 25, 25];
+        RvcConverter.ScaleIntonation(f0, 0.5f, 2);
+        // Average of 100, 200, 400 in log Hz is 200: an octave away becomes half an octave.
+        Assert.Equal(200 / MathF.Sqrt(2), f0[2], 0.01f);
+        Assert.Equal(0, f0[3]);
+        Assert.Equal(200, f0[4], 0.01f);
+        Assert.Equal(200 * MathF.Sqrt(2), f0[5], 0.01f);
+
+        float[] flat = [100, 200, 400];
+        RvcConverter.ScaleIntonation(flat, 0, 0);
+        Assert.All(flat, f => Assert.Equal(200, f, 0.01f));
+
+        float[] same = [100, 200, 400];
+        RvcConverter.ScaleIntonation(same, 1, 0);
+        Assert.Equal([100f, 200f, 400f], same);
+    }
+
+    [Fact]
     public void The_users_model_reads_as_plain_weights()
     {
         if (Root is null)

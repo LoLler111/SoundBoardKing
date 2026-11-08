@@ -131,6 +131,9 @@ public sealed partial class TtsViewModel(MainViewModel main) : ObservableObject,
         StatusText = $"Scarico {package.Title}…";
         try
         {
+            // A better model replaces the one in use: freed first, the next phrase loads the new one.
+            if (package.IsInstalled)
+                await Task.Run(main.Speech.ReleaseModels);
             await main.Speech.Catalog.DownloadAsync(package.Package, SharedHttp.Value,
                 new Progress<double>(p => package.Progress = p * 100), cancel.Token);
             foreach (var other in Packages)
@@ -287,7 +290,7 @@ public sealed partial class TtsViewModel(MainViewModel main) : ObservableObject,
             var problem = await main.SpeakAsync(phrase, voice, main.Local.TtsRate, target, speaking.Token);
             watch.Stop();
             // How long the phrase took and where, so the difference the graphics card makes shows.
-            string device = voice.Engine == TtsEngine.Windows ? "" : main.Speech.LastOnGpu ? ", scheda video" : ", processore";
+            string device = main.Speech.LastDevice is { Length: > 0 } where ? ", " + where : "";
             StatusText = problem ?? $"{voice.Name}: «{(phrase.Length > 40 ? phrase[..37] + "…" : phrase)}» · {watch.Elapsed.TotalSeconds:0.0} s{device}";
             if (problem is null)
                 Remember(phrase);
@@ -347,6 +350,7 @@ public sealed class RvcVoiceItem(RvcVoiceSetting setting)
 
     public string Summary =>
         $"legge {Setting.BaseVoice} · tono {(Setting.Pitch == 0 ? "0" : Setting.Pitch.ToString("+0;-0"))} · indice {Setting.IndexRate * 100:0}%"
+        + (Math.Abs(Setting.Intonation - 1) < 0.005f ? "" : $" · intonazione {Setting.Intonation * 100:0}%")
         + (Setting.IndexPath is null ? " (senza indice)" : "");
 
     public string ModelFile => Setting.ModelPath;

@@ -55,6 +55,9 @@ public sealed class RvcVoiceSetting
 
     /// <summary>How much of the model's index goes into each frame, 0..1.</summary>
     public float IndexRate { get; set; } = 0.66f;
+
+    /// <summary>How much the melody moves around its average: 1 as the base voice, less flatter, more livelier.</summary>
+    public float Intonation { get; set; } = 1f;
 }
 
 /// <summary>Position and size in device-independent pixels; <see cref="Maximized"/> keeps the normal size too.</summary>
