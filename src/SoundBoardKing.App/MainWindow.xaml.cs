@@ -475,6 +475,22 @@ public partial class MainWindow : Window
         }
     }
 
+    private VideoImportWindow? _video;
+
+    private void VideoButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_video is null)
+        {
+            _video = new VideoImportWindow(_viewModel) { Owner = this };
+            _video.Closed += (_, _) => _video = null;
+            _video.Show();
+        }
+        else
+        {
+            _video.Activate();
+        }
+    }
+
     private TtsWindow? _tts;
 
     private void TtsButton_Click(object sender, RoutedEventArgs e) => ShowTts();

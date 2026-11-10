@@ -11,6 +11,7 @@ public interface IDialogService
     string? PickFolder(string title, string? initialFolder);
     string? OpenSplFile(string? initialFolder);
     IReadOnlyList<string> OpenAudioFiles();
+    string? OpenVideoFile();
     string? AskText(string title, string prompt, string initialValue = "");
 
     /// <summary>Returns null when cancelled and an empty string when the user removed the hotkey.</summary>

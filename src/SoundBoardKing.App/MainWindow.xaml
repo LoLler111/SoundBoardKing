@@ -47,6 +47,13 @@
                         <TextBlock Text="Myinstants" />
                     </StackPanel>
                 </Button>
+                <Button DockPanel.Dock="Left" Margin="8,0,0,0" Click="VideoButton_Click"
+                        ToolTip="Prendi un suono da un video: un file del PC o un link di YouTube, TikTok, Instagram, Facebook…">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE714;" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="Da video" />
+                    </StackPanel>
+                </Button>
                 <Button DockPanel.Dock="Left" Margin="8,0,0,0" Click="TtsButton_Click"
                         ToolTip="Scrivi una frase e una voce di Windows la dice, anche nel microfono (Ctrl+T)">
                     <StackPanel Orientation="Horizontal">

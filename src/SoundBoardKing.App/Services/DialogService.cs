@@ -52,6 +52,17 @@ public sealed class DialogService(Window owner) : IDialogService
         return FileDialogs.Show(dialog, owner) ? dialog.FileNames : [];
     }
 
+    public string? OpenVideoFile()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Scegli un video",
+            Filter = "Video|*.mp4;*.mkv;*.webm;*.mov;*.avi;*.wmv;*.flv;*.m4v;*.mpg;*.mpeg;*.ts;*.mts;*.m2ts;*.3gp;*.ogv|" +
+                "Audio|*.mp3;*.m4a;*.aac;*.wav;*.flac;*.ogg;*.opus;*.wma|Tutti i file (*.*)|*.*",
+        };
+        return FileDialogs.Show(dialog, owner) ? dialog.FileName : null;
+    }
+
     public string? AskText(string title, string prompt, string initialValue = "")
     {
         var dialog = new InputDialog(title, prompt, initialValue) { Owner = owner };

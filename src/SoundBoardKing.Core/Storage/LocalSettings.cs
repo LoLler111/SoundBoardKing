@@ -40,6 +40,12 @@ public sealed class LocalSettings
 
     /// <summary>The RVC voices set up on this PC (their models are files on this PC).</summary>
     public List<RvcVoiceSetting> RvcVoices { get; set; } = [];
+
+    /// <summary>
+    /// The browser whose login yt-dlp borrows for videos that need one (Instagram, Facebook), as a
+    /// <see cref="Video.CookieBrowser"/> name; null for none.
+    /// </summary>
+    public string? VideoCookieBrowser { get; set; }
 }
 
 /// <summary>An RVC voice: a base voice says the text, the RVC model turns it into its own voice.</summary>
