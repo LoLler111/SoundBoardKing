@@ -46,10 +46,15 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
 
     private bool _useGpu;
     private bool _gpuFailed;
+    private volatile bool _reload;
+    private GpuCrashGuard? _crashGuard;
+    private GpuCrashGuard CrashGuard => _crashGuard ??= new GpuCrashGuard(Catalog.Folder);
 
     /// <summary>
-    /// Run the neural voices on the graphics card (DirectML) when there is one; they fall back to the
-    /// processor by themselves when it cannot. Changing it reloads the models at the next phrase.
+    /// Run the RVC voices on the graphics card (DirectML) when there is one; they fall back to the processor
+    /// by themselves when it cannot. Piper and Kokoro always run on the processor: small models with phrases
+    /// of a different length each time, which DirectML runs slower than the processor, and Kokoro crashed
+    /// the app on AMD cards there. Changing it reloads the models at the next phrase.
     /// </summary>
     public bool UseGpu
     {
@@ -59,12 +64,31 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
             if (value == _useGpu)
                 return;
             _useGpu = value;
-            _gpuFailed = false;
-            ReleaseModels();
+            // Not freed here: a phrase may be computing, and this may run on the window's thread.
+            _reload = true;
         }
     }
 
-    /// <summary>Whether the last phrase was computed on the graphics card (Windows voices never are).</summary>
+    /// <summary>
+    /// Whether the app closed, last time, while an RVC voice was working on the graphics card (a driver
+    /// fault that cannot be caught). Asked once at start; the answer is cleared.
+    /// </summary>
+    public bool TakeGpuCrash() => CrashGuard.TakeCrash();
+
+    /// <summary>How long the parts of the last neural phrase took, for the user; empty when it is one part.</summary>
+    public string LastTimings { get; private set; } = "";
+
+    // Inside the gate, before a phrase: the models are loaded again after the graphics card choice changed.
+    private void ReloadIfAsked()
+    {
+        if (!_reload)
+            return;
+        _reload = false;
+        _gpuFailed = false;
+        DisposeModels();
+    }
+
+    /// <summary>Whether the RVC part of the last phrase was computed on the graphics card (nothing else ever is).</summary>
     public bool LastOnGpu { get; private set; }
 
     /// <summary>
@@ -93,8 +117,9 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
 
     private bool GpuNow => _useGpu && !_gpuFailed;
 
-    // A model that fails on the graphics card (a driver, an operator DirectML gets wrong) is loaded again on
-    // the processor and the phrase is computed again, once. Runs inside the gate.
+    // A model that fails on the graphics card with an error (an operator DirectML gets wrong) is loaded again
+    // on the processor and the phrase is computed again, once. A crash of the driver is the CrashGuard's.
+    // Runs inside the gate.
     private T WithGpuFallback<T>(Func<T> work, Func<bool> onGpu)
     {
         try
@@ -132,6 +157,7 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
                 await SapiSpeech.SynthesizeAsync(text, voice, rate, path, cancellation);
                 LastOnGpu = false;
                 LastDevice = "";
+                LastTimings = "";
             }
             else
             {
@@ -167,6 +193,7 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
         float speed = MathF.Pow(2, rate / 10f);
         float[] audio;
         int sampleRate;
+        ReloadIfAsked();
         try
         {
             _espeak ??= new ESpeak(Catalog.ESpeakFolder);
@@ -174,32 +201,28 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
             if (sentences.Count == 0)
                 throw new InvalidOperationException("Non c'è niente da dire in questo testo.");
 
+            // Always on the processor (see UseGpu).
             if (package.Engine == TtsEngine.Kokoro)
             {
-                audio = WithGpuFallback(() =>
-                {
-                    _kokoro ??= new KokoroModel(Catalog.UsablePath(package, package.Files[0]), Catalog.UsablePath(package, package.Files[1]), GpuNow);
-                    return _kokoro.Synthesize(sentences, speaker.Id, speed, cancellation);
-                }, () => _kokoro?.OnGpu == true);
+                _kokoro ??= new KokoroModel(Catalog.UsablePath(package, package.Files[0]), Catalog.UsablePath(package, package.Files[1]));
+                audio = _kokoro.Synthesize(sentences, speaker.Id, speed, cancellation);
                 sampleRate = KokoroModel.SampleRate;
-                SetDevice(_kokoro!.OnGpu ? [] : [voice.Name], 1);
             }
             else
             {
                 string model = Catalog.UsablePath(package, package.Files[0]);
-                audio = WithGpuFallback(() =>
+                if (_piper?.Path != model)
                 {
-                    if (_piper?.Path != model)
-                    {
-                        _piper?.Model.Dispose();
-                        _piper = null;
-                        _piper = (model, new PiperModel(model, GpuNow));
-                    }
-                    return _piper.Value.Model.Synthesize(sentences, speed, cancellation);
-                }, () => _piper?.Model.OnGpu == true);
-                sampleRate = _piper!.Value.Model.SampleRate;
-                SetDevice(_piper.Value.Model.OnGpu ? [] : [voice.Name], 1);
+                    _piper?.Model.Dispose();
+                    _piper = null;
+                    _piper = (model, new PiperModel(model));
+                }
+                audio = _piper.Value.Model.Synthesize(sentences, speed, cancellation);
+                sampleRate = _piper.Value.Model.SampleRate;
             }
+            LastOnGpu = false;
+            LastDevice = "processore";
+            LastTimings = "";
         }
         catch (Exception ex) when (ex is Microsoft.ML.OnnxRuntime.OnnxRuntimeException or DllNotFoundException
                                        or BadImageFormatException or EntryPointNotFoundException or IOException
@@ -222,7 +245,9 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
         var baseVoice = (await GetVoicesAsync()).FirstOrDefault(v => v.Name == definition.BaseVoice && v.Engine != TtsEngine.Rvc)
             ?? throw new InvalidOperationException($"La voce di base \"{definition.BaseVoice}\" di \"{voice.Name}\" non è installata.");
 
+        var baseWatch = System.Diagnostics.Stopwatch.StartNew();
         string basePath = await SynthesizeAsync(text, baseVoice, rate, folder, cancellation);
+        double baseSeconds = baseWatch.Elapsed.TotalSeconds;
         string path = Path.Combine(folder, $"tts-{Guid.NewGuid():N}.wav");
         try
         {
@@ -231,16 +256,20 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
             {
                 await Task.Run(() =>
                 {
+                    ReloadIfAsked();
                     float[] input = ReadMono16k(basePath);
-                    // The Windows voices never use the graphics card: they do not count.
-                    bool baseOnCpu = baseVoice.Engine != TtsEngine.Windows && !LastOnGpu;
                     string key = definition.ModelPath + "|" + definition.IndexPath;
+                    double loadSeconds = 0;
+                    var convertWatch = System.Diagnostics.Stopwatch.StartNew();
                     float[] output = WithGpuFallback(() =>
                     {
+                        // A fault of the driver closes the app: noticed at the next start, which then stays on the processor.
+                        using var guard = GpuNow ? CrashGuard.Enter() : null;
                         if (_rvc?.Key != key)
                         {
                             _rvc?.Converter.Dispose();
                             _rvc = null;
+                            var loadWatch = System.Diagnostics.Stopwatch.StartNew();
                             try
                             {
                                 _rvc = (key, new Rvc.RvcConverter(Catalog.ContentVecPath, Catalog.RmvpePath,
@@ -250,14 +279,14 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
                             {
                                 throw new InvalidOperationException($"Il modello di \"{voice.Name}\" non si carica: {ex.Message}", ex);
                             }
+                            loadSeconds += loadWatch.Elapsed.TotalSeconds;
                         }
                         return _rvc.Value.Converter.Convert(input, new Rvc.RvcSettings(definition.Pitch, definition.IndexRate, Intonation: definition.Intonation), cancellation);
                     }, () => _rvc?.Converter.OnGpu == true);
-                    var cpuParts = new List<string>();
-                    if (baseOnCpu)
-                        cpuParts.Add(baseVoice.Name);
-                    cpuParts.AddRange(_rvc!.Value.Converter.CpuParts);
-                    SetDevice(cpuParts, baseVoice.Engine == TtsEngine.Windows ? 3 : 4);
+                    double convertSeconds = convertWatch.Elapsed.TotalSeconds;
+                    // The base voice is always on the processor (see UseGpu): only the RVC parts count.
+                    SetDevice(_rvc!.Value.Converter.CpuParts, 3);
+                    LastTimings = Timings(baseVoice.Name, baseSeconds, convertSeconds, loadSeconds);
                     if (output.Length == 0)
                         throw new InvalidOperationException($"La voce \"{voice.Name}\" non ha prodotto audio: la frase è troppo corta?");
                     WriteWave(path, output, Rvc.RvcConverter.OutputRate);
@@ -278,6 +307,13 @@ public sealed class TextToSpeech(string voicesFolder) : IDisposable
         {
             TryDelete(basePath);
         }
+    }
+
+    /// <summary>"Nicola 0,6 s + RVC 1,4 s (di cui 3,0 s per caricare i modelli)": where the time of an RVC phrase went.</summary>
+    internal static string Timings(string baseVoice, double baseSeconds, double rvcSeconds, double loadSeconds)
+    {
+        string timings = $"{baseVoice} {baseSeconds:0.0} s + RVC {rvcSeconds:0.0} s";
+        return loadSeconds >= 0.05 ? $"{timings} (di cui {loadSeconds:0.0} s per caricare i modelli)" : timings;
     }
 
     private static float[] ReadMono16k(string path)

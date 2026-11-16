@@ -375,6 +375,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         RegisterHotkeys();
         _initialized = true;
 
+        CheckGpuCrash();
         if (_library.Sounds.Count == 0 && StatusText.Length == 0)
             StatusText = "Libreria vuota: trascina qui dei file audio, o importa la lista di SoundPad dalle impostazioni.";
         MeasureLoudness();

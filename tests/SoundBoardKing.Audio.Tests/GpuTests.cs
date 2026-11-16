@@ -4,13 +4,14 @@ using SoundBoardKing.Audio.Speech;
 namespace SoundBoardKing.Audio.Tests;
 
 /// <summary>
-/// With "graphics card" on, the voices speak on any PC: on the card through DirectML where there is a
-/// DirectX 12 one, on the processor otherwise. Needs the downloaded voices (SBK_TTS_VOICES).
+/// With "graphics card" on, the voices speak on any PC. Kokoro stays on the processor even then: on the
+/// graphics card (DirectML) it was slower and crashed the app on AMD cards. Needs the downloaded voices
+/// (SBK_TTS_VOICES).
 /// </summary>
 public class GpuTests
 {
     [Fact]
-    public async Task Asking_for_the_graphics_card_still_speaks_wherever_it_runs()
+    public async Task Asking_for_the_graphics_card_keeps_kokoro_on_the_processor()
     {
         string? voices = Environment.GetEnvironmentVariable("SBK_TTS_VOICES");
         if (voices is null)
@@ -25,6 +26,8 @@ public class GpuTests
         watch.Stop();
         using var reader = new WaveFileReader(path);
         Assert.True(reader.TotalTime > TimeSpan.FromSeconds(1));
-        Console.WriteLine($"Nicola: {(tts.LastOnGpu ? "scheda video" : "processore")}, {watch.Elapsed.TotalSeconds:0.0} s; problema: {tts.GpuProblem ?? "nessuno"}");
+        Assert.False(tts.LastOnGpu);
+        Assert.Equal("processore", tts.LastDevice);
+        Console.WriteLine($"Nicola: {tts.LastDevice}, {watch.Elapsed.TotalSeconds:0.0} s");
     }
 }

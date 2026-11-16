@@ -174,8 +174,9 @@ public static class VoiceSeparator
             }
 
             float[] predicted;
+            using (var runOptions = new RunOptions())
             using (var input = OrtValue.CreateTensorValueFromMemory(spec, shape))
-            using (var outputs = session.Run(new RunOptions(), [inputName], [input], [outputName]))
+            using (var outputs = session.Run(runOptions, [inputName], [input], [outputName]))
                 predicted = outputs[0].GetTensorDataAsSpan<float>().ToArray();
 
             var synthesis = stft.StartSynthesis(DimT);

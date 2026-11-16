@@ -62,7 +62,7 @@ public sealed partial class TtsViewModel(MainViewModel main) : ObservableObject,
         }
     }
 
-    /// <summary>Compute the neural voices on the graphics card; off, always on the processor.</summary>
+    /// <summary>Compute the RVC voices on the graphics card; off, on the processor (Piper and Kokoro always are).</summary>
     public bool UseGpu
     {
         get => main.Local.TtsUseGpu;
@@ -290,8 +290,9 @@ public sealed partial class TtsViewModel(MainViewModel main) : ObservableObject,
             var problem = await main.SpeakAsync(phrase, voice, main.Local.TtsRate, target, speaking.Token);
             watch.Stop();
             // How long the phrase took and where, so the difference the graphics card makes shows.
+            string timings = main.Speech.LastTimings is { Length: > 0 } parts ? $" ({parts})" : "";
             string device = main.Speech.LastDevice is { Length: > 0 } where ? ", " + where : "";
-            StatusText = problem ?? $"{voice.Name}: «{(phrase.Length > 40 ? phrase[..37] + "…" : phrase)}» · {watch.Elapsed.TotalSeconds:0.0} s{device}";
+            StatusText = problem ?? $"{voice.Name}: «{(phrase.Length > 40 ? phrase[..37] + "…" : phrase)}» · {watch.Elapsed.TotalSeconds:0.0} s{timings}{device}";
             if (problem is null)
                 Remember(phrase);
         }

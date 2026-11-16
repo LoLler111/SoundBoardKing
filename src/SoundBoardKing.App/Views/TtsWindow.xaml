@@ -97,9 +97,9 @@
         <!-- Status and where to find more voices -->
         <TextBlock DockPanel.Dock="Bottom" FontSize="11" Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap" Margin="2,10,0,0"
                    Text="Altre voci di Windows: Impostazioni › Ora e lingua › Voce. Le voci SAPI5 di altri produttori (per esempio Loquendo) compaiono qui da sole, anche quelle a 32 bit. L'effetto e il pad si applicano anche alla voce." />
-        <CheckBox DockPanel.Dock="Bottom" Content="Calcola le voci neurali sulla scheda video (più veloce; senza scheda adatta usa il processore)"
+        <CheckBox DockPanel.Dock="Bottom" Content="Calcola le voci RVC sulla scheda video (Piper e Kokoro restano sul processore, che con loro va meglio)"
                   IsChecked="{Binding UseGpu}" Margin="0,10,0,0" FontSize="12"
-                  ToolTip="Usa DirectML: funziona con le schede DirectX 12 (AMD, NVIDIA, Intel). Se dà problemi, toglilo: le voci tornano sul processore" />
+                  ToolTip="Usa DirectML: funziona con le schede DirectX 12 (AMD, NVIDIA, Intel). Se la scheda video fa chiudere l'app, al riavvio l'opzione si spegne da sola. Confronta i tempi nella riga di stato con l'opzione accesa e spenta" />
         <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <TextBlock DockPanel.Dock="Left" FontFamily="{StaticResource IconFont}" Text="&#xE916;" Margin="0,0,6,0" VerticalAlignment="Center"
                        Foreground="{StaticResource AccentBrush}" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />

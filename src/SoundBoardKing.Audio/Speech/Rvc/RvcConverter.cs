@@ -233,7 +233,8 @@ internal sealed class RvcConverter : IDisposable
                 input[m * padded + t] = mel[m * frames + Reflect(t, frames)];
         }
         using var value = OrtValue.CreateTensorValueFromMemory(input, [1, 128, padded]);
-        using var outputs = _rmvpe.Run(new RunOptions(), ["input"], [value], [_rmvpe.OutputNames[0]]);
+        using var runOptions = new RunOptions();
+        using var outputs = _rmvpe.Run(runOptions, ["input"], [value], [_rmvpe.OutputNames[0]]);
         var salience = outputs[0].GetTensorDataAsSpan<float>();
 
         var f0 = new float[frames];
@@ -503,7 +504,8 @@ internal sealed class RvcConverter : IDisposable
 
         public float[] Run(string[] names, OrtValue[] values, out long[] outputShape)
         {
-            using var outputs = _session.Run(new RunOptions(), names, values, [_session.OutputNames[0]]);
+            using var runOptions = new RunOptions();
+            using var outputs = _session.Run(runOptions, names, values, [_session.OutputNames[0]]);
             outputShape = outputs[0].GetTensorTypeAndShape().Shape;
             return outputs[0].GetTensorDataAsSpan<float>().ToArray();
         }

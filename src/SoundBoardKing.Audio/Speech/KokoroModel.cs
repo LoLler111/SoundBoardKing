@@ -141,7 +141,8 @@ internal sealed class KokoroModel : IDisposable
         using var speedInput = _integerSpeed
             ? OrtValue.CreateTensorValueFromMemory(new int[] { Math.Max(1, (int)Math.Round(speed)) }, [1])
             : OrtValue.CreateTensorValueFromMemory(new float[] { speed }, [1]);
-        using var outputs = _session.Run(new RunOptions(), [_tokensInput, "style", "speed"],
+        using var runOptions = new RunOptions();
+        using var outputs = _session.Run(runOptions, [_tokensInput, "style", "speed"],
             [tokenInput, styleInput, speedInput], [_session.OutputNames[0]]);
         return outputs[0].GetTensorDataAsSpan<float>().ToArray();
     }

@@ -35,7 +35,7 @@ public sealed class LocalSettings
     /// <summary>Phrases spoken lately, newest first, to say them again with a click.</summary>
     public List<string> TtsHistory { get; set; } = [];
 
-    /// <summary>Compute the neural voices on the graphics card (DirectML) when this PC has one.</summary>
+    /// <summary>Compute the RVC voices on the graphics card (DirectML) when this PC has one.</summary>
     public bool TtsUseGpu { get; set; } = true;
 
     /// <summary>The RVC voices set up on this PC (their models are files on this PC).</summary>

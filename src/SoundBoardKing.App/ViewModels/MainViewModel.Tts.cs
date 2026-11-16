@@ -42,6 +42,19 @@ public sealed partial class MainViewModel
         _speech.UseGpu = _storage.Local.TtsUseGpu;
     }
 
+    // The app closed last time while an RVC voice worked on the graphics card (a driver fault, which cannot be
+    // caught): the voices go back to the processor, so it does not happen again at every phrase.
+    private void CheckGpuCrash()
+    {
+        if (!_speech.TakeGpuCrash() || !_storage.Local.TtsUseGpu)
+            return;
+        _storage.Local.TtsUseGpu = false;
+        _storage.SaveLocal();
+        _speech.UseGpu = false;
+        StatusText = "L'ultima volta la scheda video ha fatto chiudere l'app mentre calcolava una voce RVC: ora le voci usano il processore. " +
+                     "Puoi riprovare con la scheda video dalla finestra della sintesi vocale.";
+    }
+
     public LocalSettings Local => _storage.Local;
 
     public void SaveLocalSettings() => _storage.SaveLocal();

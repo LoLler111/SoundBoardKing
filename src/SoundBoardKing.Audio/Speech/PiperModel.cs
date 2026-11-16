@@ -117,7 +117,8 @@ internal sealed class PiperModel : IDisposable
         }
         try
         {
-            using var outputs = _session.Run(new RunOptions(), names, inputs, [_session.OutputNames[0]]);
+            using var runOptions = new RunOptions();
+            using var outputs = _session.Run(runOptions, names, inputs, [_session.OutputNames[0]]);
             return outputs[0].GetTensorDataAsSpan<float>().ToArray();
         }
         finally
