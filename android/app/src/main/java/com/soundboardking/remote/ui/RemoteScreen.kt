@@ -432,14 +432,27 @@ internal fun resolvePath(roots: List<CategoryDto>, path: List<String>): List<Cat
 
 // ---- Search ----------------------------------------------------------------------------------
 
+/**
+ * Letters and digits only, lower case, without accents: "Perché-NO_2" → "percheno2". As on the PC,
+ * "peter griffin" finds "peter-griffin" and every word typed has to be in the title or the artist.
+ */
+internal fun compactForSearch(text: String): String =
+    java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+        .filter(Char::isLetterOrDigit)
+        .lowercase()
+
 @Composable
 private fun SearchTab(library: StateDto, playingIds: Set<String>, onPlay: OnPlay) {
     var query by rememberSaveable { mutableStateOf("") }
     val results = remember(library, query) {
         val all = library.sounds // already in the order chosen on the PC
-        val text = query.trim()
-        if (text.isEmpty()) all
-        else all.filter { it.title.contains(text, ignoreCase = true) || it.artist.contains(text, ignoreCase = true) }
+        val words = query.split(Regex("\\s+")).map(::compactForSearch).filter { it.isNotEmpty() }
+        if (words.isEmpty()) all
+        else all.filter { sound ->
+            val title = compactForSearch(sound.title)
+            val artist = compactForSearch(sound.artist)
+            words.all { title.contains(it) || artist.contains(it) }
+        }
     }
     Column(Modifier.fillMaxSize()) {
         OutlinedTextField(

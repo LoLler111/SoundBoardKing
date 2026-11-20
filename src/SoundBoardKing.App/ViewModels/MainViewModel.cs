@@ -1192,17 +1192,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private void RefreshVisible()
     {
-        IEnumerable<SoundItemViewModel> sounds = SelectedCategory?.Model is { } category
-            ? category.SoundIds.Select(id => _soundsById.GetValueOrDefault(id)).OfType<SoundItemViewModel>()
-            : _library.Sounds.Select(s => _soundsById[s.Id]);
-
-        var query = SearchText.Trim();
-        if (query.Length > 0)
-        {
-            sounds = sounds.Where(s =>
-                s.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
-                s.Artist.Contains(query, StringComparison.CurrentCultureIgnoreCase));
-        }
+        // A search always looks in the whole library, whatever category is open.
+        var search = new SoundSearch(SearchText);
+        IEnumerable<SoundItemViewModel> sounds = !search.IsEmpty
+            ? _library.Sounds.Select(s => _soundsById[s.Id]).Where(s => search.Matches(s.Title, s.Artist))
+            : SelectedCategory?.Model is { } category
+                ? category.SoundIds.Select(id => _soundsById.GetValueOrDefault(id)).OfType<SoundItemViewModel>()
+                : _library.Sounds.Select(s => _soundsById[s.Id]);
         // Same sounds in the same order: keep the list as it is, with its selection and scroll position.
         var list = sounds.ToList();
         if (!list.SequenceEqual(VisibleSounds))
