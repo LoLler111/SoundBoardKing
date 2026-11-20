@@ -31,6 +31,12 @@
     <EmbeddedResource Include="Speech\Rvc\Templates\*.weights.txt" LogicalName="Rvc.%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <!-- "Separa voci": TIGER-speech converted to ONNX (network only, 400 STFT frames), with its license. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Editing\Models\tiger-speech.onnx" LogicalName="Editing.tiger-speech.onnx" />
+    <None Include="Editing\Models\TIGER-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" Link="Licenze\TIGER-LICENSE.txt" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\SoundBoardKing.Core\SoundBoardKing.Core.csproj" />
   </ItemGroup>

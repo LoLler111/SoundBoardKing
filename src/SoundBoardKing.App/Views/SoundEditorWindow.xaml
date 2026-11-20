@@ -188,6 +188,14 @@
                                 ToolTip="Filtro rapido, senza intelligenza artificiale: tiene il centro dello stereo e la banda della voce. Istantaneo, ma la musica al centro resta.">
                             <StackPanel><TextBlock Style="{StaticResource ToolIcon}" Text="&#xE71C;" /><TextBlock Style="{StaticResource ToolLabel}" Text="Filtro rapido" /></StackPanel>
                         </Button>
+                        <Button Command="{Binding SeparateVoicesCommand}" Style="{StaticResource ToolButton}"
+                                ToolTip="Quando due persone parlano insieme, tiene una voce sola: prima quella che parla di più, poi con &quot;Altra voce&quot; l'altra. Se sotto c'è musica, fai prima &quot;Isola voce&quot;.">
+                            <StackPanel><TextBlock Style="{StaticResource ToolIcon}" Text="&#xE716;" Foreground="{StaticResource AccentBrush}" /><TextBlock Style="{StaticResource ToolLabel}" Text="Separa voci" /></StackPanel>
+                        </Button>
+                        <Button Command="{Binding OtherVoiceCommand}" Style="{StaticResource ToolButton}"
+                                ToolTip="Dopo &quot;Separa voci&quot;: passa all'altra voce (e ritorno)">
+                            <StackPanel><TextBlock Style="{StaticResource ToolIcon}" Text="&#xE8AB;" /><TextBlock Style="{StaticResource ToolLabel}" Text="Altra voce" /></StackPanel>
+                        </Button>
                     </StackPanel>
                 </StackPanel>
             </Border>

@@ -314,6 +314,7 @@ public sealed partial class SoundEditorViewModel : ObservableObject, IDisposable
     {
         UndoCommand.NotifyCanExecuteChanged();
         RedoCommand.NotifyCanExecuteChanged();
+        OtherVoiceCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(IsDirty));
     }
 
@@ -594,11 +595,75 @@ public sealed partial class SoundEditorViewModel : ObservableObject, IDisposable
     // Puts a processed section back in place of the original one, keeping it selected.
     private void ApplyPart(AudioClip clip, int start, int end, AudioClip processed, string done)
     {
+        var (result, selectionStart, selectionEnd) = Placed(clip, start, end, processed);
+        Apply(result, selectionStart, selectionEnd, done);
+    }
+
+    private (AudioClip Result, int SelectionStart, int SelectionEnd) Placed(AudioClip clip, int start, int end, AudioClip processed)
+    {
         var result = start == 0 && end == clip.Frames
             ? processed.ConvertTo(clip.SampleRate, clip.Channels)
             : ClipEdits.Replace(clip, start, end, processed);
         int length = result.Frames - (clip.Frames - (end - start));
-        Apply(result, HasSelection ? start : 0, HasSelection ? start + length : 0, done);
+        return (result, HasSelection ? start : 0, HasSelection ? start + length : 0);
+    }
+
+    // ---- Two voices -----------------------------------------------------------------------------
+
+    // The last "Separa voci": the sound before it, where it went, both voices and the one now in the sound.
+    private sealed record Separation(AudioClip Before, int Start, int End, SeparatedVoices Voices, bool ShowingMain, AudioClip Result);
+
+    private Separation? _separation;
+
+    [RelayCommand]
+    private async Task SeparateVoicesAsync()
+    {
+        if (Clip is not { } clip)
+            return;
+        var (start, end) = Target(clip);
+        StartBusy("Separo le voci…", cancellable: true);
+        var cancel = _busyCancel!.Token;
+        var progress = new Progress<double>(p => BusyProgress = p * 100);
+        try
+        {
+            var section = ClipEdits.Keep(clip, start, end);
+            var voices = await Task.Run(() => SpeakerSeparator.Separate(section, progress, cancel), cancel);
+            ApplyPart(clip, start, end, voices.Main,
+                "Voci separate: ora senti quella che parla di più. \"Altra voce\" passa all'altra. " +
+                "Se sotto c'è musica, fai prima \"Isola voce\".");
+            _separation = new Separation(clip, start, end, voices, ShowingMain: true, Clip!);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "Annullato.";
+        }
+        catch (Exception ex) when (ex is OnnxRuntimeException or IOException or InvalidOperationException or OutOfMemoryException)
+        {
+            StatusText = $"Separazione non riuscita: {ex.Message}";
+        }
+        finally
+        {
+            EndBusy();
+        }
+    }
+
+    // Only right after a separation, while its result is still the sound (an undo and redo bring it back).
+    private bool CanShowOtherVoice() => !IsBusy && _separation is { } s && ReferenceEquals(Clip, s.Result);
+
+    /// <summary>Swaps the voice kept by the last separation for the other one, as the same undo step.</summary>
+    [RelayCommand(CanExecute = nameof(CanShowOtherVoice))]
+    private void OtherVoice()
+    {
+        if (_separation is not { } s || !ReferenceEquals(Clip, s.Result))
+            return;
+        StopPreview();
+        bool main = !s.ShowingMain;
+        var (result, selectionStart, selectionEnd) = Placed(s.Before, s.Start, s.End, main ? s.Voices.Main : s.Voices.Other);
+        _separation = s with { ShowingMain = main, Result = result };
+        Clip = result;
+        SetSelection(selectionStart, selectionEnd);
+        StatusText = main ? "Ora senti la voce che parla di più." : "Ora senti l'altra voce.";
+        HistoryChanged();
     }
 
     private async Task<bool> DownloadModelAsync()
@@ -753,5 +818,6 @@ public sealed partial class SoundEditorViewModel : ObservableObject, IDisposable
         _preview.Dispose();
         // The window only closes when no separation is running.
         VoiceSeparator.Release();
+        SpeakerSeparator.Release();
     }
 }
