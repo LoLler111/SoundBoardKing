@@ -502,13 +502,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             RaisePlaybackChanged();
     }
 
-    /// <summary>Esc: stops the last sound started; pressed again, the one before it, and so on.</summary>
+    /// <summary>
+    /// Esc: pauses the last sound started; pressed again on that paused sound, stops it. The next Esc then
+    /// pauses the one before it, and so on.
+    /// </summary>
     [RelayCommand]
     private void StopLatest()
     {
         // A stopped sound leaves the bar only when the audio thread ends it, so skip those.
-        if (NowPlaying.LastOrDefault(p => !p.Playback.IsStopping) is { } item)
+        if (NowPlaying.LastOrDefault(p => !p.Playback.IsStopping) is not { } item)
+            return;
+        if (item.Playback.IsPaused)
             _engine.Stop(item.Playback);
+        else
+            PauseOne(item);
     }
 
     private void OnPlaybackStarted(object? sender, Playback playback)
